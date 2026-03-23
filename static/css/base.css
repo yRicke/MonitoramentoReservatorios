@@ -524,6 +524,58 @@ body {
     min-height: 260px;
 }
 
+.chart-last-reading {
+    margin: 0 0 10px;
+    font-size: 12px;
+    color: #4b5563;
+    font-weight: 600;
+    background: #f5f7fb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 7px 10px;
+}
+
+.timeseries-root {
+    display: grid;
+    gap: 10px;
+}
+
+.timeseries-svg {
+    background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.timeseries-legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.timeseries-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    font-size: 12px;
+    color: #374151;
+}
+
+.timeseries-legend-item strong {
+    color: #111827;
+    font-size: 12px;
+}
+
+.timeseries-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    display: inline-block;
+}
+
 .chart-empty {
     display: grid;
     place-items: center;

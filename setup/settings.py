@@ -26,7 +26,8 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-obo5u$+p($kmdubt8ea
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 ALLOWED_HOSTS = [
-    '192.168.100.94'
+    '192.168.100.94',
+    '192.168.50.2'
 ]
 
 

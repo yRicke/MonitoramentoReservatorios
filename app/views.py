@@ -12,6 +12,8 @@ from django.views.decorators.http import require_http_methods
 from app.models import LeituraQualidade, PontoMonitoramento, Reservatorio
 from app.services.ingestao import IngestaoLeituraErro, processar_leitura_esp32
 
+MAX_PONTOS_GRAFICO = 1200
+
 
 @login_required(login_url="entrar")
 @require_http_methods(["GET"])
@@ -174,7 +176,12 @@ def _series_leituras_por_ponto(ponto):
     if ponto is None:
         return {"tds": [], "temperatura": [], "turbidez": []}
 
-    leituras = LeituraQualidade.objects.filter(ponto=ponto).order_by("data_hora")
+    # Limita a janela para evitar payload/render excessivo no frontend.
+    leituras = list(
+        LeituraQualidade.objects.filter(ponto=ponto)
+        .order_by("-data_hora")[:MAX_PONTOS_GRAFICO]
+    )
+    leituras.reverse()
 
     tds = []
     temperatura = []
