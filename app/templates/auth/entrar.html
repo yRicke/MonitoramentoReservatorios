@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrar</title>
+    <style>
+        :root {
+            --bg: #f4f5f7;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --border: #d1d5db;
+            --primary: #1d4ed8;
+            --error-bg: #fee2e2;
+            --error-text: #991b1b;
+            --ok-bg: #dcfce7;
+            --ok-text: #166534;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(145deg, #eef2ff, var(--bg));
+            color: var(--text);
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 24px;
+        }
+
+        p {
+            margin: 0 0 20px;
+            color: var(--muted);
+        }
+
+        form {
+            display: grid;
+            gap: 14px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        input:focus {
+            outline: 2px solid rgba(29, 78, 216, 0.25);
+            border-color: var(--primary);
+        }
+
+        button {
+            margin-top: 4px;
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 10px;
+            background: var(--primary);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        ul.messages {
+            list-style: none;
+            margin: 0 0 14px;
+            padding: 0;
+            display: grid;
+            gap: 8px;
+        }
+
+        .message {
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        .message.error {
+            background: var(--error-bg);
+            color: var(--error-text);
+        }
+
+        .message.success {
+            background: var(--ok-bg);
+            color: var(--ok-text);
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <h1>Login</h1>
+        <p>Entre com suas credenciais para acessar o sistema.</p>
+
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li class="message {{ message.tags|default:'info' }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <form method="post" action="{% url 'entrar' %}">
+            {% csrf_token %}
+
+            <div>
+                <label for="nome">Nome de usuario</label>
+                <input id="nome" name="nome" type="text" value="{{ nome|default:'' }}" autocomplete="username" required>
+            </div>
+
+            <div>
+                <label for="senha">Senha</label>
+                <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+            </div>
+
+            <button type="submit">Entrar</button>
+        </form>
+    </main>
+</body>
+</html>

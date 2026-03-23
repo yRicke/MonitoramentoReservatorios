@@ -1,0 +1,14 @@
+<header class="top-nav">
+    <h1 class="brand">
+        <span>Sistema de</span>
+        <span>monitoramento</span>
+    </h1>
+
+    <div class="top-nav-right">
+        <span>{{ request.user.username }}</span>
+        <form method="post" action="{% url 'sair' %}">
+            {% csrf_token %}
+            <button class="btn-sair" type="submit">Sair</button>
+        </form>
+    </div>
+</header>

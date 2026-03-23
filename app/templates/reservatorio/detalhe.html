@@ -1,0 +1,266 @@
+{% extends "blocos/base.html" %}
+
+{% block title %}Reservatorio {{ reservatorio.nome }}{% endblock %}
+
+{% block content %}
+<section class="message-wrap">
+    <p><a class="btn-main" href="{% url 'index' %}">Voltar</a></p>
+    {% if messages %}
+        {% for message in messages %}
+        <p class="message {{ message.tags }}">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+</section>
+
+<section class="detail-hero">
+    <h2>{{ reservatorio.nome|upper }}</h2>
+    <p class="detail-status">
+        <span>Status:</span>
+        <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
+    </p>
+</section>
+
+<section class="detail-layout">
+    <aside class="panel">
+        <h3>Editar reservatorio</h3>
+        <form class="edit-form" method="post" action="{% url 'reservatorio_atualizar' reservatorio.id %}">
+            {% csrf_token %}
+
+            <label for="nome">Nome</label>
+            <input id="nome" name="nome" type="text" value="{{ reservatorio.nome }}" required>
+
+            <label for="status">Status</label>
+            <select id="status" name="status" required>
+                {% for valor, label in status_opcoes %}
+                <option value="{{ valor }}" {% if valor == reservatorio.status %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            <button class="btn-main" type="submit">Salvar alteracoes</button>
+        </form>
+    </aside>
+
+    <section class="chart-grid">
+        <article class="panel">
+            <h4>TDS (ppm / data_hora)</h4>
+            <div class="chart-wrap">
+                <div id="chartTDS" class="apex-chart"></div>
+                <div class="chart-empty" id="emptyTDS" hidden>Sem leituras de TDS</div>
+            </div>
+        </article>
+
+        <article class="panel">
+            <h4>Temperatura (celsius / data_hora)</h4>
+            <div class="chart-wrap">
+                <div id="chartTemperatura" class="apex-chart"></div>
+                <div class="chart-empty" id="emptyTemperatura" hidden>Sem leituras de temperatura</div>
+            </div>
+        </article>
+
+        <article class="panel">
+            <h4>Turbidez (ntu / data_hora)</h4>
+            <div class="chart-wrap">
+                <div id="chartTurbidez" class="apex-chart"></div>
+                <div class="chart-empty" id="emptyTurbidez" hidden>Sem leituras de turbidez</div>
+            </div>
+        </article>
+    </section>
+</section>
+
+{{ tds_series_antes|json_script:"tds-series-antes-data" }}
+{{ tds_series_depois|json_script:"tds-series-depois-data" }}
+{{ temperatura_series_antes|json_script:"temperatura-series-antes-data" }}
+{{ temperatura_series_depois|json_script:"temperatura-series-depois-data" }}
+{{ turbidez_series_antes|json_script:"turbidez-series-antes-data" }}
+{{ turbidez_series_depois|json_script:"turbidez-series-depois-data" }}
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+    function loadJsonScript(id) {
+        return JSON.parse(document.getElementById(id).textContent);
+    }
+
+    function renderApexChart(config) {
+        const chartElement = document.getElementById(config.chartId);
+        const empty = document.getElementById(config.emptyId);
+        const seriesAntesRaw = loadJsonScript(config.seriesAntesId);
+        const seriesDepoisRaw = loadJsonScript(config.seriesDepoisId);
+
+        const seriesAntes = normalizeSeriesPoints(seriesAntesRaw);
+        const seriesDepois = normalizeSeriesPoints(seriesDepoisRaw);
+
+        if (!seriesAntes.length && !seriesDepois.length) {
+            chartElement.hidden = true;
+            empty.hidden = false;
+            return;
+        }
+
+        chartElement.hidden = false;
+        empty.hidden = true;
+
+        if (chartElement._apexChartInstance) {
+            chartElement._apexChartInstance.destroy();
+            chartElement._apexChartInstance = null;
+        }
+
+        const options = {
+            chart: {
+                type: "line",
+                height: 260,
+                toolbar: {
+                    show: true,
+                    tools: {
+                        download: true,
+                        selection: true,
+                        zoom: true,
+                        zoomin: true,
+                        zoomout: true,
+                        pan: true,
+                        reset: true
+                    }
+                },
+                zoom: {
+                    enabled: true
+                },
+                animations: {
+                    enabled: true,
+                    speed: 350
+                }
+            },
+            series: [
+                {
+                    name: "Antes do tratamento",
+                    data: seriesAntes
+                },
+                {
+                    name: "Depois do tratamento",
+                    data: seriesDepois
+                },
+            ],
+            stroke: {
+                curve: "smooth",
+                width: 3
+            },
+            colors: [config.colorAntes, config.colorDepois],
+            markers: {
+                size: 3,
+                hover: {
+                    size: 5
+                }
+            },
+            grid: {
+                borderColor: "#e5e7eb"
+            },
+            xaxis: {
+                type: "category",
+                labels: {
+                    rotate: -20,
+                    style: {
+                        fontSize: "11px"
+                    }
+                },
+                title: {
+                    text: "Data/Hora"
+                }
+            },
+            yaxis: {
+                title: {
+                    text: config.yLabel
+                },
+                labels: {
+                    formatter: function(value) {
+                        return Number(value).toFixed(2);
+                    }
+                }
+            },
+            tooltip: {
+                shared: false,
+                intersect: true,
+                x: {
+                    show: true
+                },
+                y: {
+                    formatter: function(value) {
+                        return Number(value).toFixed(2) + " " + config.ySuffix;
+                    }
+                }
+            },
+            noData: {
+                text: "Sem dados"
+            }
+        };
+
+        const chart = new ApexCharts(chartElement, options);
+        chart.render();
+        chartElement._apexChartInstance = chart;
+    }
+
+    function normalizeSeriesPoints(seriesRaw) {
+        if (!Array.isArray(seriesRaw)) {
+            return [];
+        }
+
+        const points = [];
+        for (const point of seriesRaw) {
+            if (!point || typeof point !== "object") {
+                continue;
+            }
+            const x = String(point.x || "-");
+            const yNumber = Number(point.y);
+            if (!Number.isFinite(yNumber)) {
+                continue;
+            }
+            points.push({ x: x, y: Number(yNumber.toFixed(2)) });
+        }
+        return points;
+    }
+
+    const chartsConfig = [
+        {
+            chartId: "chartTDS",
+            emptyId: "emptyTDS",
+            seriesAntesId: "tds-series-antes-data",
+            seriesDepoisId: "tds-series-depois-data",
+            yLabel: "ppm",
+            ySuffix: "ppm",
+            colorAntes: "#7f4df5",
+            colorDepois: "#00be6f"
+        },
+        {
+            chartId: "chartTemperatura",
+            emptyId: "emptyTemperatura",
+            seriesAntesId: "temperatura-series-antes-data",
+            seriesDepoisId: "temperatura-series-depois-data",
+            yLabel: "celsius",
+            ySuffix: "celsius",
+            colorAntes: "#ff7a00",
+            colorDepois: "#16a34a"
+        },
+        {
+            chartId: "chartTurbidez",
+            emptyId: "emptyTurbidez",
+            seriesAntesId: "turbidez-series-antes-data",
+            seriesDepoisId: "turbidez-series-depois-data",
+            yLabel: "ntu",
+            ySuffix: "ntu",
+            colorAntes: "#3b82f6",
+            colorDepois: "#9333ea"
+        }
+    ];
+
+    function renderAllCharts() {
+        if (typeof ApexCharts === "undefined") {
+            chartsConfig.forEach((config) => {
+                document.getElementById(config.chartId).hidden = true;
+                document.getElementById(config.emptyId).hidden = false;
+            });
+            return;
+        }
+        chartsConfig.forEach(renderApexChart);
+    }
+
+    renderAllCharts();
+</script>
+{% endblock %}
