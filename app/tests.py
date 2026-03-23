@@ -1,8 +1,10 @@
 import json
+from datetime import timedelta
 
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from app.models import LeituraQualidade, PontoMonitoramento, Reservatorio
 
@@ -167,6 +169,60 @@ class IndexReservatorioTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "TANQUE STATUS PERIGO")
         self.assertNotContains(response, "TANQUE STATUS BOM")
+
+    def test_dashboard_calcula_medias_pre_pos_no_periodo(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio Media",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+
+        leitura_antes_antiga = ponto_antes.registrar_leitura(
+            temperatura=99.0,
+            tds=999.0,
+            turbidez=9.9,
+            status_leitura=Reservatorio.STATUS_PERIGO,
+        )
+        ponto_antes.registrar_leitura(
+            temperatura=21.0,
+            tds=210.0,
+            turbidez=1.5,
+            status_leitura=Reservatorio.STATUS_ATENCAO,
+        )
+        ponto_depois.registrar_leitura(
+            temperatura=18.0,
+            tds=120.0,
+            turbidez=0.6,
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        LeituraQualidade.objects.filter(id=leitura_antes_antiga.id).update(
+            data_hora=timezone.now() - timedelta(days=15)
+        )
+
+        response = self.client.get(reverse("index"), {"dias": "5"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["periodo_dias"], 5)
+
+        cards = response.context["dashboard_cards"]
+        card = next(item for item in cards if item["reservatorio"].id == reservatorio.id)
+
+        self.assertAlmostEqual(card["antes"]["temperatura"], 21.0, places=2)
+        self.assertAlmostEqual(card["antes"]["tds"], 210.0, places=2)
+        self.assertAlmostEqual(card["antes"]["turbidez"], 1.5, places=2)
+        self.assertEqual(card["status_antes"]["temperatura"], Reservatorio.STATUS_BOM)
+        self.assertEqual(card["status_antes"]["tds"], Reservatorio.STATUS_BOM)
+        self.assertEqual(card["status_antes"]["turbidez"], Reservatorio.STATUS_ATENCAO)
+
+        self.assertAlmostEqual(card["depois"]["temperatura"], 18.0, places=2)
+        self.assertAlmostEqual(card["depois"]["tds"], 120.0, places=2)
+        self.assertAlmostEqual(card["depois"]["turbidez"], 0.6, places=2)
+        self.assertEqual(card["status_depois"]["temperatura"], Reservatorio.STATUS_ATENCAO)
+        self.assertEqual(card["status_depois"]["tds"], Reservatorio.STATUS_BOM)
+        self.assertEqual(card["status_depois"]["turbidez"], Reservatorio.STATUS_BOM)
 
 
 class ReservatorioModelCrudTests(TestCase):

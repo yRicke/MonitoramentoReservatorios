@@ -1,7 +1,10 @@
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
+from django.db.models import Avg
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -11,22 +14,36 @@ from django.views.decorators.http import require_http_methods
 
 from app.models import LeituraQualidade, PontoMonitoramento, Reservatorio
 from app.services.ingestao import IngestaoLeituraErro, processar_leitura_esp32
+from app.services.regras import (
+    DESVIO_TEMPERATURA_ATENCAO,
+    DESVIO_TEMPERATURA_PERIGO,
+    FATOR_PERIGO_TDS,
+    FATOR_PERIGO_TURBIDEZ,
+)
 
 MAX_PONTOS_GRAFICO = 1200
+PERIODO_PADRAO_DIAS = 5
+PERIODOS_DIAS_DISPONIVEIS = (1, 3, 5, 7, 10, 15, 30)
+STATUS_SEM_DADO = "sem-dado"
 
 
 @login_required(login_url="entrar")
 @require_http_methods(["GET"])
 def index(request):
     busca = request.GET.get("busca", "").strip()
-    reservatorios = Reservatorio.listar(busca=busca, usuario=request.user)
+    periodo_dias = _normalizar_periodo_dias(request.GET.get("dias"))
+    reservatorios = list(Reservatorio.listar(busca=busca, usuario=request.user))
+    dashboard_cards = _montar_dashboard_cards(reservatorios, periodo_dias)
 
     return render(
         request,
         "index.html",
         {
             "reservatorios": reservatorios,
+            "dashboard_cards": dashboard_cards,
             "busca": busca,
+            "periodo_dias": periodo_dias,
+            "periodos_dias_disponiveis": PERIODOS_DIAS_DISPONIVEIS,
         },
     )
 
@@ -170,6 +187,139 @@ def esp32_leitura(request):
         return JsonResponse({"erro": str(exc)}, status=400)
 
     return JsonResponse({"ok": True}, status=201)
+
+
+def _normalizar_periodo_dias(valor):
+    try:
+        dias = int(valor)
+    except (TypeError, ValueError):
+        return PERIODO_PADRAO_DIAS
+
+    if dias not in PERIODOS_DIAS_DISPONIVEIS:
+        return PERIODO_PADRAO_DIAS
+    return dias
+
+
+def _medias_vazias():
+    return {
+        "temperatura": None,
+        "tds": None,
+        "turbidez": None,
+    }
+
+
+def _montar_dashboard_cards(reservatorios, periodo_dias):
+    if not reservatorios:
+        return []
+
+    reservatorio_ids = [item.id for item in reservatorios]
+    inicio_periodo = timezone.now() - timedelta(days=periodo_dias)
+    medias_por_chave = {}
+
+    agregados = (
+        LeituraQualidade.objects.filter(
+            ponto__reservatorio_id__in=reservatorio_ids,
+            data_hora__gte=inicio_periodo,
+        )
+        .values("ponto__reservatorio_id", "ponto__tipo")
+        .annotate(
+            media_temperatura=Avg("temperatura"),
+            media_tds=Avg("tds"),
+            media_turbidez=Avg("turbidez"),
+        )
+    )
+
+    for item in agregados:
+        medias_por_chave[
+            (
+                item["ponto__reservatorio_id"],
+                item["ponto__tipo"],
+            )
+        ] = {
+            "temperatura": item["media_temperatura"],
+            "tds": item["media_tds"],
+            "turbidez": item["media_turbidez"],
+        }
+
+    cards = []
+    for reservatorio in reservatorios:
+        medias_antes = medias_por_chave.get(
+            (reservatorio.id, PontoMonitoramento.TIPO_ANTES),
+            _medias_vazias(),
+        )
+        medias_depois = medias_por_chave.get(
+            (reservatorio.id, PontoMonitoramento.TIPO_DEPOIS),
+            _medias_vazias(),
+        )
+
+        cards.append(
+            {
+                "reservatorio": reservatorio,
+                "antes": medias_antes,
+                "depois": medias_depois,
+                "status_antes": _status_metricas_por_meta(
+                    medias_antes,
+                    reservatorio=reservatorio,
+                ),
+                "status_depois": _status_metricas_por_meta(
+                    medias_depois,
+                    reservatorio=reservatorio,
+                ),
+            }
+        )
+
+    return cards
+
+
+def _status_metricas_por_meta(medias, *, reservatorio):
+    return {
+        "temperatura": _status_media_temperatura(
+            medias.get("temperatura"),
+            meta=reservatorio.meta_celsius_temperatura,
+        ),
+        "tds": _status_media_tds(
+            medias.get("tds"),
+            meta=reservatorio.meta_ppm_tds,
+        ),
+        "turbidez": _status_media_turbidez(
+            medias.get("turbidez"),
+            meta=reservatorio.meta_ntu_turbidez,
+        ),
+    }
+
+
+def _status_media_temperatura(valor, *, meta):
+    if valor is None:
+        return STATUS_SEM_DADO
+
+    desvio = abs(valor - meta)
+    if desvio >= DESVIO_TEMPERATURA_PERIGO:
+        return Reservatorio.STATUS_PERIGO
+    if desvio >= DESVIO_TEMPERATURA_ATENCAO:
+        return Reservatorio.STATUS_ATENCAO
+    return Reservatorio.STATUS_BOM
+
+
+def _status_media_tds(valor, *, meta):
+    if valor is None:
+        return STATUS_SEM_DADO
+
+    if valor >= meta * FATOR_PERIGO_TDS:
+        return Reservatorio.STATUS_PERIGO
+    if valor >= meta:
+        return Reservatorio.STATUS_ATENCAO
+    return Reservatorio.STATUS_BOM
+
+
+def _status_media_turbidez(valor, *, meta):
+    if valor is None:
+        return STATUS_SEM_DADO
+
+    if valor >= meta * FATOR_PERIGO_TURBIDEZ:
+        return Reservatorio.STATUS_PERIGO
+    if valor >= meta:
+        return Reservatorio.STATUS_ATENCAO
+    return Reservatorio.STATUS_BOM
 
 
 def _series_leituras_por_ponto(ponto):

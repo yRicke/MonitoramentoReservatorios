@@ -5,8 +5,10 @@
 {% block content %}
 <section class="detail-hero index-hero">
     <div>
-        <h2>Painel de reservatorios</h2>
-        <p class="index-hero-subtitle">Acompanhe rapidamente o estado de cada reservatorio e entre no detalhe para analisar o historico.</p>
+        <h2>Dashboard de reservatorios</h2>
+        <p class="index-hero-subtitle">
+            Compare as medias pre e pos tratamento no periodo escolhido para avaliar o efeito do filtro.
+        </p>
     </div>
     <p class="detail-status index-total-pill">
         <span>Total:</span>
@@ -28,6 +30,7 @@
             placeholder="Busque por nome ou status"
             aria-label="Buscar por nome ou status"
         >
+        <input type="hidden" name="dias" value="{{ periodo_dias }}">
         <button type="submit" aria-label="Buscar">&#128269;</button>
     </form>
 </section>
@@ -40,29 +43,87 @@
 </section>
 {% endif %}
 
-<section class="cards-grid">
-    {% for reservatorio in reservatorios %}
-    <article class="reservatorio-card">
-        <h2>{{ reservatorio.nome|upper }}</h2>
+<section class="dashboard-grid">
+    {% for card in dashboard_cards %}
+    <article class="dashboard-card">
+        <section class="dashboard-card-left">
+            <h2>{{ card.reservatorio.nome|upper }}</h2>
 
-        <p class="status-pill">
-            <span>Status:</span>
-            <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
-        </p>
+            <p class="status-pill">
+                <span>Status:</span>
+                <strong class="status-text status-{{ card.reservatorio.status }}">{{ card.reservatorio.get_status_display }}</strong>
+            </p>
 
-        <div class="card-actions">
-            <a class="btn-ver" href="{% url 'reservatorio_detalhe' reservatorio.id %}">Ver</a>
-
-            <form
-                method="post"
-                action="{% url 'reservatorio_excluir' reservatorio.id %}"
-                data-confirm-delete-reservatorio
-                data-reservatorio-nome="{{ reservatorio.nome }}"
-            >
-                {% csrf_token %}
-                <button class="btn-delete" type="submit" aria-label="Excluir reservatorio">X</button>
+            <form class="dashboard-period-form" method="get" action="{% url 'index' %}">
+                {% if busca %}
+                <input type="hidden" name="busca" value="{{ busca }}">
+                {% endif %}
+                <label for="periodo-{{ card.reservatorio.id }}">Periodo:</label>
+                <select id="periodo-{{ card.reservatorio.id }}" name="dias" onchange="this.form.submit()">
+                    {% for dias_opcao in periodos_dias_disponiveis %}
+                    <option value="{{ dias_opcao }}" {% if dias_opcao == periodo_dias %}selected{% endif %}>
+                        {{ dias_opcao }} dia{% if dias_opcao > 1 %}s{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
             </form>
-        </div>
+
+            <div class="dashboard-actions">
+                <a class="btn-ver" href="{% url 'reservatorio_detalhe' card.reservatorio.id %}">Ver</a>
+                <form
+                    method="post"
+                    action="{% url 'reservatorio_excluir' card.reservatorio.id %}"
+                    data-confirm-delete-reservatorio
+                    data-reservatorio-nome="{{ card.reservatorio.nome }}"
+                >
+                    {% csrf_token %}
+                    <button class="btn-delete" type="submit" aria-label="Excluir reservatorio">X</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="dashboard-card-right">
+            <p class="dashboard-period-caption">Medias dos ultimos {{ periodo_dias }} dias</p>
+
+            <table class="dashboard-metrics-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Metrica</th>
+                        <th scope="col">PRE</th>
+                        <th scope="col">POS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">Temperatura (celsius)</th>
+                        <td class="dashboard-value status-{{ card.status_antes.temperatura }}">
+                            {% if card.antes.temperatura is not None %}{{ card.antes.temperatura|floatformat:2 }}{% else %}--{% endif %}
+                        </td>
+                        <td class="dashboard-value status-{{ card.status_depois.temperatura }}">
+                            {% if card.depois.temperatura is not None %}{{ card.depois.temperatura|floatformat:2 }}{% else %}--{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">TDS (ppm)</th>
+                        <td class="dashboard-value status-{{ card.status_antes.tds }}">
+                            {% if card.antes.tds is not None %}{{ card.antes.tds|floatformat:2 }}{% else %}--{% endif %}
+                        </td>
+                        <td class="dashboard-value status-{{ card.status_depois.tds }}">
+                            {% if card.depois.tds is not None %}{{ card.depois.tds|floatformat:2 }}{% else %}--{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Turbidez (ntu)</th>
+                        <td class="dashboard-value status-{{ card.status_antes.turbidez }}">
+                            {% if card.antes.turbidez is not None %}{{ card.antes.turbidez|floatformat:2 }}{% else %}--{% endif %}
+                        </td>
+                        <td class="dashboard-value status-{{ card.status_depois.turbidez }}">
+                            {% if card.depois.turbidez is not None %}{{ card.depois.turbidez|floatformat:2 }}{% else %}--{% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
     </article>
     {% empty %}
     <article class="empty-state">
