@@ -21,10 +21,10 @@ const char* apiToken = "Oqc9zeW5fZjRFvxXZhaJtdVAD3sRrhy2G0a7IWegMR3ZOR3dsAxQ142q
 const int reservatorioId = 8;
 
 // ===== PONTO =====
-const char* pontoTipo = "antes_tratamento"; // ou "depois_tratamento"
+const char* pontoTipo = "depois_tratamento"; // "antes_tratamento" ou "depois_tratamento"
 
 // ===== INTERVALO =====
-const unsigned long INTERVALO_ENVIO_MS = 1 * 60 * 1000;
+const unsigned long INTERVALO_ENVIO_MS = 1 * 1000 * 60;
 
 // ===== PINOS =====
 #define DS18B20_PIN 4
@@ -40,10 +40,15 @@ unsigned long ultimoFlushFila = 0;
 const unsigned long INTERVALO_FLUSH_FILA_MS = 2000;
 const int FILA_MAX_LEITURAS = 180;
 
+struct SinalAnalogico {
+  int adc;
+};
+
 struct LeituraPendente {
   float temperatura;
-  float turbidez;
-  float tds;
+  int adcTds;
+  int adcTurb;
+  unsigned long firmwareTsMs;
 };
 
 LeituraPendente filaLeituras[FILA_MAX_LEITURAS];
@@ -151,43 +156,34 @@ float lerTemperatura() {
   return temp;
 }
 
-float lerTurbidez() {
-  long soma = 0;
-  for (int i = 0; i < 20; i++) {
-    soma += analogRead(TURBIDITY_PIN);
-    delay(10);
-  }
-  float adc = soma / 20.0f;
-  return adc * (3.3f / 4095.0f);
-}
-
-float lerTDS(float temperatura) {
+SinalAnalogico lerSinalAnalogicoMedio(
+  int pino,
+  int totalAmostras,
+  int atrasoPorAmostraMs,
+  bool ignorarZeros = false
+) {
   long soma = 0;
   int cont = 0;
 
-  for (int i = 0; i < 30; i++) {
-    int val = analogRead(TDS_PIN);
-    if (val > 0) {
-      soma += val;
-      cont++;
+  for (int i = 0; i < totalAmostras; i++) {
+    int leitura = analogRead(pino);
+    if (!ignorarZeros || leitura > 0) {
+      soma += leitura;
+      cont += 1;
     }
-    delay(5);
+    delay(atrasoPorAmostraMs);
   }
 
-  int adc = (cont > 0) ? (soma / cont) : 0;
-  float voltage = adc * (3.3f / 4095.0f);
-
-  float compensationCoefficient = 1.0f + 0.02f * (temperatura - 25.0f);
-  float compensationVoltage = voltage / compensationCoefficient;
-
-  float tds = (133.42f * compensationVoltage * compensationVoltage * compensationVoltage
-             - 255.86f * compensationVoltage * compensationVoltage
-             + 857.39f * compensationVoltage) * 0.5f;
-
-  return tds;
+  int adcMedio = (cont > 0) ? (soma / cont) : 0;
+  return {adcMedio};
 }
 
-bool enviarLeitura(float temperatura, float turbidez, float tds) {
+bool enviarLeitura(
+  float temperatura,
+  int adcTds,
+  int adcTurb,
+  unsigned long firmwareTsMs
+) {
   if (WiFi.softAPgetStationNum() <= 0) {
     Serial.println("Sem cliente conectado no AP. Nao enviando.");
     return false;
@@ -205,8 +201,11 @@ bool enviarLeitura(float temperatura, float turbidez, float tds) {
   body += "\"reservatorio_id\":" + String(reservatorioId) + ",";
   body += "\"ponto_tipo\":\"" + String(pontoTipo) + "\",";
   body += "\"temperatura\":" + String(temperatura, 2) + ",";
-  body += "\"tds\":" + String(tds, 2) + ",";
-  body += "\"turbidez\":" + String(turbidez, 2);
+  body += "\"raw\":{";
+  body += "\"adc_tds\":" + String(adcTds) + ",";
+  body += "\"adc_turb\":" + String(adcTurb) + ",";
+  body += "\"firmware_ts_ms\":" + String(firmwareTsMs);
+  body += "}";
   body += "}";
 
   int code = http.POST(body);
@@ -223,7 +222,12 @@ bool enviarLeitura(float temperatura, float turbidez, float tds) {
   return (code >= 200 && code < 300);
 }
 
-void enfileirarLeitura(float temperatura, float turbidez, float tds) {
+void enfileirarLeitura(
+  float temperatura,
+  int adcTds,
+  int adcTurb,
+  unsigned long firmwareTsMs
+) {
   // Se lotar, descarta a mais antiga para manter as mais recentes.
   if (filaQuantidade >= FILA_MAX_LEITURAS) {
     filaInicio = (filaInicio + 1) % FILA_MAX_LEITURAS;
@@ -232,8 +236,9 @@ void enfileirarLeitura(float temperatura, float turbidez, float tds) {
   }
 
   filaLeituras[filaFim].temperatura = temperatura;
-  filaLeituras[filaFim].turbidez = turbidez;
-  filaLeituras[filaFim].tds = tds;
+  filaLeituras[filaFim].adcTds = adcTds;
+  filaLeituras[filaFim].adcTurb = adcTurb;
+  filaLeituras[filaFim].firmwareTsMs = firmwareTsMs;
 
   filaFim = (filaFim + 1) % FILA_MAX_LEITURAS;
   filaQuantidade++;
@@ -264,7 +269,12 @@ void tentarEnviarFila(int limitePorCiclo) {
     LeituraPendente leitura;
     if (!obterPrimeiraLeituraFila(leitura)) return;
 
-    if (!enviarLeitura(leitura.temperatura, leitura.turbidez, leitura.tds)) {
+    if (!enviarLeitura(
+      leitura.temperatura,
+      leitura.adcTds,
+      leitura.adcTurb,
+      leitura.firmwareTsMs
+    )) {
       Serial.println("Falha no envio da fila. Mantendo pendencias.");
       break;
     }
@@ -317,21 +327,39 @@ void loop() {
       return;
     }
 
-    float turb = lerTurbidez();
-    float tds = lerTDS(temp);
+    SinalAnalogico sinalTurbidez = lerSinalAnalogicoMedio(
+      TURBIDITY_PIN,
+      20,
+      10,
+      false
+    );
+    SinalAnalogico sinalTDS = lerSinalAnalogicoMedio(
+      TDS_PIN,
+      30,
+      5,
+      true
+    );
+
+    unsigned long firmwareTsMs = millis();
 
     Serial.print("Ponto: ");
     Serial.print(pontoTipo);
     Serial.print(" | Temp: ");
     Serial.print(temp, 2);
-    Serial.print(" C | Turbidez: ");
-    Serial.print(turb, 2);
-    Serial.print(" | TDS: ");
-    Serial.println(tds, 2);
+    Serial.print(" C | ADC Turbidez: ");
+    Serial.print(sinalTurbidez.adc);
+    Serial.print(" | ADC TDS: ");
+    Serial.print(sinalTDS.adc);
+    Serial.println();
 
-    enfileirarLeitura(temp, turb, tds);
+    enfileirarLeitura(
+      temp,
+      sinalTDS.adc,
+      sinalTurbidez.adc,
+      firmwareTsMs
+    );
     tentarEnviarFila(10);
   }
 
-  delay(100);
+  delay(1000);
 }

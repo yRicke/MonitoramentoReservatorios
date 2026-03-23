@@ -293,17 +293,20 @@ class PontoMonitoramento(models.Model):
         temperatura,
         tds,
         turbidez,
+        sinais_brutos=None,
         status_leitura,
         status_origem="regras",
         confianca=None,
         modelo_versao="",
     ):
         status_final = Reservatorio._normalizar_status(status_leitura)
+        sinais_brutos_final = sinais_brutos if isinstance(sinais_brutos, dict) else {}
         leitura = LeituraQualidade.objects.create(
             ponto=self,
             temperatura=temperatura,
             tds=tds,
             turbidez=turbidez,
+            sinais_brutos=sinais_brutos_final,
             status_leitura=status_final,
             status_origem=status_origem,
             confianca=confianca,
@@ -333,6 +336,7 @@ class LeituraQualidade(models.Model):
     tds = models.FloatField()
     temperatura = models.FloatField()
     turbidez = models.FloatField()
+    sinais_brutos = models.JSONField(default=dict, blank=True)
     status_leitura = models.CharField(
         max_length=20,
         choices=Reservatorio.STATUS_CHOICES,

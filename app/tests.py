@@ -391,6 +391,7 @@ class Esp32IngestaoTests(TestCase):
         self.assertAlmostEqual(leitura.tds, 920.5, places=2)
         self.assertAlmostEqual(leitura.temperatura, 28.75, places=2)
         self.assertAlmostEqual(leitura.turbidez, 2.8, places=2)
+        self.assertEqual(leitura.sinais_brutos, {})
 
         ponto_antes = self.reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
         self.assertEqual(ponto_antes.status_atual, Reservatorio.STATUS_PERIGO)
@@ -469,3 +470,45 @@ class Esp32IngestaoTests(TestCase):
         self.assertEqual(response.status_code, 201)
         leitura = LeituraQualidade.objects.latest("id")
         self.assertEqual(leitura.status_leitura, Reservatorio.STATUS_ATENCAO)
+
+    def test_esp32_leitura_aceita_raw_e_calcula_tds_turbidez_no_backend(self):
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_DEPOIS,
+                "temperatura": 25.0,
+                "raw": {
+                    "adc_tds": 1861,
+                    "adc_turb": 980,
+                    "firmware_ts_ms": 93000,
+                },
+            }
+        )
+
+        self.assertEqual(response.status_code, 201)
+
+        leitura = LeituraQualidade.objects.latest("id")
+        self.assertAlmostEqual(leitura.temperatura, 25.0, places=2)
+        self.assertAlmostEqual(leitura.turbidez, 0.79, places=2)
+        self.assertAlmostEqual(leitura.tds, 580.20, places=2)
+        self.assertEqual(
+            leitura.sinais_brutos,
+            {
+                "adc_tds": 1861,
+                "adc_turb": 980,
+                "firmware_ts_ms": 93000,
+            },
+        )
+
+    def test_esp32_leitura_retorna_400_quando_raw_tem_formato_invalido(self):
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_ANTES,
+                "temperatura": 26.0,
+                "raw": "invalido",
+            }
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["erro"], "campo invalido: raw")
