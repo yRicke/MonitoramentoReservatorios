@@ -5,6 +5,7 @@ from django.db import IntegrityError
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
@@ -179,7 +180,8 @@ def _series_leituras_por_ponto(ponto):
     temperatura = []
     turbidez = []
     for leitura in leituras:
-        x_label = leitura.data_hora.strftime("%d/%m %H:%M:%S")
+        data_hora_local = timezone.localtime(leitura.data_hora)
+        x_label = data_hora_local.strftime("%d/%m %H:%M:%S")
         tds.append({"x": x_label, "y": leitura.tds})
         temperatura.append({"x": x_label, "y": leitura.temperatura})
         turbidez.append({"x": x_label, "y": leitura.turbidez})
