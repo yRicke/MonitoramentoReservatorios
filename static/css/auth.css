@@ -2,51 +2,31 @@
     min-height: 58vh;
     display: grid;
     place-items: center;
-    padding: 16px 0;
+    padding: 18px 0;
 }
 
 .auth-card {
     width: min(460px, 100%);
-    background: #ffffff;
-    border-radius: 22px;
-    padding: 22px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbfa 100%);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-md);
+    animation: surface-enter 320ms ease-out both;
 }
 
 .auth-card h2 {
-    margin: 0 0 8px;
-    font-size: 28px;
-    color: #151515;
+    margin-bottom: 8px;
+    font-size: 29px;
+    color: #17241f;
 }
 
 .auth-card p {
-    margin: 0 0 16px;
-    color: #4b5563;
-}
-
-.auth-form {
-    display: grid;
-    gap: 10px;
-}
-
-.auth-form label {
-    font-weight: 700;
-    font-size: 14px;
-}
-
-.auth-form input {
-    border: 1px solid #d4d4d4;
-    border-radius: 12px;
-    padding: 10px 12px;
-    font-size: 14px;
-    font-family: inherit;
-}
-
-.auth-form input:focus {
-    outline: 2px solid rgba(127, 77, 245, 0.25);
-    border-color: #7f4df5;
+    margin-bottom: 16px;
+    color: var(--color-text-muted);
 }
 
 .auth-submit {
     margin-top: 8px;
+    width: 100%;
 }

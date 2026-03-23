@@ -24,7 +24,7 @@ const int reservatorioId = 8;
 const char* pontoTipo = "antes_tratamento"; // ou "depois_tratamento"
 
 // ===== INTERVALO =====
-const unsigned long INTERVALO_ENVIO_MS = 10000;
+const unsigned long INTERVALO_ENVIO_MS = 1 * 60 * 1000;
 
 // ===== PINOS =====
 #define DS18B20_PIN 4

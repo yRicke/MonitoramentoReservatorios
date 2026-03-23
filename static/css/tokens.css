@@ -1,0 +1,39 @@
+:root {
+    --font-sans: "Manrope", "Plus Jakarta Sans", "Segoe UI", sans-serif;
+    --font-display: "Sora", "Manrope", "Segoe UI", sans-serif;
+
+    --color-canvas: #eaf1ef;
+    --color-canvas-strong: #dde7e4;
+    --color-surface: #ffffff;
+    --color-surface-muted: #f5f8f7;
+    --color-surface-dark: #202833;
+
+    --color-text: #16221e;
+    --color-text-muted: #5a6a65;
+    --color-text-inverse: #f4fbf8;
+
+    --color-border: #d8e3df;
+    --color-border-strong: #bccbc5;
+
+    --color-accent: #0a9f71;
+    --color-accent-dark: #06704f;
+    --color-accent-soft: #def4eb;
+
+    --color-danger: #dc3f3f;
+
+    --color-status-bom: #0da566;
+    --color-status-atencao: #dd7a00;
+    --color-status-perigo: #cf3434;
+
+    --radius-xs: 8px;
+    --radius-sm: 12px;
+    --radius-md: 18px;
+    --radius-lg: 24px;
+    --radius-pill: 999px;
+
+    --shadow-sm: 0 6px 16px rgba(18, 41, 33, 0.08);
+    --shadow-md: 0 12px 28px rgba(15, 33, 27, 0.14);
+    --shadow-dark: 0 14px 28px rgba(5, 14, 21, 0.36);
+
+    --ease-standard: 180ms ease;
+}

@@ -21,7 +21,7 @@
         <div class="top-nav-right">
             {% if request.user.is_authenticated %}
                 <span class="user-chip">
-                    <span class="user-chip-label">Usuário</span>
+                    <span class="user-chip-label">Usuario</span>
                     <strong>{{ request.user.username }}</strong>
                 </span>
                 <form method="post" action="{% url 'sair' %}">
