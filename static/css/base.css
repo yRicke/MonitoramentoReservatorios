@@ -36,14 +36,16 @@ body {
 }
 
 .top-nav {
-    background: linear-gradient(90deg, #06bd62 0%, #08b55f 45%, #0aa65d 100%);
-    min-height: 84px;
+    background: linear-gradient(120deg, #06bd62 0%, #08b864 38%, #0f8f65 100%);
+    min-height: 88px;
     padding: 12px 16px;
     color: var(--white);
-    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.14);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 7px 22px rgba(10, 47, 34, 0.24);
     position: sticky;
     top: 0;
     z-index: 100;
+    align-content: center;
 }
 
 .top-nav-inner {
@@ -52,61 +54,145 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.top-nav-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
 }
 
 .brand-link {
     text-decoration: none;
     color: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background:
+        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.75), transparent 45%),
+        linear-gradient(160deg, rgba(255, 255, 255, 0.28), rgba(0, 0, 0, 0.2));
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 5px 12px rgba(0, 0, 0, 0.2);
 }
 
 .brand {
     margin: 0;
-    font-size: 30px;
-    line-height: 1;
+    line-height: 1.02;
     letter-spacing: 0.1px;
-    font-weight: 800;
-    text-transform: lowercase;
+    font-weight: 700;
 }
 
-.brand span {
+.brand-kicker {
     display: block;
+    font-size: 11px;
+    letter-spacing: 1px;
+    opacity: 0.85;
+}
+
+.brand-title {
+    display: block;
+    font-size: 29px;
+    font-weight: 900;
+}
+
+.main-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-pill {
+    text-decoration: none;
+    color: var(--white);
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(0, 0, 0, 0.15);
+    transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.nav-pill:hover {
+    transform: translateY(-1px);
+    background: rgba(0, 0, 0, 0.28);
+}
+
+.nav-pill.is-active {
+    background: var(--white);
+    color: #107f58;
+    border-color: var(--white);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.16);
 }
 
 .top-nav-right {
     display: flex;
     align-items: center;
     gap: 12px;
+    margin-left: auto;
+}
+
+.top-nav-right form {
+    margin: 0;
 }
 
 .user-chip {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 7px 12px;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.user-chip-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.82;
+    margin-bottom: 2px;
 }
 
 .btn-sair {
-    border: 0;
-    border-radius: 10px;
-    padding: 9px 14px;
-    background: var(--green-dark);
+    border: 1px solid rgba(255, 255, 255, 0.36);
+    border-radius: 12px;
+    padding: 9px 15px;
+    background: rgba(0, 0, 0, 0.14);
     color: var(--white);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     cursor: pointer;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.18s ease, background 0.18s ease;
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
 }
 
 .btn-sair:hover {
-    background: #097648;
+    background: rgba(0, 0, 0, 0.28);
+    border-color: rgba(255, 255, 255, 0.72);
     transform: translateY(-1px);
+}
+
+.brand-link:focus-visible,
+.nav-pill:focus-visible,
+.btn-sair:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
 }
 
 .page-content {
@@ -463,19 +549,41 @@ body {
 
 @media (max-width: 1024px) {
     .top-nav {
-        min-height: 74px;
+        min-height: auto;
     }
 
     .top-nav-inner {
+        gap: 12px;
+    }
+
+    .top-nav-left {
         gap: 10px;
     }
 
-    .brand {
-        font-size: 20px;
+    .brand-mark {
+        width: 36px;
+        height: 36px;
+    }
+
+    .brand-kicker {
+        font-size: 10px;
+    }
+
+    .brand-title {
+        font-size: 24px;
+    }
+
+    .main-nav {
+        gap: 6px;
+    }
+
+    .nav-pill {
+        font-size: 13px;
+        padding: 7px 11px;
     }
 
     .user-chip {
-        font-size: 13px;
+        font-size: 12px;
         padding: 7px 10px;
     }
 
@@ -514,5 +622,43 @@ body {
 
     .detail-hero h2 {
         font-size: 24px;
+    }
+}
+
+@media (max-width: 720px) {
+    .top-nav-inner {
+        align-items: stretch;
+    }
+
+    .top-nav-left,
+    .top-nav-right {
+        width: 100%;
+    }
+
+    .top-nav-left {
+        flex-wrap: wrap;
+    }
+
+    .main-nav {
+        width: 100%;
+    }
+
+    .nav-pill {
+        width: 100%;
+        text-align: center;
+    }
+
+    .top-nav-right {
+        justify-content: space-between;
+    }
+
+    .user-chip {
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .user-chip-label {
+        margin-bottom: 0;
     }
 }

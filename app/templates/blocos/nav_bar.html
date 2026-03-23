@@ -1,15 +1,29 @@
 <header class="top-nav">
     <div class="top-nav-inner">
-        <a class="brand-link" href="{% if request.user.is_authenticated %}{% url 'index' %}{% else %}{% url 'entrar' %}{% endif %}">
-            <h1 class="brand">
-                <span>Sistema de</span>
-                <span>monitoramento</span>
-            </h1>
-        </a>
+        <div class="top-nav-left">
+            <a class="brand-link" href="{% if request.user.is_authenticated %}{% url 'index' %}{% else %}{% url 'entrar' %}{% endif %}">
+                <span class="brand-mark" aria-hidden="true"></span>
+                <h1 class="brand">
+                    <span class="brand-kicker">SISTEMA DE</span>
+                    <span class="brand-title">Monitoramento</span>
+                </h1>
+            </a>
+
+            {% if request.user.is_authenticated %}
+                <nav class="main-nav" aria-label="Navegacao principal">
+                    <a class="nav-pill {% if request.resolver_match.url_name == 'index' or request.resolver_match.url_name == 'reservatorio_detalhe' %}is-active{% endif %}" href="{% url 'index' %}">
+                        Reservatorios
+                    </a>
+                </nav>
+            {% endif %}
+        </div>
 
         <div class="top-nav-right">
             {% if request.user.is_authenticated %}
-                <span class="user-chip">{{ request.user.username }}</span>
+                <span class="user-chip">
+                    <span class="user-chip-label">Usuário</span>
+                    <strong>{{ request.user.username }}</strong>
+                </span>
                 <form method="post" action="{% url 'sair' %}">
                     {% csrf_token %}
                     <button class="btn-sair" type="submit">Sair</button>
