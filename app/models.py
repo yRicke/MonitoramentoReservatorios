@@ -1,3 +1,5 @@
+import math
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -7,6 +9,9 @@ class Reservatorio(models.Model):
     STATUS_BOM = "bom"
     STATUS_ATENCAO = "atencao"
     STATUS_PERIGO = "perigo"
+    META_PADRAO_PPM_TDS = 600.0
+    META_PADRAO_NTU_TURBIDEZ = 1.5
+    META_PADRAO_CELSIUS_TEMPERATURA = 25.0
     STATUS_CHOICES = (
         (STATUS_BOM, "Bom"),
         (STATUS_ATENCAO, "Atencao"),
@@ -20,6 +25,9 @@ class Reservatorio(models.Model):
     )
     nome = models.CharField(max_length=120, unique=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_BOM)
+    meta_ppm_tds = models.FloatField(default=META_PADRAO_PPM_TDS)
+    meta_ntu_turbidez = models.FloatField(default=META_PADRAO_NTU_TURBIDEZ)
+    meta_celsius_temperatura = models.FloatField(default=META_PADRAO_CELSIUS_TEMPERATURA)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -53,25 +61,93 @@ class Reservatorio(models.Model):
         return queryset.first()
 
     @classmethod
-    def criar_reservatorio(cls, *, usuario, nome=None, status=None):
+    def criar_reservatorio(
+        cls,
+        *,
+        usuario,
+        nome=None,
+        status=None,
+        meta_ppm_tds=None,
+        meta_ntu_turbidez=None,
+        meta_celsius_temperatura=None,
+    ):
         if usuario is None:
             raise ValueError("Usuario obrigatorio para criar reservatorio.")
 
         nome_final = cls._normalizar_nome(nome) if nome is not None else cls._proximo_nome()
         status_final = cls._normalizar_status(status)
-        reservatorio = cls.objects.create(nome=nome_final, status=status_final, usuario=usuario)
+        meta_ppm_tds_final = cls._normalizar_meta(
+            meta_ppm_tds,
+            campo="meta_ppm_tds",
+            padrao=cls.META_PADRAO_PPM_TDS,
+        )
+        meta_ntu_turbidez_final = cls._normalizar_meta(
+            meta_ntu_turbidez,
+            campo="meta_ntu_turbidez",
+            padrao=cls.META_PADRAO_NTU_TURBIDEZ,
+        )
+        meta_celsius_temperatura_final = cls._normalizar_meta(
+            meta_celsius_temperatura,
+            campo="meta_celsius_temperatura",
+            padrao=cls.META_PADRAO_CELSIUS_TEMPERATURA,
+        )
+
+        reservatorio = cls.objects.create(
+            nome=nome_final,
+            status=status_final,
+            usuario=usuario,
+            meta_ppm_tds=meta_ppm_tds_final,
+            meta_ntu_turbidez=meta_ntu_turbidez_final,
+            meta_celsius_temperatura=meta_celsius_temperatura_final,
+        )
         reservatorio.garantir_pontos_monitoramento()
         return reservatorio
 
-    def atualizar_reservatorio(self, *, nome=None, status=None):
+    def atualizar_reservatorio(
+        self,
+        *,
+        nome=None,
+        status=None,
+        meta_ppm_tds=None,
+        meta_ntu_turbidez=None,
+        meta_celsius_temperatura=None,
+    ):
         if status is not None:
             raise ValueError("Status do reservatorio e automatico e nao pode ser editado manualmente.")
 
-        if nome is None:
+        campos_para_salvar = []
+        if nome is not None:
+            self.nome = self._normalizar_nome(nome)
+            campos_para_salvar.append("nome")
+
+        if meta_ppm_tds is not None:
+            self.meta_ppm_tds = self._normalizar_meta(
+                meta_ppm_tds,
+                campo="meta_ppm_tds",
+                padrao=self.META_PADRAO_PPM_TDS,
+            )
+            campos_para_salvar.append("meta_ppm_tds")
+
+        if meta_ntu_turbidez is not None:
+            self.meta_ntu_turbidez = self._normalizar_meta(
+                meta_ntu_turbidez,
+                campo="meta_ntu_turbidez",
+                padrao=self.META_PADRAO_NTU_TURBIDEZ,
+            )
+            campos_para_salvar.append("meta_ntu_turbidez")
+
+        if meta_celsius_temperatura is not None:
+            self.meta_celsius_temperatura = self._normalizar_meta(
+                meta_celsius_temperatura,
+                campo="meta_celsius_temperatura",
+                padrao=self.META_PADRAO_CELSIUS_TEMPERATURA,
+            )
+            campos_para_salvar.append("meta_celsius_temperatura")
+
+        if not campos_para_salvar:
             return self
 
-        self.nome = self._normalizar_nome(nome)
-        self.save(update_fields=["nome", "updated_at"])
+        self.save(update_fields=[*campos_para_salvar, "updated_at"])
         return self
 
     def excluir_reservatorio(self):
@@ -115,6 +191,21 @@ class Reservatorio(models.Model):
         if status_final not in validos:
             raise ValueError("Status invalido para reservatorio.")
         return status_final
+
+    @staticmethod
+    def _normalizar_meta(meta, *, campo, padrao):
+        if meta is None:
+            return float(padrao)
+
+        try:
+            numero = float(meta)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{campo} invalida para reservatorio.") from exc
+
+        if not math.isfinite(numero) or numero <= 0:
+            raise ValueError(f"{campo} deve ser maior que zero.")
+
+        return numero
 
     @staticmethod
     def _normalizar_nome(nome):

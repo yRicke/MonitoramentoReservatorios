@@ -54,6 +54,12 @@ class IndexReservatorioTests(TestCase):
         reservatorio = Reservatorio.objects.first()
         self.assertEqual(reservatorio.nome, "Reservatorio 1")
         self.assertEqual(reservatorio.status, Reservatorio.STATUS_BOM)
+        self.assertEqual(reservatorio.meta_ppm_tds, Reservatorio.META_PADRAO_PPM_TDS)
+        self.assertEqual(reservatorio.meta_ntu_turbidez, Reservatorio.META_PADRAO_NTU_TURBIDEZ)
+        self.assertEqual(
+            reservatorio.meta_celsius_temperatura,
+            Reservatorio.META_PADRAO_CELSIUS_TEMPERATURA,
+        )
         self.assertEqual(reservatorio.pontos_monitoramento.count(), 2)
 
     def test_excluir_remove_reservatorio(self):
@@ -94,13 +100,21 @@ class IndexReservatorioTests(TestCase):
 
         response = self.client.post(
             reverse("reservatorio_atualizar", args=[reservatorio.id]),
-            {"nome": "Reservatorio atualizado"},
+            {
+                "nome": "Reservatorio atualizado",
+                "meta_ppm_tds": "700.0",
+                "meta_ntu_turbidez": "1.9",
+                "meta_celsius_temperatura": "27.5",
+            },
         )
 
         self.assertEqual(response.status_code, 302)
         reservatorio.refresh_from_db()
         self.assertEqual(reservatorio.nome, "Reservatorio atualizado")
         self.assertEqual(reservatorio.status, Reservatorio.STATUS_BOM)
+        self.assertEqual(reservatorio.meta_ppm_tds, 700.0)
+        self.assertEqual(reservatorio.meta_ntu_turbidez, 1.9)
+        self.assertEqual(reservatorio.meta_celsius_temperatura, 27.5)
 
     def test_detalhe_nao_permite_acesso_a_reservatorio_de_outro_usuario(self):
         self._logar()
@@ -169,6 +183,12 @@ class ReservatorioModelCrudTests(TestCase):
         self.assertEqual(primeiro.nome, "Reservatorio 1")
         self.assertEqual(segundo.nome, "Reservatorio 2")
         self.assertEqual(primeiro.status, Reservatorio.STATUS_BOM)
+        self.assertEqual(primeiro.meta_ppm_tds, Reservatorio.META_PADRAO_PPM_TDS)
+        self.assertEqual(primeiro.meta_ntu_turbidez, Reservatorio.META_PADRAO_NTU_TURBIDEZ)
+        self.assertEqual(
+            primeiro.meta_celsius_temperatura,
+            Reservatorio.META_PADRAO_CELSIUS_TEMPERATURA,
+        )
 
     def test_read_listar_com_busca(self):
         Reservatorio.criar_reservatorio(
@@ -210,6 +230,24 @@ class ReservatorioModelCrudTests(TestCase):
 
         with self.assertRaisesMessage(ValueError, "Status do reservatorio e automatico"):
             reservatorio.atualizar_reservatorio(status=Reservatorio.STATUS_PERIGO)
+
+    def test_update_atualiza_metas(self):
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Com Metas",
+            status=Reservatorio.STATUS_BOM,
+        )
+
+        reservatorio.atualizar_reservatorio(
+            meta_ppm_tds=450.5,
+            meta_ntu_turbidez=1.2,
+            meta_celsius_temperatura=24.0,
+        )
+
+        reservatorio.refresh_from_db()
+        self.assertEqual(reservatorio.meta_ppm_tds, 450.5)
+        self.assertEqual(reservatorio.meta_ntu_turbidez, 1.2)
+        self.assertEqual(reservatorio.meta_celsius_temperatura, 24.0)
 
     def test_delete_exclui_por_id(self):
         reservatorio = Reservatorio.criar_reservatorio(
@@ -410,3 +448,24 @@ class Esp32IngestaoTests(TestCase):
 
         self.reservatorio.refresh_from_db()
         self.assertEqual(self.reservatorio.status, Reservatorio.STATUS_BOM)
+
+    def test_esp32_leitura_considera_meta_personalizada_do_reservatorio(self):
+        self.reservatorio.atualizar_reservatorio(
+            meta_ppm_tds=300.0,
+            meta_ntu_turbidez=1.0,
+            meta_celsius_temperatura=25.0,
+        )
+
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_DEPOIS,
+                "temperatura": 25.0,
+                "tds": 320.0,
+                "turbidez": 0.5,
+            }
+        )
+
+        self.assertEqual(response.status_code, 201)
+        leitura = LeituraQualidade.objects.latest("id")
+        self.assertEqual(leitura.status_leitura, Reservatorio.STATUS_ATENCAO)

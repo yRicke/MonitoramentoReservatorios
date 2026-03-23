@@ -88,9 +88,17 @@ def reservatorio_atualizar(request, reservatorio_id):
         return redirect("index")
 
     nome = request.POST.get("nome")
+    meta_ppm_tds = request.POST.get("meta_ppm_tds")
+    meta_ntu_turbidez = request.POST.get("meta_ntu_turbidez")
+    meta_celsius_temperatura = request.POST.get("meta_celsius_temperatura")
 
     try:
-        reservatorio.atualizar_reservatorio(nome=nome)
+        reservatorio.atualizar_reservatorio(
+            nome=nome,
+            meta_ppm_tds=meta_ppm_tds,
+            meta_ntu_turbidez=meta_ntu_turbidez,
+            meta_celsius_temperatura=meta_celsius_temperatura,
+        )
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)

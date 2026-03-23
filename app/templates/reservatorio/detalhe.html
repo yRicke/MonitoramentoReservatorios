@@ -56,8 +56,17 @@
             <label for="nome">Nome</label>
             <input id="nome" name="nome" type="text" value="{{ reservatorio.nome }}" required>
 
+            <label for="meta_ppm_tds">Meta TDS (ppm)</label>
+            <input id="meta_ppm_tds" name="meta_ppm_tds" type="number" step="0.01" min="0.01" value="{{ reservatorio.meta_ppm_tds }}" required>
+
+            <label for="meta_ntu_turbidez">Meta turbidez (ntu)</label>
+            <input id="meta_ntu_turbidez" name="meta_ntu_turbidez" type="number" step="0.01" min="0.01" value="{{ reservatorio.meta_ntu_turbidez }}" required>
+
+            <label for="meta_celsius_temperatura">Meta temperatura (celsius)</label>
+            <input id="meta_celsius_temperatura" name="meta_celsius_temperatura" type="number" step="0.01" min="0.01" value="{{ reservatorio.meta_celsius_temperatura }}" required>
+
             <p class="edit-help">
-                O status do reservatorio e calculado automaticamente pelo ponto depois do tratamento.
+                O status e calculado automaticamente com base nas metas deste reservatorio.
             </p>
 
             <button class="btn-main" type="submit">Salvar alteracoes</button>

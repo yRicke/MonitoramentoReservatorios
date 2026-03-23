@@ -31,6 +31,9 @@ def processar_leitura_esp32(request_body):
         temperatura=temperatura,
         tds=tds,
         turbidez=turbidez,
+        meta_ppm_tds=reservatorio.meta_ppm_tds,
+        meta_ntu_turbidez=reservatorio.meta_ntu_turbidez,
+        meta_celsius_temperatura=reservatorio.meta_celsius_temperatura,
     )
 
     ponto.registrar_leitura(
