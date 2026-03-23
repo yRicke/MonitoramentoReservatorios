@@ -12,13 +12,22 @@ class ReservatorioAdmin(admin.ModelAdmin):
 
 @admin.register(PontoMonitoramento)
 class PontoMonitoramentoAdmin(admin.ModelAdmin):
-    list_display = ("id", "reservatorio", "tipo", "created_at")
+    list_display = ("id", "reservatorio", "tipo", "status_atual", "updated_at")
     search_fields = ("reservatorio__nome",)
     list_filter = ("tipo",)
 
 
 @admin.register(LeituraQualidade)
 class LeituraQualidadeAdmin(admin.ModelAdmin):
-    list_display = ("id", "ponto", "tds", "temperatura", "turbidez", "data_hora")
+    list_display = (
+        "id",
+        "ponto",
+        "status_leitura",
+        "status_origem",
+        "tds",
+        "temperatura",
+        "turbidez",
+        "data_hora",
+    )
     search_fields = ("ponto__reservatorio__nome",)
     list_filter = ("ponto__tipo",)

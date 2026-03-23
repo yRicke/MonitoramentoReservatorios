@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-obo5u$+p($kmdubt8ea*fo$+u#x2*cgq%&njhp-6xpv-3*s0do'
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-obo5u$+p($kmdubt8ea*fo$+u#x2*cgq%&njhp-6xpv-3*s0do")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-IP_MAQUINA = '192.168.100.94'
-ALLOWED_HOSTS = ['192.168.100.94']
+DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,192.168.100.94").split(",")
+    if host.strip()
+]
 
 
 # Application definition
@@ -116,11 +120,15 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_DIR = BASE_DIR / "static"
+STATICFILES_DIRS = [STATIC_DIR] if STATIC_DIR.exists() else []
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 LOGIN_URL = 'entrar'
 LOGIN_REDIRECT_URL = 'index'
 LOGOUT_REDIRECT_URL = 'entrar'
 
-ESP32_API_TOKEN = "Oqc9zeW5fZjRFvxXZhaJtdVAD3sRrhy2G0a7IWegMR3ZOR3dsAxQ142qRut3fWtA"
+ESP32_API_TOKEN = os.getenv(
+    "ESP32_API_TOKEN",
+    "Oqc9zeW5fZjRFvxXZhaJtdVAD3sRrhy2G0a7IWegMR3ZOR3dsAxQ142qRut3fWtA",
+)

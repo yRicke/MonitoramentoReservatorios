@@ -1,14 +1,22 @@
 <header class="top-nav">
-    <h1 class="brand">
-        <span>Sistema de</span>
-        <span>monitoramento</span>
-    </h1>
+    <div class="top-nav-inner">
+        <a class="brand-link" href="{% if request.user.is_authenticated %}{% url 'index' %}{% else %}{% url 'entrar' %}{% endif %}">
+            <h1 class="brand">
+                <span>Sistema de</span>
+                <span>monitoramento</span>
+            </h1>
+        </a>
 
-    <div class="top-nav-right">
-        <span>{{ request.user.username }}</span>
-        <form method="post" action="{% url 'sair' %}">
-            {% csrf_token %}
-            <button class="btn-sair" type="submit">Sair</button>
-        </form>
+        <div class="top-nav-right">
+            {% if request.user.is_authenticated %}
+                <span class="user-chip">{{ request.user.username }}</span>
+                <form method="post" action="{% url 'sair' %}">
+                    {% csrf_token %}
+                    <button class="btn-sair" type="submit">Sair</button>
+                </form>
+            {% else %}
+                <a class="btn-sair" href="{% url 'entrar' %}">Entrar</a>
+            {% endif %}
+        </div>
     </div>
 </header>

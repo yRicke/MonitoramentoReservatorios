@@ -94,13 +94,27 @@ class IndexReservatorioTests(TestCase):
 
         response = self.client.post(
             reverse("reservatorio_atualizar", args=[reservatorio.id]),
-            {"nome": "Reservatorio atualizado", "status": Reservatorio.STATUS_PERIGO},
+            {"nome": "Reservatorio atualizado"},
         )
 
         self.assertEqual(response.status_code, 302)
         reservatorio.refresh_from_db()
         self.assertEqual(reservatorio.nome, "Reservatorio atualizado")
-        self.assertEqual(reservatorio.status, Reservatorio.STATUS_PERIGO)
+        self.assertEqual(reservatorio.status, Reservatorio.STATUS_BOM)
+
+    def test_detalhe_nao_permite_acesso_a_reservatorio_de_outro_usuario(self):
+        self._logar()
+        outro_usuario = User.objects.create_user(username="outro", password="outro123")
+        reservatorio = Reservatorio.objects.create(
+            usuario=outro_usuario,
+            nome="Reservatorio Privado",
+            status=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.get(reverse("reservatorio_detalhe", args=[reservatorio.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("index"))
 
     def test_busca_filtra_por_nome(self):
         self._logar()
@@ -123,14 +137,22 @@ class IndexReservatorioTests(TestCase):
 
     def test_busca_filtra_por_status(self):
         self._logar()
-        Reservatorio.objects.create(usuario=self.usuario, nome="R1", status=Reservatorio.STATUS_BOM)
-        Reservatorio.objects.create(usuario=self.usuario, nome="R2", status=Reservatorio.STATUS_PERIGO)
+        Reservatorio.objects.create(
+            usuario=self.usuario,
+            nome="Tanque Status Bom",
+            status=Reservatorio.STATUS_BOM,
+        )
+        Reservatorio.objects.create(
+            usuario=self.usuario,
+            nome="Tanque Status Perigo",
+            status=Reservatorio.STATUS_PERIGO,
+        )
 
         response = self.client.get(reverse("index"), {"busca": "perigo"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "R2")
-        self.assertNotContains(response, "R1")
+        self.assertContains(response, "TANQUE STATUS PERIGO")
+        self.assertNotContains(response, "TANQUE STATUS BOM")
 
 
 class ReservatorioModelCrudTests(TestCase):
@@ -160,12 +182,12 @@ class ReservatorioModelCrudTests(TestCase):
             status=Reservatorio.STATUS_PERIGO,
         )
 
-        filtrados = Reservatorio.listar("perigo")
+        filtrados = Reservatorio.listar("perigo", usuario=self.usuario)
 
         self.assertEqual(filtrados.count(), 1)
         self.assertEqual(filtrados.first().nome, "Leste")
 
-    def test_update_atualiza_nome_e_status(self):
+    def test_update_atualiza_somente_nome(self):
         reservatorio = Reservatorio.criar_reservatorio(
             usuario=self.usuario,
             nome="Velho",
@@ -174,11 +196,20 @@ class ReservatorioModelCrudTests(TestCase):
 
         atualizado = reservatorio.atualizar_reservatorio(
             nome="Novo",
-            status=Reservatorio.STATUS_ATENCAO,
         )
 
         self.assertEqual(atualizado.nome, "Novo")
-        self.assertEqual(atualizado.status, Reservatorio.STATUS_ATENCAO)
+        self.assertEqual(atualizado.status, Reservatorio.STATUS_BOM)
+
+    def test_update_rejeita_status_manual(self):
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Sem Status Manual",
+            status=Reservatorio.STATUS_BOM,
+        )
+
+        with self.assertRaisesMessage(ValueError, "Status do reservatorio e automatico"):
+            reservatorio.atualizar_reservatorio(status=Reservatorio.STATUS_PERIGO)
 
     def test_delete_exclui_por_id(self):
         reservatorio = Reservatorio.criar_reservatorio(
@@ -281,6 +312,27 @@ class Esp32IngestaoTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["erro"], "campo invalido: ponto_tipo")
 
+    def test_esp32_leitura_ignora_status_enviado_e_aplica_regras(self):
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_ANTES,
+                "temperatura": 25.0,
+                "tds": 300.0,
+                "turbidez": 0.5,
+                "status_leitura": "perigo",
+                "confianca": 0.99,
+                "modelo_versao": "qualquer-coisa",
+            }
+        )
+
+        self.assertEqual(response.status_code, 201)
+        leitura = LeituraQualidade.objects.latest("id")
+        self.assertEqual(leitura.status_origem, LeituraQualidade.ORIGEM_REGRAS)
+        self.assertEqual(leitura.status_leitura, Reservatorio.STATUS_BOM)
+        self.assertIsNone(leitura.confianca)
+        self.assertEqual(leitura.modelo_versao, "")
+
     def test_esp32_leitura_salva_leitura_qualidade_e_atualiza_status(self):
         response = self._post_json(
             {
@@ -296,14 +348,44 @@ class Esp32IngestaoTests(TestCase):
         self.assertEqual(LeituraQualidade.objects.count(), 1)
         leitura = LeituraQualidade.objects.first()
         self.assertEqual(leitura.ponto.tipo, PontoMonitoramento.TIPO_ANTES)
+        self.assertEqual(leitura.status_origem, LeituraQualidade.ORIGEM_REGRAS)
+        self.assertEqual(leitura.status_leitura, Reservatorio.STATUS_PERIGO)
         self.assertAlmostEqual(leitura.tds, 920.5, places=2)
         self.assertAlmostEqual(leitura.temperatura, 28.75, places=2)
         self.assertAlmostEqual(leitura.turbidez, 2.8, places=2)
 
-        self.reservatorio.refresh_from_db()
-        self.assertEqual(self.reservatorio.status, Reservatorio.STATUS_PERIGO)
+        ponto_antes = self.reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        self.assertEqual(ponto_antes.status_atual, Reservatorio.STATUS_PERIGO)
 
-    def test_status_do_reservatorio_considera_pior_entre_os_dois_pontos(self):
+        self.reservatorio.refresh_from_db()
+        self.assertEqual(self.reservatorio.status, Reservatorio.STATUS_BOM)
+
+    def test_esp32_leitura_salva_status_no_ponto_com_base_em_regras(self):
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_DEPOIS,
+                "temperatura": 20.0,
+                "tds": 650.0,
+                "turbidez": 0.3,
+            }
+        )
+
+        self.assertEqual(response.status_code, 201)
+        leitura = LeituraQualidade.objects.latest("id")
+        self.assertEqual(leitura.status_origem, LeituraQualidade.ORIGEM_REGRAS)
+        self.assertEqual(leitura.status_leitura, Reservatorio.STATUS_ATENCAO)
+        self.assertIsNone(leitura.confianca)
+        self.assertEqual(leitura.modelo_versao, "")
+
+        ponto_depois = self.reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+        self.assertEqual(ponto_depois.status_atual, Reservatorio.STATUS_ATENCAO)
+        self.assertIsNone(ponto_depois.confianca_status)
+        self.assertEqual(ponto_depois.modelo_versao, "")
+        self.reservatorio.refresh_from_db()
+        self.assertEqual(self.reservatorio.status, Reservatorio.STATUS_ATENCAO)
+
+    def test_status_do_reservatorio_reflete_status_do_ponto_depois(self):
         response_antes = self._post_json(
             {
                 "reservatorio_id": self.reservatorio.id,
@@ -327,4 +409,4 @@ class Esp32IngestaoTests(TestCase):
         self.assertEqual(response_depois.status_code, 201)
 
         self.reservatorio.refresh_from_db()
-        self.assertEqual(self.reservatorio.status, Reservatorio.STATUS_PERIGO)
+        self.assertEqual(self.reservatorio.status, Reservatorio.STATUS_BOM)

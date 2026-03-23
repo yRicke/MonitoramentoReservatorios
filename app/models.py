@@ -30,8 +30,11 @@ class Reservatorio(models.Model):
         return self.nome
 
     @classmethod
-    def listar(cls, busca=""):
+    def listar(cls, busca="", usuario=None):
         queryset = cls.objects.all()
+        if usuario is not None:
+            queryset = queryset.filter(usuario=usuario)
+
         termo = (busca or "").strip()
         if not termo:
             return queryset
@@ -39,12 +42,15 @@ class Reservatorio(models.Model):
         return queryset.filter(Q(nome__icontains=termo) | Q(status__icontains=termo))
 
     @classmethod
-    def obter_por_id(cls, reservatorio_id):
+    def obter_por_id(cls, reservatorio_id, usuario=None):
         reservatorio_id = cls._normalizar_id(reservatorio_id)
         if reservatorio_id is None:
             return None
 
-        return cls.objects.filter(id=reservatorio_id).first()
+        queryset = cls.objects.filter(id=reservatorio_id)
+        if usuario is not None:
+            queryset = queryset.filter(usuario=usuario)
+        return queryset.first()
 
     @classmethod
     def criar_reservatorio(cls, *, usuario, nome=None, status=None):
@@ -58,20 +64,14 @@ class Reservatorio(models.Model):
         return reservatorio
 
     def atualizar_reservatorio(self, *, nome=None, status=None):
-        alterou = False
-
-        if nome is not None:
-            self.nome = self._normalizar_nome(nome)
-            alterou = True
-
         if status is not None:
-            self.status = type(self)._normalizar_status(status)
-            alterou = True
+            raise ValueError("Status do reservatorio e automatico e nao pode ser editado manualmente.")
 
-        if not alterou:
+        if nome is None:
             return self
 
-        self.save()
+        self.nome = self._normalizar_nome(nome)
+        self.save(update_fields=["nome", "updated_at"])
         return self
 
     def excluir_reservatorio(self):
@@ -88,6 +88,18 @@ class Reservatorio(models.Model):
     def obter_ponto_monitoramento(self, tipo):
         tipo_normalizado = PontoMonitoramento.normalizar_tipo(tipo)
         return self.pontos_monitoramento.filter(tipo=tipo_normalizado).first()
+
+    def sincronizar_status_pelo_ponto_depois(self):
+        ponto_depois = self.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+        status_final = self.STATUS_BOM
+        if ponto_depois is not None and ponto_depois.status_atual:
+            status_final = ponto_depois.status_atual
+
+        if self.status != status_final:
+            self.status = status_final
+            self.save(update_fields=["status", "updated_at"])
+
+        return self
 
     @classmethod
     def _proximo_nome(cls):
@@ -126,45 +138,6 @@ class Reservatorio(models.Model):
         return None
 
 
-class TDS(models.Model):
-    reservatorio = models.ForeignKey(
-        Reservatorio,
-        on_delete=models.CASCADE,
-        related_name="medicoes_tds",
-    )
-    ppm = models.FloatField()
-    data_hora = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-data_hora"]
-
-
-class Temperatura(models.Model):
-    reservatorio = models.ForeignKey(
-        Reservatorio,
-        on_delete=models.CASCADE,
-        related_name="medicoes_temperatura",
-    )
-    celcius = models.FloatField()
-    data_hora = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-data_hora"]
-
-
-class Turbidez(models.Model):
-    reservatorio = models.ForeignKey(
-        Reservatorio,
-        on_delete=models.CASCADE,
-        related_name="medicoes_turbidez",
-    )
-    ntu = models.FloatField()
-    data_hora = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-data_hora"]
-
-
 class PontoMonitoramento(models.Model):
     TIPO_ANTES = "antes_tratamento"
     TIPO_DEPOIS = "depois_tratamento"
@@ -183,7 +156,15 @@ class PontoMonitoramento(models.Model):
         related_name="pontos_monitoramento",
     )
     tipo = models.CharField(max_length=32, choices=TIPO_CHOICES)
+    status_atual = models.CharField(
+        max_length=20,
+        choices=Reservatorio.STATUS_CHOICES,
+        default=Reservatorio.STATUS_BOM,
+    )
+    confianca_status = models.FloatField(null=True, blank=True)
+    modelo_versao = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["reservatorio_id", "tipo"]
@@ -208,8 +189,51 @@ class PontoMonitoramento(models.Model):
             raise ValueError("ponto_tipo invalido")
         return tipo_normalizado
 
+    def atualizar_status(self, *, status, confianca=None, modelo_versao=""):
+        self.status_atual = status
+        self.confianca_status = confianca
+        self.modelo_versao = (modelo_versao or "").strip()
+        self.save(update_fields=["status_atual", "confianca_status", "modelo_versao", "updated_at"])
+        return self
+
+    def registrar_leitura(
+        self,
+        *,
+        temperatura,
+        tds,
+        turbidez,
+        status_leitura,
+        status_origem="regras",
+        confianca=None,
+        modelo_versao="",
+    ):
+        status_final = Reservatorio._normalizar_status(status_leitura)
+        leitura = LeituraQualidade.objects.create(
+            ponto=self,
+            temperatura=temperatura,
+            tds=tds,
+            turbidez=turbidez,
+            status_leitura=status_final,
+            status_origem=status_origem,
+            confianca=confianca,
+            modelo_versao=(modelo_versao or "").strip(),
+        )
+        self.atualizar_status(
+            status=status_final,
+            confianca=confianca,
+            modelo_versao=modelo_versao,
+        )
+        return leitura
+
 
 class LeituraQualidade(models.Model):
+    ORIGEM_REGRAS = "regras"
+    ORIGEM_TINYML = "tinyml"
+    ORIGEM_CHOICES = (
+        (ORIGEM_REGRAS, "Regras"),
+        (ORIGEM_TINYML, "TinyML"),
+    )
+
     ponto = models.ForeignKey(
         PontoMonitoramento,
         on_delete=models.CASCADE,
@@ -218,6 +242,18 @@ class LeituraQualidade(models.Model):
     tds = models.FloatField()
     temperatura = models.FloatField()
     turbidez = models.FloatField()
+    status_leitura = models.CharField(
+        max_length=20,
+        choices=Reservatorio.STATUS_CHOICES,
+        default=Reservatorio.STATUS_BOM,
+    )
+    status_origem = models.CharField(
+        max_length=16,
+        choices=ORIGEM_CHOICES,
+        default=ORIGEM_REGRAS,
+    )
+    confianca = models.FloatField(null=True, blank=True)
+    modelo_versao = models.CharField(max_length=64, blank=True, default="")
     data_hora = models.DateTimeField(auto_now_add=True)
 
     class Meta:

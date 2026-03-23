@@ -3,9 +3,12 @@
 {% block title %}Sistema de monitoramento{% endblock %}
 
 {% block content %}
-<section class="detail-hero">
-    <h2>Painel de reservatorios</h2>
-    <p class="detail-status">
+<section class="detail-hero index-hero">
+    <div>
+        <h2>Painel de reservatorios</h2>
+        <p class="index-hero-subtitle">Acompanhe rapidamente o estado de cada reservatorio e entre no detalhe para ver o historico.</p>
+    </div>
+    <p class="detail-status index-total-pill">
         <span>Total:</span>
         <strong>{{ reservatorios|length }}</strong>
     </p>

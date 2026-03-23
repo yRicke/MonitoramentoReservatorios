@@ -16,7 +16,7 @@ from app.services.ingestao import IngestaoLeituraErro, processar_leitura_esp32
 @require_http_methods(["GET"])
 def index(request):
     busca = request.GET.get("busca", "").strip()
-    reservatorios = Reservatorio.listar(busca=busca)
+    reservatorios = Reservatorio.listar(busca=busca, usuario=request.user)
 
     return render(
         request,
@@ -32,10 +32,9 @@ def index(request):
 @require_http_methods(["POST"])
 def reservatorio_adicionar(request):
     nome = request.POST.get("nome")
-    status = request.POST.get("status")
 
     try:
-        Reservatorio.criar_reservatorio(usuario=request.user, nome=nome, status=status)
+        Reservatorio.criar_reservatorio(usuario=request.user, nome=nome)
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect("index")
@@ -50,7 +49,7 @@ def reservatorio_adicionar(request):
 @login_required(login_url="entrar")
 @require_http_methods(["GET"])
 def reservatorio_detalhe(request, reservatorio_id):
-    reservatorio = Reservatorio.obter_por_id(reservatorio_id)
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
         messages.error(request, "Reservatorio nao encontrado.")
         return redirect("index")
@@ -68,7 +67,8 @@ def reservatorio_detalhe(request, reservatorio_id):
         "reservatorio/detalhe.html",
         {
             "reservatorio": reservatorio,
-            "status_opcoes": Reservatorio.STATUS_CHOICES,
+            "ponto_antes": ponto_antes,
+            "ponto_depois": ponto_depois,
             "tds_series_antes": series_antes["tds"],
             "tds_series_depois": series_depois["tds"],
             "temperatura_series_antes": series_antes["temperatura"],
@@ -82,16 +82,15 @@ def reservatorio_detalhe(request, reservatorio_id):
 @login_required(login_url="entrar")
 @require_http_methods(["POST"])
 def reservatorio_atualizar(request, reservatorio_id):
-    reservatorio = Reservatorio.obter_por_id(reservatorio_id)
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
         messages.error(request, "Reservatorio nao encontrado.")
         return redirect("index")
 
     nome = request.POST.get("nome")
-    status = request.POST.get("status")
 
     try:
-        reservatorio.atualizar_reservatorio(nome=nome, status=status)
+        reservatorio.atualizar_reservatorio(nome=nome)
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
@@ -106,7 +105,7 @@ def reservatorio_atualizar(request, reservatorio_id):
 @login_required(login_url="entrar")
 @require_http_methods(["POST"])
 def reservatorio_excluir(request, reservatorio_id):
-    reservatorio = Reservatorio.obter_por_id(reservatorio_id)
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
         messages.error(request, "Reservatorio nao encontrado.")
         return redirect("index")

@@ -1,7 +1,8 @@
 import json
+import math
 
 from app.models import LeituraQualidade, PontoMonitoramento, Reservatorio
-from app.services.regras import calcular_status, combinar_status
+from app.services.regras import calcular_status
 
 
 class IngestaoLeituraErro(ValueError):
@@ -26,34 +27,25 @@ def processar_leitura_esp32(request_body):
     if ponto is None:
         raise IngestaoLeituraErro("ponto_tipo invalido")
 
-    LeituraQualidade.objects.create(
-        ponto=ponto,
+    status_leitura = calcular_status(
         temperatura=temperatura,
         tds=tds,
         turbidez=turbidez,
     )
 
-    _recalcular_status_reservatorio(reservatorio)
+    ponto.registrar_leitura(
+        temperatura=temperatura,
+        tds=tds,
+        turbidez=turbidez,
+        status_leitura=status_leitura,
+        status_origem=LeituraQualidade.ORIGEM_REGRAS,
+        confianca=None,
+        modelo_versao="",
+    )
+
+    reservatorio.sincronizar_status_pelo_ponto_depois()
 
     return reservatorio
-
-
-def _recalcular_status_reservatorio(reservatorio):
-    statuses = []
-
-    for ponto in reservatorio.pontos_monitoramento.all():
-        leitura = ponto.leituras_qualidade.first()
-        if leitura is None:
-            continue
-
-        status_ponto = calcular_status(
-            temperatura=leitura.temperatura,
-            tds=leitura.tds,
-            turbidez=leitura.turbidez,
-        )
-        statuses.append(status_ponto)
-
-    reservatorio.atualizar_reservatorio(status=combinar_status(statuses))
 
 
 def _carregar_payload(request_body):
@@ -90,6 +82,11 @@ def _extrair_float(payload, campo):
         raise IngestaoLeituraErro(f"campo obrigatorio: {campo}")
 
     try:
-        return float(valor)
+        numero = float(valor)
     except (TypeError, ValueError) as exc:
         raise IngestaoLeituraErro(f"campo invalido: {campo}") from exc
+
+    if not math.isfinite(numero):
+        raise IngestaoLeituraErro(f"campo invalido: {campo}")
+
+    return numero
