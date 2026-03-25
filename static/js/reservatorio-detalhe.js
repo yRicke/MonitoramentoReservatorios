@@ -449,6 +449,72 @@ function renderAllCharts() {
     CHARTS_CONFIG.forEach(renderChart);
 }
 
+function initTopToggle() {
+    const toggleButtons = document.querySelectorAll("[data-toggle-target]");
+    toggleButtons.forEach((button) => {
+        const targetId = button.getAttribute("data-toggle-target");
+        if (!targetId) {
+            return;
+        }
+
+        const panel = document.getElementById(targetId);
+        if (!panel) {
+            return;
+        }
+
+        const openLabel = "Fechar edicao do reservatorio";
+        const closedLabel = "Editar reservatorio";
+
+        const updateState = (isOpen) => {
+            panel.hidden = !isOpen;
+            button.classList.toggle("is-open", isOpen);
+            button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+            button.textContent = isOpen ? openLabel : closedLabel;
+        };
+
+        updateState(false);
+        button.addEventListener("click", () => {
+            const isOpen = button.getAttribute("aria-expanded") === "true";
+            updateState(!isOpen);
+        });
+    });
+}
+
+function initCalibrationToggle() {
+    const buttons = Array.from(document.querySelectorAll(".calibration-toggle-btn"));
+    const panels = Array.from(document.querySelectorAll(".calibration-toggle-panel"));
+    if (!buttons.length || !panels.length) {
+        return;
+    }
+
+    const activate = (targetId) => {
+        buttons.forEach((button) => {
+            const isActive = button.getAttribute("data-calib-target") === targetId;
+            button.classList.toggle("is-active", isActive);
+            button.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+
+        panels.forEach((panel) => {
+            const isActive = panel.id === targetId;
+            panel.hidden = !isActive;
+            panel.classList.toggle("is-active", isActive);
+        });
+    };
+
+    const defaultButton = buttons.find((button) => button.classList.contains("is-active")) || buttons[0];
+    activate(defaultButton.getAttribute("data-calib-target"));
+
+    buttons.forEach((button) => {
+        button.addEventListener("click", () => {
+            const targetId = button.getAttribute("data-calib-target");
+            if (!targetId) {
+                return;
+            }
+            activate(targetId);
+        });
+    });
+}
+
 let resizeTimer = null;
 function handleResize() {
     if (resizeTimer) {
@@ -457,5 +523,11 @@ function handleResize() {
     resizeTimer = setTimeout(renderAllCharts, 120);
 }
 
-document.addEventListener("DOMContentLoaded", renderAllCharts);
+function initPage() {
+    renderAllCharts();
+    initTopToggle();
+    initCalibrationToggle();
+}
+
+document.addEventListener("DOMContentLoaded", initPage);
 window.addEventListener("resize", handleResize);

@@ -18,6 +18,8 @@
 .edit-form input:focus-visible,
 .edit-form select:focus-visible,
 .auth-form input:focus-visible,
+.top-toggle-btn:focus-visible,
+.calibration-toggle-btn:focus-visible,
 .ph-calibration-form input:focus-visible,
 .ph-auto-card input:focus-visible,
 .water-auto-card input:focus-visible {
@@ -481,6 +483,37 @@
     margin-bottom: 16px;
 }
 
+.detail-top-toggle {
+    margin-bottom: 16px;
+}
+
+.top-toggle-menu {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.top-toggle-btn {
+    border: 1px solid #b8ccc5;
+    border-radius: var(--radius-pill);
+    padding: 9px 16px;
+    background: #eef6f3;
+    color: #18352c;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.top-toggle-btn.is-open {
+    background: #dff3ea;
+    border-color: #92c7b1;
+    color: #0e6c46;
+}
+
+.top-toggle-panel {
+    margin-top: 12px;
+}
+
 .panel {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
@@ -533,6 +566,58 @@
 .chart-grid {
     display: grid;
     gap: 14px;
+}
+
+.detail-main-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(310px, 380px);
+    gap: 16px;
+    align-items: start;
+}
+
+.chart-stack {
+    display: grid;
+    gap: 14px;
+}
+
+.calibration-sidebar {
+    position: sticky;
+    top: 14px;
+}
+
+.calibration-toggle-menu {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.calibration-toggle-btn {
+    text-align: left;
+    border: 1px solid #cad8d3;
+    border-radius: 10px;
+    padding: 9px 11px;
+    background: #f4f9f7;
+    color: #29463c;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.calibration-toggle-btn.is-active {
+    background: #def2e9;
+    border-color: #9acbb8;
+    color: #0f744d;
+}
+
+.calibration-toggle-panel[hidden] {
+    display: none;
+}
+
+.calibration-sidebar .ph-auto-grid,
+.calibration-sidebar .ph-manual-grid,
+.calibration-sidebar .water-auto-grid,
+.calibration-sidebar .water-target-grid {
+    grid-template-columns: 1fr;
 }
 
 .chart-wrap {
@@ -803,6 +888,16 @@
     margin-top: 8px;
     padding: 9px 14px;
     font-size: 14px;
+}
+
+@media (max-width: 1200px) {
+    .detail-main-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .calibration-sidebar {
+        position: static;
+    }
 }
 
 @media (max-width: 1024px) {

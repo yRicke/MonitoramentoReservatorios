@@ -47,9 +47,14 @@
     </article>
 </section>
 
-<section class="detail-layout">
-    <aside class="panel">
-        <h3>Editar reservatorio</h3>
+<section class="panel detail-top-toggle">
+    <div class="top-toggle-menu">
+        <button class="top-toggle-btn" type="button" data-toggle-target="editReservatorioPanel" aria-expanded="false">
+            Editar reservatorio
+        </button>
+    </div>
+
+    <div id="editReservatorioPanel" class="top-toggle-panel" hidden>
         <form class="edit-form" method="post" action="{% url 'reservatorio_atualizar' reservatorio.id %}">
             {% csrf_token %}
 
@@ -73,12 +78,12 @@
                 value="{{ reservatorio.faixa_ntu_turbidez_max|unlocalize }}" required>
 
             <label for="faixa_celsius_temperatura_min">Faixa temperatura min (celsius)</label>
-            <input id="faixa_celsius_temperatura_min" name="faixa_celsius_temperatura_min" type="number" step="0.01" min="0.01"
-                value="{{ reservatorio.faixa_celsius_temperatura_min|unlocalize }}" required>
+            <input id="faixa_celsius_temperatura_min" name="faixa_celsius_temperatura_min" type="number" step="0.01"
+                min="0.01" value="{{ reservatorio.faixa_celsius_temperatura_min|unlocalize }}" required>
 
             <label for="faixa_celsius_temperatura_max">Faixa temperatura max (celsius)</label>
-            <input id="faixa_celsius_temperatura_max" name="faixa_celsius_temperatura_max" type="number" step="0.01" min="0.01"
-                value="{{ reservatorio.faixa_celsius_temperatura_max|unlocalize }}" required>
+            <input id="faixa_celsius_temperatura_max" name="faixa_celsius_temperatura_max" type="number" step="0.01"
+                min="0.01" value="{{ reservatorio.faixa_celsius_temperatura_max|unlocalize }}" required>
 
             <label for="faixa_ph_min">Faixa pH min</label>
             <input id="faixa_ph_min" name="faixa_ph_min" type="number" step="0.01" min="0.01" max="14"
@@ -94,24 +99,26 @@
 
             <button class="btn-main" type="submit">Salvar alteracoes</button>
         </form>
-    </aside>
+    </div>
+</section>
 
-    <section class="chart-grid">
-        <article class="panel">
-            <h4>TDS (ppm / data_hora)</h4>
-            <p id="lastReadingTDS" class="chart-last-reading">Ultima leitura: --</p>
-            <div class="chart-wrap">
-                <div id="chartTDS" class="apex-chart"></div>
-                <div class="chart-empty" id="emptyTDS" hidden>Sem leituras de TDS</div>
-            </div>
-        </article>
-
+<section class="detail-main-layout">
+    <section class="chart-stack">
         <article class="panel">
             <h4>Temperatura (celsius / data_hora)</h4>
             <p id="lastReadingTemperatura" class="chart-last-reading">Ultima leitura: --</p>
             <div class="chart-wrap">
                 <div id="chartTemperatura" class="apex-chart"></div>
                 <div class="chart-empty" id="emptyTemperatura" hidden>Sem leituras de temperatura</div>
+            </div>
+        </article>
+
+        <article class="panel">
+            <h4>TDS (ppm / data_hora)</h4>
+            <p id="lastReadingTDS" class="chart-last-reading">Ultima leitura: --</p>
+            <div class="chart-wrap">
+                <div id="chartTDS" class="apex-chart"></div>
+                <div class="chart-empty" id="emptyTDS" hidden>Sem leituras de TDS</div>
             </div>
         </article>
 
@@ -125,8 +132,29 @@
         </article>
 
         <article class="panel">
-            <h4>Calibracao automatica TDS + Turbidez (agua limpa)</h4>
+            <h4>pH (data_hora)</h4>
+            <p id="lastReadingPH" class="chart-last-reading">Ultima leitura: --</p>
+            <div class="chart-wrap">
+                <div id="chartPH" class="apex-chart"></div>
+                <div class="chart-empty" id="emptyPH" hidden>Sem leituras de pH</div>
+            </div>
+        </article>
+    </section>
+
+    <aside class="panel calibration-sidebar">
+        <h3>Calibracoes</h3>
+        <div class="calibration-toggle-menu" role="tablist" aria-label="Menu de calibracoes">
+            <button type="button" class="calibration-toggle-btn is-active" data-calib-target="calibrationWater" role="tab"
+                aria-selected="true">TDS + Turbidez</button>
+            <button type="button" class="calibration-toggle-btn" data-calib-target="calibrationPhAuto" role="tab"
+                aria-selected="false">pH automatico</button>
+            <button type="button" class="calibration-toggle-btn" data-calib-target="calibrationPhManual" role="tab"
+                aria-selected="false">pH manual</button>
+        </div>
+
+        <div id="calibrationWater" class="calibration-toggle-panel is-active" role="tabpanel">
             <section class="water-calibration-section">
+                <h5>Calibracao automatica TDS + Turbidez (agua limpa)</h5>
                 <p class="status-meta">1. Retire os sensores do reservatorio.</p>
                 <p class="status-meta">2. Enxague com agua destilada (preferencialmente), sem esfregar as pontas.</p>
                 <p class="status-meta">3. Mergulhe em agua limpa/destilada e aguarde estabilizar.</p>
@@ -225,16 +253,9 @@
                     </form>
                 </div>
             </section>
-        </article>
+        </div>
 
-        <article class="panel">
-            <h4>pH (data_hora)</h4>
-            <p id="lastReadingPH" class="chart-last-reading">Ultima leitura: --</p>
-            <div class="chart-wrap">
-                <div id="chartPH" class="apex-chart"></div>
-                <div class="chart-empty" id="emptyPH" hidden>Sem leituras de pH</div>
-            </div>
-
+        <div id="calibrationPhAuto" class="calibration-toggle-panel" role="tabpanel" hidden>
             <section class="ph-calibration-section">
                 <h5>Calibracao automatica por ponto (solucao de pH conhecido)</h5>
                 <p class="status-meta">1. Retire o eletrodo do reservatorio.</p>
@@ -244,7 +265,6 @@
                 <p class="status-meta">5. Informe o pH da solucao e clique em calibrar.</p>
                 <p class="status-meta">6. Enxague cuidadosamente com agua destilada (preferencialmente), sem esfregar o sensor.</p>
                 <p class="status-meta">7. Retorne o eletrodo ao tanque.</p>
-                
 
                 <div class="ph-auto-grid">
                     <form class="ph-auto-card" method="post"
@@ -269,7 +289,8 @@
                             {% endif %}
                         </p>
                         <label for="ph_solucao_antes">pH da solucao conhecida</label>
-                        <input id="ph_solucao_antes" name="ph_solucao" type="number" min="0" max="14" step="0.01" value="7.00" required>
+                        <input id="ph_solucao_antes" name="ph_solucao" type="number" min="0" max="14" step="0.01"
+                            value="7.00" required>
                         <button class="btn-main" type="submit">Calibrar ponto</button>
                     </form>
 
@@ -295,12 +316,15 @@
                             {% endif %}
                         </p>
                         <label for="ph_solucao_depois">pH da solucao conhecida</label>
-                        <input id="ph_solucao_depois" name="ph_solucao" type="number" min="0" max="14" step="0.01" value="7.00" required>
+                        <input id="ph_solucao_depois" name="ph_solucao" type="number" min="0" max="14" step="0.01"
+                            value="7.00" required>
                         <button class="btn-main" type="submit">Calibrar ponto</button>
                     </form>
                 </div>
             </section>
+        </div>
 
+        <div id="calibrationPhManual" class="calibration-toggle-panel" role="tabpanel" hidden>
             <section class="ph-calibration-section">
                 <h5>Calibracao manual</h5>
                 <form class="ph-calibration-form" method="post"
@@ -333,8 +357,8 @@
                     <button class="btn-main" type="submit">Salvar calibracao manual</button>
                 </form>
             </section>
-        </article>
-    </section>
+        </div>
+    </aside>
 </section>
 
 {{ tds_series_antes|json_script:"tds-series-antes-data" }}
@@ -348,5 +372,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260325-ph2"></script>
+<script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260325-layout3"></script>
 {% endblock %}
