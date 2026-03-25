@@ -104,6 +104,17 @@ class IndexReservatorioTests(TestCase):
             PontoMonitoramento.PH_INCLINACAO_PADRAO,
         )
         self.assertIsNone(ponto_depois.ph_calibrado_em)
+        self.assertEqual(ponto_antes.tds_offset_ppm, 0.0)
+        self.assertEqual(ponto_antes.turbidez_offset_ntu, 0.0)
+        self.assertEqual(
+            ponto_antes.tds_alvo_calibracao_ppm,
+            PontoMonitoramento.TDS_ALVO_CALIBRACAO_PADRAO,
+        )
+        self.assertEqual(
+            ponto_antes.turbidez_alvo_calibracao_ntu,
+            PontoMonitoramento.TURBIDEZ_ALVO_CALIBRACAO_PADRAO,
+        )
+        self.assertIsNone(ponto_antes.agua_calibrado_em)
 
     def test_excluir_remove_reservatorio(self):
         self._logar()
@@ -279,6 +290,117 @@ class IndexReservatorioTests(TestCase):
         ponto_antes.refresh_from_db()
         self.assertAlmostEqual(ponto_antes.ph_voltagem_referencia_7, 1.81, places=2)
         self.assertAlmostEqual(ponto_antes.ph_inclinacao, 0.215, places=3)
+
+    def test_calibracao_agua_auto_define_offset_por_ponto(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio calibracao agua auto",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+
+        ponto_antes.registrar_leitura(
+            temperatura=25.0,
+            tds=999.0,
+            turbidez=9.0,
+            ph=7.0,
+            sinais_brutos={"adc_tds": 1861, "adc_turb": 980},
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.post(
+            reverse("reservatorio_calibracao_agua_auto", args=[reservatorio.id]),
+            {
+                "ponto_tipo": PontoMonitoramento.TIPO_ANTES,
+                "tds_alvo_ppm": "40.0",
+                "turbidez_alvo_ntu": "0.4",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        ponto_antes.refresh_from_db()
+        self.assertAlmostEqual(ponto_antes.tds_offset_ppm, -540.20, places=2)
+        self.assertAlmostEqual(ponto_antes.turbidez_offset_ntu, -0.39, places=2)
+        self.assertEqual(ponto_antes.tds_adc_calibracao, 1861)
+        self.assertEqual(ponto_antes.turbidez_adc_calibracao, 980)
+        self.assertIsNotNone(ponto_antes.agua_calibrado_em)
+
+    def test_calibracao_agua_auto_nao_altera_sem_adc_completo(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio calibracao agua incompleta",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        offset_tds_original = ponto_antes.tds_offset_ppm
+        offset_turbidez_original = ponto_antes.turbidez_offset_ntu
+
+        ponto_antes.registrar_leitura(
+            temperatura=25.0,
+            tds=999.0,
+            turbidez=9.0,
+            ph=7.0,
+            sinais_brutos={"adc_tds": 1861},
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.post(
+            reverse("reservatorio_calibracao_agua_auto", args=[reservatorio.id]),
+            {
+                "ponto_tipo": PontoMonitoramento.TIPO_ANTES,
+                "tds_alvo_ppm": "40.0",
+                "turbidez_alvo_ntu": "0.4",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        ponto_antes.refresh_from_db()
+        self.assertEqual(ponto_antes.tds_offset_ppm, offset_tds_original)
+        self.assertEqual(ponto_antes.turbidez_offset_ntu, offset_turbidez_original)
+        self.assertIsNone(ponto_antes.agua_calibrado_em)
+
+    def test_detalhe_mostra_alerta_calibracao_agua_vencida(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio calibracao agua alerta",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+
+        ponto_antes.agua_calibrado_em = timezone.now() - timedelta(days=18)
+        ponto_antes.save(update_fields=["agua_calibrado_em", "updated_at"])
+        ponto_depois.agua_calibrado_em = timezone.now() - timedelta(days=2)
+        ponto_depois.save(update_fields=["agua_calibrado_em", "updated_at"])
+
+        ponto_antes.registrar_leitura(
+            temperatura=25.0,
+            tds=300.0,
+            turbidez=0.5,
+            ph=7.0,
+            sinais_brutos={"adc_tds": 1861, "adc_turb": 980},
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+        ponto_depois.registrar_leitura(
+            temperatura=25.0,
+            tds=300.0,
+            turbidez=0.5,
+            ph=7.0,
+            sinais_brutos={"adc_tds": 1200, "adc_turb": 700},
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.get(reverse("reservatorio_detalhe", args=[reservatorio.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["agua_calibracao_antes"]["vencida"])
+        self.assertEqual(response.context["agua_calibracao_antes"]["dias"], 18)
+        self.assertFalse(response.context["agua_calibracao_depois"]["vencida"])
+        self.assertEqual(response.context["agua_calibracao_depois"]["dias"], 2)
+        self.assertEqual(response.context["agua_calibracao_antes"]["adc_tds"], 1861)
+        self.assertEqual(response.context["agua_calibracao_antes"]["adc_turb"], 980)
 
     def test_detalhe_mostra_alerta_calibracao_ph_vencida_e_ok(self):
         self._logar()
@@ -941,3 +1063,31 @@ class Esp32IngestaoTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["erro"], "campo invalido: raw")
+
+    def test_esp32_leitura_aplica_offset_calibracao_agua(self):
+        ponto_depois = self.reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+        ponto_depois.atualizar_calibracao_agua_limpa(
+            tds_base_ppm=580.20,
+            turbidez_base_ntu=0.79,
+            tds_alvo_ppm=40.0,
+            turbidez_alvo_ntu=0.4,
+            tds_adc=1861,
+            turbidez_adc=980,
+        )
+
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_DEPOIS,
+                "temperatura": 25.0,
+                "raw": {
+                    "adc_tds": 1861,
+                    "adc_turb": 980,
+                },
+            }
+        )
+
+        self.assertEqual(response.status_code, 201)
+        leitura = LeituraQualidade.objects.latest("id")
+        self.assertAlmostEqual(leitura.tds, 40.0, places=1)
+        self.assertAlmostEqual(leitura.turbidez, 0.4, places=2)

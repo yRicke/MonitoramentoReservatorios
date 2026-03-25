@@ -19,7 +19,8 @@
 .edit-form select:focus-visible,
 .auth-form input:focus-visible,
 .ph-calibration-form input:focus-visible,
-.ph-auto-card input:focus-visible {
+.ph-auto-card input:focus-visible,
+.water-auto-card input:focus-visible {
     outline: 2px solid rgba(10, 159, 113, 0.42);
     outline-offset: 2px;
 }
@@ -610,6 +611,91 @@
     padding: 12px;
 }
 
+.water-calibration-section {
+    border: 1px solid #d8e3df;
+    background: #f7fbf9;
+    border-radius: 14px;
+    padding: 12px;
+}
+
+.water-auto-grid {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.water-auto-card {
+    border: 1px solid #d8e3df;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+}
+
+.water-auto-card h6 {
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #355348;
+}
+
+.water-auto-card label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #2c4239;
+}
+
+.water-auto-card input {
+    width: 100%;
+    border: 1px solid #cad8d3;
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: #ffffff;
+    color: var(--color-text);
+}
+
+.water-calibration-status {
+    margin: 0 0 2px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.water-calibration-status.is-ok {
+    background: #e6f8ef;
+    color: #0f774e;
+    border: 1px solid #b9e8d2;
+}
+
+.water-calibration-status.is-overdue {
+    background: #fff3e8;
+    color: #a95700;
+    border: 1px solid #ffd7b1;
+}
+
+.water-reading-hint {
+    margin: 0 0 2px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #3f564d;
+}
+
+.water-target-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.water-auto-card .btn-main {
+    margin-top: 8px;
+    padding: 9px 14px;
+    font-size: 14px;
+}
+
 .ph-calibration-section h5 {
     margin-bottom: 6px;
     font-size: 15px;
@@ -768,7 +854,12 @@
     }
 
     .ph-auto-grid,
-    .ph-manual-grid {
+    .ph-manual-grid,
+    .water-auto-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .water-target-grid {
         grid-template-columns: 1fr;
     }
 }

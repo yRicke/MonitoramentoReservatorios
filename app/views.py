@@ -18,6 +18,8 @@ from app.services.ingestao import (
     ADC_TENSAO_REFERENCIA,
     ADC_VALOR_MAXIMO,
     IngestaoLeituraErro,
+    calcular_tds_por_adc,
+    calcular_turbidez_por_adc,
     processar_leitura_esp32,
 )
 from app.services.regras import (
@@ -51,6 +53,7 @@ PERIODOS_DISPONIVEIS = (
 )
 STATUS_SEM_DADO = "sem-dado"
 DIAS_ALERTA_CALIBRACAO_PH = 15
+DIAS_ALERTA_CALIBRACAO_AGUA = 15
 
 
 @login_required(login_url="entrar")
@@ -119,6 +122,8 @@ def reservatorio_detalhe(request, reservatorio_id):
             "ponto_depois": ponto_depois,
             "ph_calibracao_antes": _resumo_calibracao_ph(ponto_antes),
             "ph_calibracao_depois": _resumo_calibracao_ph(ponto_depois),
+            "agua_calibracao_antes": _resumo_calibracao_agua(ponto_antes),
+            "agua_calibracao_depois": _resumo_calibracao_agua(ponto_depois),
             "tds_series_antes": series_antes["tds"],
             "tds_series_depois": series_depois["tds"],
             "temperatura_series_antes": series_antes["temperatura"],
@@ -274,6 +279,87 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
             f"Calibracao automatica aplicada no ponto {nome_ponto}: "
             f"solucao pH {ph_solucao:.2f}, leitura {ultima_tensao:.3f}V, "
             f"Vref pH7 ajustada para {ph7_equivalente:.3f}V."
+        ),
+    )
+    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+
+@login_required(login_url="entrar")
+@require_http_methods(["POST"])
+def reservatorio_calibracao_agua_auto(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "Reservatorio nao encontrado.")
+        return redirect("index")
+
+    ponto_tipo = request.POST.get("ponto_tipo")
+    try:
+        ponto_tipo_normalizado = PontoMonitoramento.normalizar_tipo(ponto_tipo)
+    except ValueError:
+        messages.error(request, "Ponto de calibracao invalido.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    reservatorio.garantir_pontos_monitoramento()
+    ponto = reservatorio.obter_ponto_monitoramento(ponto_tipo_normalizado)
+    if ponto is None:
+        messages.error(request, "Ponto de calibracao nao encontrado.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    tds_alvo_raw = request.POST.get("tds_alvo_ppm")
+    turbidez_alvo_raw = request.POST.get("turbidez_alvo_ntu")
+    try:
+        tds_alvo = (
+            float(tds_alvo_raw)
+            if tds_alvo_raw not in (None, "")
+            else ponto.tds_alvo_calibracao_ppm
+        )
+        turbidez_alvo = (
+            float(turbidez_alvo_raw)
+            if turbidez_alvo_raw not in (None, "")
+            else ponto.turbidez_alvo_calibracao_ntu
+        )
+    except (TypeError, ValueError):
+        messages.error(request, "Informe alvos validos para TDS e turbidez.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    if not math.isfinite(tds_alvo) or not math.isfinite(turbidez_alvo):
+        messages.error(request, "Informe alvos validos para TDS e turbidez.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    dados_agua = _ultimos_dados_agua_por_ponto(ponto)
+    adc_tds = dados_agua["adc_tds"]
+    adc_turb = dados_agua["adc_turb"]
+    temperatura = dados_agua["temperatura"]
+    if adc_tds is None or adc_turb is None or temperatura is None:
+        messages.error(
+            request,
+            "Nao ha leitura bruta completa (adc_tds/adc_turb/temperatura) para este ponto.",
+        )
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    try:
+        tds_base_ppm = calcular_tds_por_adc(adc_tds=adc_tds, temperatura=temperatura)
+        turbidez_base_ntu = calcular_turbidez_por_adc(adc_turb=adc_turb)
+        ponto.atualizar_calibracao_agua_limpa(
+            tds_base_ppm=tds_base_ppm,
+            turbidez_base_ntu=turbidez_base_ntu,
+            tds_alvo_ppm=tds_alvo,
+            turbidez_alvo_ntu=turbidez_alvo,
+            tds_adc=adc_tds,
+            turbidez_adc=adc_turb,
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    nome_ponto = "antes" if ponto.tipo == PontoMonitoramento.TIPO_ANTES else "depois"
+    messages.success(
+        request,
+        (
+            f"Calibracao de agua aplicada no ponto {nome_ponto}: "
+            f"ADC TDS {adc_tds}, ADC turbidez {adc_turb}, "
+            f"base {tds_base_ppm:.2f} ppm/{turbidez_base_ntu:.3f} NTU "
+            f"-> alvo {tds_alvo:.2f} ppm/{turbidez_alvo:.3f} NTU."
         ),
     )
     return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
@@ -587,6 +673,37 @@ def _resumo_calibracao_ph(ponto):
     }
 
 
+def _resumo_calibracao_agua(ponto):
+    dados_agua = _ultimos_dados_agua_por_ponto(ponto)
+
+    if ponto is None:
+        return {
+            "calibrado_em": None,
+            "dias": None,
+            "vencida": True,
+            **dados_agua,
+        }
+
+    calibrado_em = ponto.agua_calibrado_em
+    if calibrado_em is None:
+        return {
+            "calibrado_em": None,
+            "dias": None,
+            "vencida": True,
+            **dados_agua,
+        }
+
+    agora = timezone.now()
+    delta = agora - calibrado_em
+    dias = max(0, delta.days)
+    return {
+        "calibrado_em": calibrado_em,
+        "dias": dias,
+        "vencida": dias >= DIAS_ALERTA_CALIBRACAO_AGUA,
+        **dados_agua,
+    }
+
+
 def _ultima_tensao_ph_por_ponto(ponto):
     if ponto is None:
         return None
@@ -604,26 +721,96 @@ def _ultima_tensao_ph_por_ponto(ponto):
     return _resolver_tensao_em_sinais_brutos(sinais)
 
 
-def _resolver_tensao_em_sinais_brutos(sinais):
-    if not isinstance(sinais, dict):
-        return None
+def _ultimos_dados_agua_por_ponto(ponto):
+    vazio = {
+        "temperatura": None,
+        "adc_tds": None,
+        "adc_turb": None,
+        "tds_estimado_ppm": None,
+        "turbidez_estimada_ntu": None,
+    }
+    if ponto is None:
+        return vazio
 
-    ph_tensao = _normalizar_tensao(sinais.get("ph_tensao"))
+    ultima_leitura = (
+        LeituraQualidade.objects.filter(ponto=ponto)
+        .order_by("-data_hora")
+        .only("temperatura", "sinais_brutos")
+        .first()
+    )
+    if ultima_leitura is None:
+        return vazio
+
+    sinais = ultima_leitura.sinais_brutos if isinstance(ultima_leitura.sinais_brutos, dict) else {}
+    adc_tds = _resolver_adc_em_sinais_brutos(sinais, aliases=("adc_tds", "tds_adc"))
+    adc_turb = _resolver_adc_em_sinais_brutos(
+        sinais,
+        aliases=("adc_turb", "adc_turbidez", "turbidez_adc"),
+    )
+    temperatura = float(ultima_leitura.temperatura)
+    tds_estimado_ppm = None
+    turbidez_estimada_ntu = None
+
+    if adc_tds is not None:
+        try:
+            tds_estimado_ppm = calcular_tds_por_adc(adc_tds=adc_tds, temperatura=temperatura)
+        except ValueError:
+            tds_estimado_ppm = None
+    if adc_turb is not None:
+        try:
+            turbidez_estimada_ntu = calcular_turbidez_por_adc(adc_turb=adc_turb)
+        except ValueError:
+            turbidez_estimada_ntu = None
+
+    return {
+        "temperatura": temperatura,
+        "adc_tds": adc_tds,
+        "adc_turb": adc_turb,
+        "tds_estimado_ppm": tds_estimado_ppm,
+        "turbidez_estimada_ntu": turbidez_estimada_ntu,
+    }
+
+
+def _resolver_tensao_em_sinais_brutos(sinais):
+    ph_tensao = _resolver_valor_em_sinais_brutos(
+        sinais,
+        aliases=("ph_tensao",),
+        normalizador=_normalizar_tensao,
+    )
     if ph_tensao is not None:
         return ph_tensao
 
-    adc_ph = _normalizar_adc(sinais.get("adc_ph"))
+    adc_ph = _resolver_adc_em_sinais_brutos(sinais, aliases=("adc_ph", "ph_adc"))
     if adc_ph is not None:
         return (adc_ph * ADC_TENSAO_REFERENCIA) / ADC_VALOR_MAXIMO
 
-    adc_ph_legado = _normalizar_adc(sinais.get("ph_adc"))
-    if adc_ph_legado is not None:
-        return (adc_ph_legado * ADC_TENSAO_REFERENCIA) / ADC_VALOR_MAXIMO
+    return None
 
-    # Compatibilidade com leituras antigas que salvavam "raw" dentro do JSON.
+
+def _resolver_adc_em_sinais_brutos(sinais, *, aliases):
+    return _resolver_valor_em_sinais_brutos(
+        sinais,
+        aliases=aliases,
+        normalizador=_normalizar_adc,
+    )
+
+
+def _resolver_valor_em_sinais_brutos(sinais, *, aliases, normalizador):
+    if not isinstance(sinais, dict):
+        return None
+
+    for alias in aliases:
+        valor = normalizador(sinais.get(alias))
+        if valor is not None:
+            return valor
+
     bruto_aninhado = sinais.get("raw")
     if isinstance(bruto_aninhado, dict):
-        return _resolver_tensao_em_sinais_brutos(bruto_aninhado)
+        return _resolver_valor_em_sinais_brutos(
+            bruto_aninhado,
+            aliases=aliases,
+            normalizador=normalizador,
+        )
 
     return None
 

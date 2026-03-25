@@ -39,6 +39,7 @@ def processar_leitura_esp32(request_body):
         ph_voltagem_referencia_7=ponto.ph_voltagem_referencia_7,
         ph_inclinacao=ponto.ph_inclinacao,
     )
+    tds, turbidez = ponto.aplicar_calibracao_agua(tds=tds, turbidez=turbidez)
 
     status_leitura = calcular_status(
         temperatura=temperatura,
@@ -245,8 +246,7 @@ def _resolver_tds(payload, sinais_brutos, temperatura):
 
     adc_tds = sinais_brutos.get("adc_tds")
     if adc_tds is not None:
-        tds_tensao = _adc_para_tensao(adc_tds, campo="adc_tds")
-        return _calcular_tds_por_tensao(tds_tensao=tds_tensao, temperatura=temperatura)
+        return calcular_tds_por_adc(adc_tds=adc_tds, temperatura=temperatura)
 
     return _extrair_float(payload, "tds")
 
@@ -258,8 +258,7 @@ def _resolver_turbidez(payload, sinais_brutos):
 
     adc_turb = sinais_brutos.get("adc_turb")
     if adc_turb is not None:
-        turbidez_tensao = _adc_para_tensao(adc_turb, campo="adc_turb")
-        return _calcular_turbidez_por_tensao(turbidez_tensao=turbidez_tensao)
+        return calcular_turbidez_por_adc(adc_turb=adc_turb)
 
     return _extrair_float(payload, "turbidez")
 
@@ -317,6 +316,16 @@ def _calcular_turbidez_por_tensao(*, turbidez_tensao):
     if turbidez_tensao < 0:
         raise IngestaoLeituraErro("campo invalido: turbidez")
     return turbidez_tensao
+
+
+def calcular_tds_por_adc(*, adc_tds, temperatura):
+    tds_tensao = _adc_para_tensao(adc_tds, campo="adc_tds")
+    return _calcular_tds_por_tensao(tds_tensao=tds_tensao, temperatura=temperatura)
+
+
+def calcular_turbidez_por_adc(*, adc_turb):
+    turbidez_tensao = _adc_para_tensao(adc_turb, campo="adc_turb")
+    return _calcular_turbidez_por_tensao(turbidez_tensao=turbidez_tensao)
 
 def _calcular_ph_por_tensao(
     *,

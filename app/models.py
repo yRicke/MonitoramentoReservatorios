@@ -486,6 +486,8 @@ class PontoMonitoramento(models.Model):
     TIPO_DEPOIS = "depois_tratamento"
     PH_VOLTAGEM_REFERENCIA_7_PADRAO = 2.39
     PH_INCLINACAO_PADRAO = 0.23
+    TDS_ALVO_CALIBRACAO_PADRAO = 40.0
+    TURBIDEZ_ALVO_CALIBRACAO_PADRAO = 0.4
     TIPOS = (
         TIPO_ANTES,
         TIPO_DEPOIS,
@@ -511,6 +513,13 @@ class PontoMonitoramento(models.Model):
     ph_voltagem_referencia_7 = models.FloatField(default=PH_VOLTAGEM_REFERENCIA_7_PADRAO)
     ph_inclinacao = models.FloatField(default=PH_INCLINACAO_PADRAO)
     ph_calibrado_em = models.DateTimeField(null=True, blank=True)
+    tds_offset_ppm = models.FloatField(default=0.0)
+    turbidez_offset_ntu = models.FloatField(default=0.0)
+    tds_alvo_calibracao_ppm = models.FloatField(default=TDS_ALVO_CALIBRACAO_PADRAO)
+    turbidez_alvo_calibracao_ntu = models.FloatField(default=TURBIDEZ_ALVO_CALIBRACAO_PADRAO)
+    tds_adc_calibracao = models.IntegerField(null=True, blank=True)
+    turbidez_adc_calibracao = models.IntegerField(null=True, blank=True)
+    agua_calibrado_em = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -569,6 +578,49 @@ class PontoMonitoramento(models.Model):
         self.save(update_fields=[*campos_para_salvar, "ph_calibrado_em", "updated_at"])
         return self
 
+    def atualizar_calibracao_agua_limpa(
+        self,
+        *,
+        tds_base_ppm,
+        turbidez_base_ntu,
+        tds_alvo_ppm,
+        turbidez_alvo_ntu,
+        tds_adc=None,
+        turbidez_adc=None,
+    ):
+        tds_alvo_final = self._normalizar_tds_alvo_calibracao(tds_alvo_ppm)
+        turbidez_alvo_final = self._normalizar_turbidez_alvo_calibracao(turbidez_alvo_ntu)
+
+        self.tds_offset_ppm = tds_alvo_final - float(tds_base_ppm)
+        self.turbidez_offset_ntu = turbidez_alvo_final - float(turbidez_base_ntu)
+        self.tds_alvo_calibracao_ppm = tds_alvo_final
+        self.turbidez_alvo_calibracao_ntu = turbidez_alvo_final
+        self.tds_adc_calibracao = self._normalizar_adc_calibracao(tds_adc, campo="tds_adc_calibracao")
+        self.turbidez_adc_calibracao = self._normalizar_adc_calibracao(
+            turbidez_adc,
+            campo="turbidez_adc_calibracao",
+        )
+        self.agua_calibrado_em = timezone.now()
+
+        self.save(
+            update_fields=[
+                "tds_offset_ppm",
+                "turbidez_offset_ntu",
+                "tds_alvo_calibracao_ppm",
+                "turbidez_alvo_calibracao_ntu",
+                "tds_adc_calibracao",
+                "turbidez_adc_calibracao",
+                "agua_calibrado_em",
+                "updated_at",
+            ]
+        )
+        return self
+
+    def aplicar_calibracao_agua(self, *, tds, turbidez):
+        tds_ajustado = float(tds) + float(self.tds_offset_ppm)
+        turbidez_ajustada = float(turbidez) + float(self.turbidez_offset_ntu)
+        return max(0.0, tds_ajustado), max(0.0, turbidez_ajustada)
+
     def registrar_leitura(
         self,
         *,
@@ -623,6 +675,40 @@ class PontoMonitoramento(models.Model):
 
         if not math.isfinite(numero) or numero <= 0:
             raise ValueError("Inclinacao de pH deve ser maior que zero.")
+        return numero
+
+    @staticmethod
+    def _normalizar_tds_alvo_calibracao(valor):
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Alvo de TDS invalido para calibracao.") from exc
+
+        if not math.isfinite(numero) or numero < 0 or numero >= 50:
+            raise ValueError("Alvo de TDS da calibracao deve estar entre 0 e menor que 50 ppm.")
+        return numero
+
+    @staticmethod
+    def _normalizar_turbidez_alvo_calibracao(valor):
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Alvo de turbidez invalido para calibracao.") from exc
+
+        if not math.isfinite(numero) or numero < 0 or numero >= 0.5:
+            raise ValueError("Alvo de turbidez da calibracao deve estar entre 0 e menor que 0.5 NTU.")
+        return numero
+
+    @staticmethod
+    def _normalizar_adc_calibracao(valor, *, campo):
+        if valor is None:
+            return None
+        try:
+            numero = int(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{campo} invalido.") from exc
+        if numero < 0:
+            raise ValueError(f"{campo} deve ser maior ou igual a zero.")
         return numero
 
 

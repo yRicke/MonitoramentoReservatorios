@@ -34,6 +34,11 @@ urlpatterns = [
         views.reservatorio_calibracao_ph_auto,
         name="reservatorio_calibracao_ph_auto",
     ),
+    path(
+        'reservatorios/<int:reservatorio_id>/calibracao-agua/auto/',
+        views.reservatorio_calibracao_agua_auto,
+        name="reservatorio_calibracao_agua_auto",
+    ),
     path('reservatorios/<int:reservatorio_id>/excluir/', views.reservatorio_excluir, name="reservatorio_excluir"),
     path('entrar/', views.entrar, name="entrar"),
     path('sair/', views.sair, name="sair"),
