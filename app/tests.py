@@ -219,7 +219,7 @@ class IndexReservatorioTests(TestCase):
 
         response = self.client.post(
             reverse("reservatorio_calibracao_ph_auto", args=[reservatorio.id]),
-            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES},
+            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES, "ph_solucao": "7.00"},
         )
 
         self.assertEqual(response.status_code, 302)
@@ -241,13 +241,44 @@ class IndexReservatorioTests(TestCase):
 
         response = self.client.post(
             reverse("reservatorio_calibracao_ph_auto", args=[reservatorio.id]),
-            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES},
+            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES, "ph_solucao": "7.00"},
         )
 
         self.assertEqual(response.status_code, 302)
         ponto_antes.refresh_from_db()
         self.assertEqual(ponto_antes.ph_voltagem_referencia_7, voltagem_original)
         self.assertEqual(ponto_antes.ph_inclinacao, inclinacao_original)
+
+    def test_calibracao_ph_auto_usa_ph_solucao_conhecido(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio calibracao auto ph conhecido",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_antes.atualizar_calibracao_ph(
+            ph_voltagem_referencia_7=2.30,
+            ph_inclinacao=0.215,
+        )
+        ponto_antes.registrar_leitura(
+            temperatura=24.0,
+            tds=200.0,
+            turbidez=0.6,
+            ph=6.8,
+            sinais_brutos={"adc_ph": 3051},
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.post(
+            reverse("reservatorio_calibracao_ph_auto", args=[reservatorio.id]),
+            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES, "ph_solucao": "4.00"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        ponto_antes.refresh_from_db()
+        self.assertAlmostEqual(ponto_antes.ph_voltagem_referencia_7, 1.81, places=2)
+        self.assertAlmostEqual(ponto_antes.ph_inclinacao, 0.215, places=3)
 
     def test_detalhe_mostra_alerta_calibracao_ph_vencida_e_ok(self):
         self._logar()

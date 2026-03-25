@@ -1,4 +1,4 @@
-{% extends "blocos/base.html" %}
+﻿{% extends "blocos/base.html" %}
 {% load static l10n %}
 
 {% block title %}Reservatorio {{ reservatorio.nome }}{% endblock %}
@@ -133,14 +133,15 @@
             </div>
 
             <section class="ph-calibration-section">
-                <h5>Calibração automática (pH 7) por ponto</h5>
-                <p class="status-meta">1. Retire o eletrodo do reservatório.</p>
-                <p class="status-meta">2. Enxágue cuidadosamente com água destilada (preferencialmente), sem esfregar o
-                    sensor.</p>
-                <p class="status-meta">3. Coloque o eletrodo em uma solução de pH 7.</p>
-                <p class="status-meta">4. Aguarde até que a leitura esteja estável (aproximadamente 10 minutos).</p>
-                <p class="status-meta">5. Clique em "Calibrar ponto em pH 7".</p>
-                <p class="status-meta">6. Retorne o eletrodo ao tanque.</p>
+                <h5>Calibracao automatica por ponto (solucao de pH conhecido)</h5>
+                <p class="status-meta">1. Retire o eletrodo do reservatorio.</p>
+                <p class="status-meta">2. Enxague cuidadosamente com agua destilada (preferencialmente), sem esfregar o sensor.</p>
+                <p class="status-meta">3. Coloque o eletrodo em uma solucao de pH conhecido.</p>
+                <p class="status-meta">4. Aguarde ate que a leitura esteja estavel (aproximadamente 10 minutos).</p>
+                <p class="status-meta">5. Informe o pH da solucao e clique em calibrar.</p>
+                <p class="status-meta">6. Enxague cuidadosamente com agua destilada (preferencialmente), sem esfregar o sensor.</p>
+                <p class="status-meta">7. Retorne o eletrodo ao tanque.</p>
+                
 
                 <div class="ph-auto-grid">
                     <form class="ph-auto-card" method="post"
@@ -164,7 +165,9 @@
                             --
                             {% endif %}
                         </p>
-                        <button class="btn-main" type="submit">Calibrar ponto em pH 7</button>
+                        <label for="ph_solucao_antes">pH da solucao conhecida</label>
+                        <input id="ph_solucao_antes" name="ph_solucao" type="number" min="0" max="14" step="0.01" value="7.00" required>
+                        <button class="btn-main" type="submit">Calibrar ponto</button>
                     </form>
 
                     <form class="ph-auto-card" method="post"
@@ -188,7 +191,9 @@
                             --
                             {% endif %}
                         </p>
-                        <button class="btn-main" type="submit">Calibrar ponto em pH 7</button>
+                        <label for="ph_solucao_depois">pH da solucao conhecida</label>
+                        <input id="ph_solucao_depois" name="ph_solucao" type="number" min="0" max="14" step="0.01" value="7.00" required>
+                        <button class="btn-main" type="submit">Calibrar ponto</button>
                     </form>
                 </div>
             </section>

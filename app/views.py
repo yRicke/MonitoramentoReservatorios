@@ -232,10 +232,21 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
         return redirect("index")
 
     ponto_tipo = request.POST.get("ponto_tipo")
+    ph_solucao_raw = request.POST.get("ph_solucao", "7")
     try:
         ponto_tipo_normalizado = PontoMonitoramento.normalizar_tipo(ponto_tipo)
     except ValueError:
         messages.error(request, "Ponto de calibracao invalido.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    try:
+        ph_solucao = float(ph_solucao_raw)
+    except (TypeError, ValueError):
+        messages.error(request, "pH da solucao invalido.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    if not math.isfinite(ph_solucao) or ph_solucao < 0 or ph_solucao > 14:
+        messages.error(request, "pH da solucao deve estar entre 0 e 14.")
         return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
 
     reservatorio.garantir_pontos_monitoramento()
@@ -249,8 +260,9 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
         messages.error(request, "Nao ha voltagem de pH na ultima leitura deste ponto.")
         return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
 
+    ph7_equivalente = ultima_tensao + (ponto.ph_inclinacao * (ph_solucao - 7.0))
     try:
-        ponto.atualizar_calibracao_ph(ph_voltagem_referencia_7=ultima_tensao)
+        ponto.atualizar_calibracao_ph(ph_voltagem_referencia_7=ph7_equivalente)
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
@@ -258,7 +270,11 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
     nome_ponto = "antes" if ponto.tipo == PontoMonitoramento.TIPO_ANTES else "depois"
     messages.success(
         request,
-        f"Calibracao automatica aplicada no ponto {nome_ponto} com {ultima_tensao:.3f}V.",
+        (
+            f"Calibracao automatica aplicada no ponto {nome_ponto}: "
+            f"solucao pH {ph_solucao:.2f}, leitura {ultima_tensao:.3f}V, "
+            f"Vref pH7 ajustada para {ph7_equivalente:.3f}V."
+        ),
     )
     return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
 
