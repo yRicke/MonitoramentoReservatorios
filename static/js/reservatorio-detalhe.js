@@ -1,19 +1,7 @@
-const CHART_HEIGHT = 280;
-const MAX_POINTS_RENDER = 280;
-const Y_TICKS = 5;
-const X_TICKS = 6;
+const MAX_POINTS_RENDER = 420;
+const INITIAL_ZOOM_POINTS = 80;
 
 const CHARTS_CONFIG = [
-    {
-        chartId: "chartTDS",
-        emptyId: "emptyTDS",
-        seriesAntesId: "tds-series-antes-data",
-        seriesDepoisId: "tds-series-depois-data",
-        lastReadingId: "lastReadingTDS",
-        yLabel: "ppm",
-        colorAntes: "#7f4df5",
-        colorDepois: "#00be6f",
-    },
     {
         chartId: "chartTemperatura",
         emptyId: "emptyTemperatura",
@@ -23,6 +11,18 @@ const CHARTS_CONFIG = [
         yLabel: "celsius",
         colorAntes: "#ff7a00",
         colorDepois: "#16a34a",
+        decimals: 2,
+    },
+    {
+        chartId: "chartTDS",
+        emptyId: "emptyTDS",
+        seriesAntesId: "tds-series-antes-data",
+        seriesDepoisId: "tds-series-depois-data",
+        lastReadingId: "lastReadingTDS",
+        yLabel: "ppm",
+        colorAntes: "#7f4df5",
+        colorDepois: "#00be6f",
+        decimals: 2,
     },
     {
         chartId: "chartTurbidez",
@@ -33,6 +33,7 @@ const CHARTS_CONFIG = [
         yLabel: "ntu",
         colorAntes: "#3b82f6",
         colorDepois: "#9333ea",
+        decimals: 3,
     },
     {
         chartId: "chartPH",
@@ -43,8 +44,11 @@ const CHARTS_CONFIG = [
         yLabel: "pH",
         colorAntes: "#0ea5e9",
         colorDepois: "#10b981",
+        decimals: 2,
     },
 ];
+
+const chartInstances = new Map();
 
 function getJsonScriptData(id) {
     const element = document.getElementById(id);
@@ -71,13 +75,34 @@ function normalizePoints(rawSeries) {
             continue;
         }
 
-        const x = String(item.x || "-");
+        const xRaw = item.x;
         const y = Number(item.y);
         if (!Number.isFinite(y)) {
             continue;
         }
 
-        points.push({ x, y: Number(y.toFixed(2)) });
+        let xValue = null;
+        let label = "-";
+        if (typeof xRaw === "number" && Number.isFinite(xRaw)) {
+            xValue = xRaw;
+        } else if (typeof xRaw === "string" && xRaw.trim()) {
+            const parsed = Date.parse(xRaw);
+            xValue = Number.isFinite(parsed) ? parsed : xRaw.trim();
+        }
+
+        if (xValue === null) {
+            continue;
+        }
+
+        if (typeof xValue === "number") {
+            label = typeof item.label === "string" && item.label.trim()
+                ? item.label.trim()
+                : formatDateLabel(xValue);
+        } else {
+            label = xValue;
+        }
+
+        points.push({ x: xValue, y: Number(y.toFixed(4)), label });
     }
 
     return points;
@@ -93,7 +118,7 @@ function mergeAdjacentEqualLabels(series) {
     let sum = series[0].y;
     let count = 1;
 
-    for (let i = 1; i < series.length; i++) {
+    for (let i = 1; i < series.length; i += 1) {
         const point = series[i];
         if (point.x === currentLabel) {
             sum += point.y;
@@ -103,7 +128,7 @@ function mergeAdjacentEqualLabels(series) {
 
         merged.push({
             x: currentLabel,
-            y: Number((sum / count).toFixed(2)),
+            y: Number((sum / count).toFixed(4)),
         });
 
         currentLabel = point.x;
@@ -113,7 +138,7 @@ function mergeAdjacentEqualLabels(series) {
 
     merged.push({
         x: currentLabel,
-        y: Number((sum / count).toFixed(2)),
+        y: Number((sum / count).toFixed(4)),
     });
 
     return merged;
@@ -130,7 +155,7 @@ function downsampleEvenly(series, maxPoints = MAX_POINTS_RENDER) {
     const step = (series.length - 2) / middleTarget;
     let lastPushedIndex = 0;
 
-    for (let i = 1; i <= middleTarget; i++) {
+    for (let i = 1; i <= middleTarget; i += 1) {
         const idx = Math.min(
             lastIndex - 1,
             Math.max(1, Math.round(i * step)),
@@ -162,219 +187,227 @@ function prepareSeries(config) {
     return { antes, depois };
 }
 
-function createSvgElement(tagName) {
-    return document.createElementNS("http://www.w3.org/2000/svg", tagName);
-}
-
-function getUniqueLabels(...seriesList) {
-    const labels = [];
-    const seen = new Set();
-
-    seriesList.forEach((series) => {
-        series.forEach((point) => {
-            if (!seen.has(point.x)) {
-                seen.add(point.x);
-                labels.push(point.x);
-            }
-        });
-    });
-
-    return labels;
-}
-
-function createYScaleBounds(seriesAntes, seriesDepois) {
-    const values = [...seriesAntes, ...seriesDepois].map((p) => p.y);
-    let min = Math.min(...values);
-    let max = Math.max(...values);
-
-    if (min === max) {
-        min -= 1;
-        max += 1;
-    }
-
-    const padding = (max - min) * 0.08;
-    return {
-        min: min - padding,
-        max: max + padding,
-    };
-}
-
-function renderGrid(svg, dims) {
-    const { left, top, width, height } = dims;
-
-    for (let i = 0; i <= Y_TICKS; i++) {
-        const y = top + (i / Y_TICKS) * height;
-
-        const gridLine = createSvgElement("line");
-        gridLine.setAttribute("x1", String(left));
-        gridLine.setAttribute("x2", String(left + width));
-        gridLine.setAttribute("y1", String(y));
-        gridLine.setAttribute("y2", String(y));
-        gridLine.setAttribute("stroke", "#edf1f7");
-        gridLine.setAttribute("stroke-width", "1");
-        svg.appendChild(gridLine);
-    }
-
-    const axisX = createSvgElement("line");
-    axisX.setAttribute("x1", String(left));
-    axisX.setAttribute("x2", String(left + width));
-    axisX.setAttribute("y1", String(top + height));
-    axisX.setAttribute("y2", String(top + height));
-    axisX.setAttribute("stroke", "#9aa3b2");
-    axisX.setAttribute("stroke-width", "1.1");
-    svg.appendChild(axisX);
-
-    const axisY = createSvgElement("line");
-    axisY.setAttribute("x1", String(left));
-    axisY.setAttribute("x2", String(left));
-    axisY.setAttribute("y1", String(top));
-    axisY.setAttribute("y2", String(top + height));
-    axisY.setAttribute("stroke", "#9aa3b2");
-    axisY.setAttribute("stroke-width", "1.1");
-    svg.appendChild(axisY);
-}
-
-function renderYTicks(svg, dims, yBounds, yLabel) {
-    const { left, top, height } = dims;
-
-    for (let i = 0; i <= Y_TICKS; i++) {
-        const ratio = i / Y_TICKS;
-        const y = top + ratio * height;
-        const value = yBounds.max - ratio * (yBounds.max - yBounds.min);
-
-        const text = createSvgElement("text");
-        text.setAttribute("x", String(left - 8));
-        text.setAttribute("y", String(y + 4));
-        text.setAttribute("text-anchor", "end");
-        text.setAttribute("font-size", "11");
-        text.setAttribute("fill", "#667085");
-        text.textContent = value.toFixed(2);
-        svg.appendChild(text);
-    }
-
-    const axisLabel = createSvgElement("text");
-    axisLabel.setAttribute("x", "14");
-    axisLabel.setAttribute("y", String(top - 8));
-    axisLabel.setAttribute("font-size", "11");
-    axisLabel.setAttribute("fill", "#667085");
-    axisLabel.textContent = yLabel;
-    svg.appendChild(axisLabel);
-}
-
-function renderXTicks(svg, dims, labels) {
-    const { left, top, width, height } = dims;
-    if (!labels.length) {
-        return;
-    }
-
-    const tickCount = Math.min(X_TICKS, labels.length);
-    const step = labels.length > 1 ? (labels.length - 1) / (tickCount - 1 || 1) : 1;
-
-    for (let i = 0; i < tickCount; i++) {
-        const labelIndex = Math.min(
-            labels.length - 1,
-            Math.round(i * step),
-        );
-        const x = labels.length <= 1
-            ? left + width / 2
-            : left + (labelIndex / (labels.length - 1)) * width;
-        const y = top + height + 16;
-
-        const tickText = createSvgElement("text");
-        tickText.setAttribute("x", String(x));
-        tickText.setAttribute("y", String(y));
-        tickText.setAttribute("text-anchor", "middle");
-        tickText.setAttribute("font-size", "10");
-        tickText.setAttribute("fill", "#667085");
-        tickText.textContent = labels[labelIndex];
-        svg.appendChild(tickText);
-    }
-}
-
-function renderLineSeries(svg, series, color, mapX, mapY, drawMarkers) {
-    if (!series.length) {
-        return;
-    }
-
-    let pathData = "";
-    for (let i = 0; i < series.length; i++) {
-        const point = series[i];
-        const cmd = i === 0 ? "M" : "L";
-        pathData += `${cmd}${mapX(point.x)} ${mapY(point.y)} `;
-    }
-
-    const path = createSvgElement("path");
-    path.setAttribute("d", pathData.trim());
-    path.setAttribute("fill", "none");
-    path.setAttribute("stroke", color);
-    path.setAttribute("stroke-width", "1.8");
-    path.setAttribute("stroke-opacity", "0.8");
-    path.setAttribute("stroke-linecap", "round");
-    path.setAttribute("stroke-linejoin", "round");
-    svg.appendChild(path);
-
-    if (drawMarkers) {
-        series.forEach((point) => {
-            const circle = createSvgElement("circle");
-            circle.setAttribute("cx", String(mapX(point.x)));
-            circle.setAttribute("cy", String(mapY(point.y)));
-            circle.setAttribute("r", "2.8");
-            circle.setAttribute("fill", color);
-            circle.setAttribute("stroke", "#ffffff");
-            circle.setAttribute("stroke-width", "0.8");
-            svg.appendChild(circle);
-        });
-    }
-}
-
-function updateLastReadingText(config, labels, seriesAntes, seriesDepois) {
+function updateLastReadingText(config, seriesAntes, seriesDepois) {
     const target = document.getElementById(config.lastReadingId);
     if (!target) {
         return;
     }
 
-    if (!labels.length) {
+    if (!seriesAntes.length && !seriesDepois.length) {
         target.textContent = "Ultima leitura: --";
         return;
     }
 
-    const ultimaHora = labels[labels.length - 1];
-    const ultimaAntes = seriesAntes.length
-        ? `${seriesAntes[seriesAntes.length - 1].y.toFixed(2)} ${config.yLabel}`
+    const pontoAntes = seriesAntes.length ? seriesAntes[seriesAntes.length - 1] : null;
+    const pontoDepois = seriesDepois.length ? seriesDepois[seriesDepois.length - 1] : null;
+    const leituraAntes = pontoAntes
+        ? `${pontoAntes.y.toFixed(config.decimals)} ${config.yLabel} em ${pontoAntes.label || pontoAntes.x}`
         : "--";
-    const ultimaDepois = seriesDepois.length
-        ? `${seriesDepois[seriesDepois.length - 1].y.toFixed(2)} ${config.yLabel}`
+    const leituraDepois = pontoDepois
+        ? `${pontoDepois.y.toFixed(config.decimals)} ${config.yLabel} em ${pontoDepois.label || pontoDepois.x}`
         : "--";
 
-    target.textContent = `Ultima leitura (${ultimaHora}) | Antes: ${ultimaAntes} | Depois: ${ultimaDepois}`;
+    target.textContent = `Ultima leitura | Antes: ${leituraAntes} | Depois: ${leituraDepois}`;
 }
 
-function renderLegend(target, config, seriesAntes, seriesDepois) {
-    const latestAntes = seriesAntes.length ? seriesAntes[seriesAntes.length - 1].y : null;
-    const latestDepois = seriesDepois.length ? seriesDepois[seriesDepois.length - 1].y : null;
+function formatDateLabel(timestampMs) {
+    const date = new Date(timestampMs);
+    if (Number.isNaN(date.getTime())) {
+        return "-";
+    }
 
-    const legend = document.createElement("div");
-    legend.className = "timeseries-legend";
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = date.getFullYear();
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mi = String(date.getMinutes()).padStart(2, "0");
+    const ss = String(date.getSeconds()).padStart(2, "0");
+    return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+}
 
-    const itemAntes = document.createElement("div");
-    itemAntes.className = "timeseries-legend-item";
-    itemAntes.innerHTML = `
-        <span class="timeseries-dot" style="background:${config.colorAntes}"></span>
-        <span>Antes do tratamento</span>
-        <strong>${latestAntes === null ? "--" : latestAntes.toFixed(2)}</strong>
-    `;
-    legend.appendChild(itemAntes);
+function getXAxisConfig(seriesAntes, seriesDepois) {
+    const allPoints = [...seriesAntes, ...seriesDepois];
+    const isDatetime = allPoints.length > 0 && allPoints.every((point) => typeof point.x === "number");
 
-    const itemDepois = document.createElement("div");
-    itemDepois.className = "timeseries-legend-item";
-    itemDepois.innerHTML = `
-        <span class="timeseries-dot" style="background:${config.colorDepois}"></span>
-        <span>Depois do tratamento</span>
-        <strong>${latestDepois === null ? "--" : latestDepois.toFixed(2)}</strong>
-    `;
-    legend.appendChild(itemDepois);
+    if (!isDatetime) {
+        return {
+            isDatetime: false,
+            config: {
+                type: "category",
+                labels: {
+                    rotate: -28,
+                    trim: true,
+                    hideOverlappingLabels: true,
+                    style: {
+                        colors: "#60756d",
+                        fontSize: "11px",
+                    },
+                },
+                axisBorder: {
+                    color: "#d7e2de",
+                },
+            },
+        };
+    }
 
-    target.appendChild(legend);
+    const sortedX = allPoints
+        .map((point) => point.x)
+        .sort((a, b) => a - b);
+    const oldest = sortedX[0];
+    const newest = sortedX[sortedX.length - 1];
+    const zoomStartIndex = Math.max(0, sortedX.length - INITIAL_ZOOM_POINTS);
+    const zoomStart = sortedX[zoomStartIndex];
+
+    return {
+        isDatetime: true,
+        oldest,
+        newest,
+        zoomStart,
+        config: {
+            type: "datetime",
+            min: oldest,
+            max: newest,
+            labels: {
+                datetimeUTC: false,
+                style: {
+                    colors: "#60756d",
+                    fontSize: "11px",
+                },
+            },
+            axisBorder: {
+                color: "#d7e2de",
+            },
+        },
+    };
+}
+
+function createApexOptions(config, seriesAntes, seriesDepois) {
+    const xAxisMeta = getXAxisConfig(seriesAntes, seriesDepois);
+    const isDatetime = xAxisMeta.isDatetime;
+    const xAxis = xAxisMeta.config;
+    const chartEvents = {};
+
+    if (isDatetime) {
+        const oldest = xAxisMeta.oldest;
+        const newest = xAxisMeta.newest;
+        const zoomStart = xAxisMeta.zoomStart;
+
+        chartEvents.beforeZoom = (_ctx, payload) => {
+            const minRaw = payload?.xaxis?.min;
+            const maxRaw = payload?.xaxis?.max;
+            const min = Number.isFinite(minRaw) ? Math.max(oldest, minRaw) : oldest;
+            const max = Number.isFinite(maxRaw) ? Math.min(newest, maxRaw) : newest;
+            if (max <= min) {
+                return { xaxis: { min: oldest, max: newest } };
+            }
+            return { xaxis: { min, max } };
+        };
+        chartEvents.beforeResetZoom = () => ({
+            xaxis: { min: zoomStart, max: newest },
+        });
+        chartEvents.mounted = (chartCtx) => {
+            if (zoomStart > oldest && newest > oldest) {
+                chartCtx.zoomX(zoomStart, newest);
+            }
+        };
+    }
+
+    return {
+        chart: {
+            type: "line",
+            height: 320,
+            events: chartEvents,
+            toolbar: {
+                show: true,
+                tools: {
+                    download: true,
+                    selection: true,
+                    zoom: true,
+                    zoomin: true,
+                    zoomout: true,
+                    pan: true,
+                    reset: true,
+                },
+            },
+            zoom: {
+                enabled: true,
+                autoScaleYaxis: true,
+            },
+            animations: {
+                enabled: true,
+                easing: "easeinout",
+                speed: 450,
+            },
+            fontFamily: "Manrope, sans-serif",
+        },
+        series: [
+            { name: "Antes", data: seriesAntes },
+            { name: "Depois", data: seriesDepois },
+        ],
+        colors: [config.colorAntes, config.colorDepois],
+        stroke: {
+            curve: "smooth",
+            width: 2.6,
+        },
+        markers: {
+            size: 3.2,
+            strokeWidth: 0.8,
+            hover: {
+                size: 5,
+            },
+        },
+        dataLabels: {
+            enabled: false,
+        },
+        legend: {
+            show: true,
+            position: "top",
+            horizontalAlign: "left",
+            fontWeight: 700,
+        },
+        grid: {
+            borderColor: "#e4ece9",
+            strokeDashArray: 3,
+        },
+        xaxis: xAxis,
+        yaxis: {
+            title: {
+                text: config.yLabel,
+                style: {
+                    color: "#476157",
+                    fontWeight: 700,
+                },
+            },
+            labels: {
+                formatter: (value) => Number(value).toFixed(config.decimals),
+                style: {
+                    colors: "#60756d",
+                    fontSize: "11px",
+                },
+            },
+        },
+        tooltip: {
+            shared: false,
+            x: {
+                show: true,
+                format: isDatetime ? "dd/MM/yyyy HH:mm:ss" : undefined,
+            },
+            y: {
+                formatter: (value) => `${Number(value).toFixed(config.decimals)} ${config.yLabel}`,
+            },
+        },
+        noData: {
+            text: "Sem dados",
+        },
+    };
+}
+
+function destroyChartIfExists(chartId) {
+    const chart = chartInstances.get(chartId);
+    if (chart) {
+        chart.destroy();
+        chartInstances.delete(chartId);
+    }
 }
 
 function renderChart(config) {
@@ -385,64 +418,34 @@ function renderChart(config) {
     }
 
     const { antes, depois } = prepareSeries(config);
+    updateLastReadingText(config, antes, depois);
+
     if (!antes.length && !depois.length) {
+        destroyChartIfExists(config.chartId);
         chartElement.hidden = true;
         emptyElement.hidden = false;
-        updateLastReadingText(config, [], [], []);
+        return;
+    }
+
+    if (typeof window.ApexCharts !== "function") {
+        destroyChartIfExists(config.chartId);
+        chartElement.hidden = true;
+        emptyElement.hidden = false;
+        emptyElement.textContent = "ApexCharts nao carregado.";
         return;
     }
 
     chartElement.hidden = false;
     emptyElement.hidden = true;
+    emptyElement.textContent = "Sem leituras";
+
+    destroyChartIfExists(config.chartId);
     chartElement.innerHTML = "";
 
-    const width = Math.max(chartElement.clientWidth || 640, 320);
-    const height = CHART_HEIGHT;
-    const margins = { top: 20, right: 12, bottom: 38, left: 52 };
-    const dims = {
-        left: margins.left,
-        top: margins.top,
-        width: width - margins.left - margins.right,
-        height: height - margins.top - margins.bottom,
-    };
-
-    const labels = getUniqueLabels(antes, depois);
-    const labelToIndex = new Map(labels.map((label, index) => [label, index]));
-    const yBounds = createYScaleBounds(antes, depois);
-    const drawMarkers = true;
-
-    const mapX = (label) => {
-        if (labels.length <= 1) {
-            return dims.left + dims.width / 2;
-        }
-        const idx = labelToIndex.get(label) || 0;
-        return dims.left + (idx / (labels.length - 1)) * dims.width;
-    };
-
-    const mapY = (value) => {
-        const ratio = (value - yBounds.min) / (yBounds.max - yBounds.min);
-        return dims.top + dims.height - ratio * dims.height;
-    };
-
-    const root = document.createElement("div");
-    root.className = "timeseries-root";
-
-    const svg = createSvgElement("svg");
-    svg.classList.add("timeseries-svg");
-    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    svg.setAttribute("width", "100%");
-    svg.setAttribute("height", String(height));
-
-    renderGrid(svg, dims);
-    renderYTicks(svg, dims, yBounds, config.yLabel);
-    renderXTicks(svg, dims, labels);
-    renderLineSeries(svg, antes, config.colorAntes, mapX, mapY, drawMarkers);
-    renderLineSeries(svg, depois, config.colorDepois, mapX, mapY, drawMarkers);
-
-    root.appendChild(svg);
-    renderLegend(root, config, antes, depois);
-    chartElement.appendChild(root);
-    updateLastReadingText(config, labels, antes, depois);
+    const options = createApexOptions(config, antes, depois);
+    const chart = new window.ApexCharts(chartElement, options);
+    chart.render();
+    chartInstances.set(config.chartId, chart);
 }
 
 function renderAllCharts() {
@@ -520,7 +523,7 @@ function handleResize() {
     if (resizeTimer) {
         clearTimeout(resizeTimer);
     }
-    resizeTimer = setTimeout(renderAllCharts, 120);
+    resizeTimer = setTimeout(renderAllCharts, 140);
 }
 
 function initPage() {

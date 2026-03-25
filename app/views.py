@@ -628,11 +628,12 @@ def _series_leituras_por_ponto(ponto):
     ph = []
     for leitura in leituras:
         data_hora_local = timezone.localtime(leitura.data_hora)
-        x_label = data_hora_local.strftime("%d/%m %H:%M:%S")
-        tds.append({"x": x_label, "y": leitura.tds})
-        temperatura.append({"x": x_label, "y": leitura.temperatura})
-        turbidez.append({"x": x_label, "y": leitura.turbidez})
-        ph.append({"x": x_label, "y": leitura.ph})
+        x_timestamp_ms = int(data_hora_local.timestamp() * 1000)
+        x_label = data_hora_local.strftime("%d/%m/%Y %H:%M:%S")
+        tds.append({"x": x_timestamp_ms, "y": leitura.tds, "label": x_label})
+        temperatura.append({"x": x_timestamp_ms, "y": leitura.temperatura, "label": x_label})
+        turbidez.append({"x": x_timestamp_ms, "y": leitura.turbidez, "label": x_label})
+        ph.append({"x": x_timestamp_ms, "y": leitura.ph, "label": x_label})
 
     return {
         "tds": tds,
