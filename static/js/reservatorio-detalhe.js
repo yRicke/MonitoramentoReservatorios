@@ -49,6 +49,7 @@ const CHARTS_CONFIG = [
 ];
 
 const chartInstances = new Map();
+let resizeTimer = null;
 
 function getJsonScriptData(id) {
     const element = document.getElementById(id);
@@ -115,6 +116,7 @@ function mergeAdjacentEqualLabels(series) {
 
     const merged = [];
     let currentLabel = series[0].x;
+    let currentDateLabel = series[0].label || null;
     let sum = series[0].y;
     let count = 1;
 
@@ -123,15 +125,18 @@ function mergeAdjacentEqualLabels(series) {
         if (point.x === currentLabel) {
             sum += point.y;
             count += 1;
+            currentDateLabel = point.label || currentDateLabel;
             continue;
         }
 
         merged.push({
             x: currentLabel,
             y: Number((sum / count).toFixed(4)),
+            label: currentDateLabel,
         });
 
         currentLabel = point.x;
+        currentDateLabel = point.label || null;
         sum = point.y;
         count = 1;
     }
@@ -139,6 +144,7 @@ function mergeAdjacentEqualLabels(series) {
     merged.push({
         x: currentLabel,
         y: Number((sum / count).toFixed(4)),
+        label: currentDateLabel,
     });
 
     return merged;
@@ -201,10 +207,10 @@ function updateLastReadingText(config, seriesAntes, seriesDepois) {
     const pontoAntes = seriesAntes.length ? seriesAntes[seriesAntes.length - 1] : null;
     const pontoDepois = seriesDepois.length ? seriesDepois[seriesDepois.length - 1] : null;
     const leituraAntes = pontoAntes
-        ? `${pontoAntes.y.toFixed(config.decimals)} ${config.yLabel} em ${pontoAntes.label || pontoAntes.x}`
+        ? `${pontoAntes.y.toFixed(config.decimals)} ${config.yLabel} em ${formatPointDateLabel(pontoAntes)}`
         : "--";
     const leituraDepois = pontoDepois
-        ? `${pontoDepois.y.toFixed(config.decimals)} ${config.yLabel} em ${pontoDepois.label || pontoDepois.x}`
+        ? `${pontoDepois.y.toFixed(config.decimals)} ${config.yLabel} em ${formatPointDateLabel(pontoDepois)}`
         : "--";
 
     target.textContent = `Ultima leitura | Antes: ${leituraAntes} | Depois: ${leituraDepois}`;
@@ -390,7 +396,16 @@ function createApexOptions(config, seriesAntes, seriesDepois) {
             shared: false,
             x: {
                 show: true,
-                format: isDatetime ? "dd/MM/yyyy HH:mm:ss" : undefined,
+                formatter: (value, opts) => {
+                    const point = opts?.w?.config?.series?.[opts.seriesIndex]?.data?.[opts.dataPointIndex];
+                    if (point) {
+                        return formatPointDateLabel(point);
+                    }
+                    if (typeof value === "number" && Number.isFinite(value)) {
+                        return formatDateLabel(value);
+                    }
+                    return String(value ?? "-");
+                },
             },
             y: {
                 formatter: (value) => `${Number(value).toFixed(config.decimals)} ${config.yLabel}`,
@@ -452,6 +467,19 @@ function renderAllCharts() {
     CHARTS_CONFIG.forEach(renderChart);
 }
 
+function formatPointDateLabel(point) {
+    if (!point) {
+        return "-";
+    }
+    if (typeof point.label === "string" && point.label.trim()) {
+        return point.label.trim();
+    }
+    if (typeof point.x === "number" && Number.isFinite(point.x)) {
+        return formatDateLabel(point.x);
+    }
+    return String(point.x ?? "-");
+}
+
 function initTopToggle() {
     const toggleButtons = document.querySelectorAll("[data-toggle-target]");
     toggleButtons.forEach((button) => {
@@ -465,8 +493,9 @@ function initTopToggle() {
             return;
         }
 
-        const openLabel = "Fechar edicao do reservatorio";
-        const closedLabel = "Editar reservatorio";
+        const openLabel = button.dataset.labelOpen || "Fechar";
+        const closedLabel = button.dataset.labelClosed || "Abrir";
+        const startsOpen = button.dataset.startsOpen === "true";
 
         const updateState = (isOpen) => {
             panel.hidden = !isOpen;
@@ -475,7 +504,7 @@ function initTopToggle() {
             button.textContent = isOpen ? openLabel : closedLabel;
         };
 
-        updateState(false);
+        updateState(startsOpen);
         button.addEventListener("click", () => {
             const isOpen = button.getAttribute("aria-expanded") === "true";
             updateState(!isOpen);
@@ -518,7 +547,6 @@ function initCalibrationToggle() {
     });
 }
 
-let resizeTimer = null;
 function handleResize() {
     if (resizeTimer) {
         clearTimeout(resizeTimer);

@@ -49,7 +49,9 @@
 
 <section class="panel detail-top-toggle">
     <div class="top-toggle-menu">
-        <button class="top-toggle-btn" type="button" data-toggle-target="editReservatorioPanel" aria-expanded="false">
+        <button class="top-toggle-btn" type="button" data-toggle-target="editReservatorioPanel"
+            data-label-closed="Editar reservatorio" data-label-open="Fechar edicao do reservatorio"
+            aria-expanded="false">
             Editar reservatorio
         </button>
     </div>
@@ -373,5 +375,5 @@
 
 {% block extra_scripts %}
 <script src="{% static 'js/vendor/apexcharts.min.js' %}?v=3.54.1"></script>
-<script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260325-apex4"></script>
+<script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260325-apex11"></script>
 {% endblock %}
