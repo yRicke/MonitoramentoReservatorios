@@ -397,7 +397,8 @@ class IndexReservatorioTests(TestCase):
 
         response = self.client.get(reverse("index"), {"dias": "5"})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["periodo_dias"], 5)
+        self.assertEqual(response.context["periodo_selecionado"], "5d")
+        self.assertEqual(response.context["periodo_rotulo"], "5 dias")
 
         cards = response.context["dashboard_cards"]
         card = next(item for item in cards if item["reservatorio"].id == reservatorio.id)
@@ -419,6 +420,18 @@ class IndexReservatorioTests(TestCase):
         self.assertEqual(card["status_depois"]["tds"], Reservatorio.STATUS_BOM)
         self.assertEqual(card["status_depois"]["turbidez"], Reservatorio.STATUS_BOM)
         self.assertEqual(card["status_depois"]["ph"], Reservatorio.STATUS_ATENCAO)
+
+    def test_dashboard_aceita_periodos_em_horas_e_minutos(self):
+        self._logar()
+        response_hora = self.client.get(reverse("index"), {"dias": "1h"})
+        self.assertEqual(response_hora.status_code, 200)
+        self.assertEqual(response_hora.context["periodo_selecionado"], "1h")
+        self.assertEqual(response_hora.context["periodo_rotulo"], "1 hora")
+
+        response_min = self.client.get(reverse("index"), {"dias": "15m"})
+        self.assertEqual(response_min.status_code, 200)
+        self.assertEqual(response_min.context["periodo_selecionado"], "15m")
+        self.assertEqual(response_min.context["periodo_rotulo"], "15 min")
 
 
 class ReservatorioModelCrudTests(TestCase):

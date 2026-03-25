@@ -30,7 +30,7 @@
             placeholder="Busque por nome ou status"
             aria-label="Buscar por nome ou status"
         >
-        <input type="hidden" name="dias" value="{{ periodo_dias }}">
+        <input type="hidden" name="dias" value="{{ periodo_selecionado }}">
         <button type="submit" aria-label="Buscar">&#128269;</button>
     </form>
 </section>
@@ -60,9 +60,9 @@
                 {% endif %}
                 <label for="periodo-{{ card.reservatorio.id }}">Periodo:</label>
                 <select id="periodo-{{ card.reservatorio.id }}" name="dias" onchange="this.form.submit()">
-                    {% for dias_opcao in periodos_dias_disponiveis %}
-                    <option value="{{ dias_opcao }}" {% if dias_opcao == periodo_dias %}selected{% endif %}>
-                        {{ dias_opcao }} dia{% if dias_opcao > 1 %}s{% endif %}
+                    {% for periodo_valor, periodo_label in periodos_disponiveis %}
+                    <option value="{{ periodo_valor }}" {% if periodo_valor == periodo_selecionado %}selected{% endif %}>
+                        {{ periodo_label }}
                     </option>
                     {% endfor %}
                 </select>
@@ -83,7 +83,7 @@
         </section>
 
         <section class="dashboard-card-right">
-            <p class="dashboard-period-caption">Medias dos ultimos {{ periodo_dias }} dias</p>
+            <p class="dashboard-period-caption">Medias dos ultimos {{ periodo_rotulo }}</p>
 
             <table class="dashboard-metrics-table">
                 <thead>

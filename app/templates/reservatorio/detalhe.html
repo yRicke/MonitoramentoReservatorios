@@ -25,13 +25,11 @@
     <article class="panel">
         <h4>Status antes do tratamento</h4>
         <p class="detail-status">
-            <strong class="status-text status-{{ ponto_antes.status_atual }}">{{ ponto_antes.get_status_atual_display
-                }}</strong>
+            <strong class="status-text status-{{ ponto_antes.status_atual }}">{{ ponto_antes.get_status_atual_display }}</strong>
         </p>
         {% if ponto_antes.modelo_versao %}
         <p class="status-meta">
-            Modelo: {{ ponto_antes.modelo_versao }}{% if ponto_antes.confianca_status is not None %} ({{
-            ponto_antes.confianca_status|floatformat:2 }}){% endif %}
+            Modelo: {{ ponto_antes.modelo_versao }}{% if ponto_antes.confianca_status is not None %} ({{ ponto_antes.confianca_status|floatformat:2 }}){% endif %}
         </p>
         {% endif %}
     </article>
@@ -39,13 +37,11 @@
     <article class="panel">
         <h4>Status depois do tratamento</h4>
         <p class="detail-status">
-            <strong class="status-text status-{{ ponto_depois.status_atual }}">{{ ponto_depois.get_status_atual_display
-                }}</strong>
+            <strong class="status-text status-{{ ponto_depois.status_atual }}">{{ ponto_depois.get_status_atual_display }}</strong>
         </p>
         {% if ponto_depois.modelo_versao %}
         <p class="status-meta">
-            Modelo: {{ ponto_depois.modelo_versao }}{% if ponto_depois.confianca_status is not None %} ({{
-            ponto_depois.confianca_status|floatformat:2 }}){% endif %}
+            Modelo: {{ ponto_depois.modelo_versao }}{% if ponto_depois.confianca_status is not None %} ({{ ponto_depois.confianca_status|floatformat:2 }}){% endif %}
         </p>
         {% endif %}
     </article>

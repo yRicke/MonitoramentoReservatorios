@@ -30,8 +30,24 @@ from app.services.regras import (
 )
 
 MAX_PONTOS_GRAFICO = 1200
-PERIODO_PADRAO_DIAS = 5
-PERIODOS_DIAS_DISPONIVEIS = (1, 3, 5, 7, 10, 15, 30)
+PERIODO_PADRAO_VALOR = "5d"
+PERIODOS_DISPONIVEIS = (
+    ("15m", "15 min"),
+    ("30m", "30 min"),
+    ("1h", "1 hora"),
+    ("3h", "3 horas"),
+    ("6h", "6 horas"),
+    ("12h", "12 horas"),
+    ("1d", "1 dia"),
+    ("3d", "3 dias"),
+    ("5d", "5 dias"),
+    ("7d", "7 dias"),
+    ("10d", "10 dias"),
+    ("15d", "15 dias"),
+    ("30d", "30 dias"),
+    ("60d", "60 dias"),
+    ("90d", "90 dias"),
+)
 STATUS_SEM_DADO = "sem-dado"
 DIAS_ALERTA_CALIBRACAO_PH = 15
 
@@ -40,9 +56,10 @@ DIAS_ALERTA_CALIBRACAO_PH = 15
 @require_http_methods(["GET"])
 def index(request):
     busca = request.GET.get("busca", "").strip()
-    periodo_dias = _normalizar_periodo_dias(request.GET.get("dias"))
+    periodo_valor = _normalizar_periodo_valor(request.GET.get("dias"))
+    periodo_delta = _delta_por_periodo(periodo_valor)
     reservatorios = list(Reservatorio.listar(busca=busca, usuario=request.user))
-    dashboard_cards = _montar_dashboard_cards(reservatorios, periodo_dias)
+    dashboard_cards = _montar_dashboard_cards(reservatorios, periodo_delta)
 
     return render(
         request,
@@ -51,8 +68,9 @@ def index(request):
             "reservatorios": reservatorios,
             "dashboard_cards": dashboard_cards,
             "busca": busca,
-            "periodo_dias": periodo_dias,
-            "periodos_dias_disponiveis": PERIODOS_DIAS_DISPONIVEIS,
+            "periodo_selecionado": periodo_valor,
+            "periodo_rotulo": _rotulo_periodo(periodo_valor),
+            "periodos_disponiveis": PERIODOS_DISPONIVEIS,
         },
     )
 
@@ -285,15 +303,40 @@ def esp32_leitura(request):
     return JsonResponse({"ok": True}, status=201)
 
 
-def _normalizar_periodo_dias(valor):
-    try:
-        dias = int(valor)
-    except (TypeError, ValueError):
-        return PERIODO_PADRAO_DIAS
+def _normalizar_periodo_valor(valor):
+    valor_normalizado = (valor or "").strip().lower()
+    valores_validos = {item[0] for item in PERIODOS_DISPONIVEIS}
+    if valor_normalizado in valores_validos:
+        return valor_normalizado
 
-    if dias not in PERIODOS_DIAS_DISPONIVEIS:
-        return PERIODO_PADRAO_DIAS
-    return dias
+    # Compatibilidade com links antigos (?dias=5, ?dias=30...)
+    try:
+        dias_legado = int(valor_normalizado)
+    except (TypeError, ValueError):
+        return PERIODO_PADRAO_VALOR
+
+    valor_legado = f"{dias_legado}d"
+    if valor_legado in valores_validos:
+        return valor_legado
+    return PERIODO_PADRAO_VALOR
+
+
+def _delta_por_periodo(periodo_valor):
+    unidade = periodo_valor[-1]
+    quantidade = int(periodo_valor[:-1])
+
+    if unidade == "m":
+        return timedelta(minutes=quantidade)
+    if unidade == "h":
+        return timedelta(hours=quantidade)
+    return timedelta(days=quantidade)
+
+
+def _rotulo_periodo(periodo_valor):
+    for valor, rotulo in PERIODOS_DISPONIVEIS:
+        if valor == periodo_valor:
+            return rotulo
+    return "5 dias"
 
 
 def _medias_vazias():
@@ -305,12 +348,12 @@ def _medias_vazias():
     }
 
 
-def _montar_dashboard_cards(reservatorios, periodo_dias):
+def _montar_dashboard_cards(reservatorios, periodo_delta):
     if not reservatorios:
         return []
 
     reservatorio_ids = [item.id for item in reservatorios]
-    inicio_periodo = timezone.now() - timedelta(days=periodo_dias)
+    inicio_periodo = timezone.now() - periodo_delta
     medias_por_chave = {}
 
     agregados = (

@@ -314,7 +314,6 @@ def _calcular_turbidez_por_tensao(*, turbidez_tensao):
         raise IngestaoLeituraErro("campo invalido: turbidez")
     return turbidez_tensao
 
-
 def _calcular_ph_por_tensao(
     *,
     ph_tensao,
@@ -329,7 +328,6 @@ def _calcular_ph_por_tensao(
     ph = 7.0 + (ph_voltagem_referencia_7 - ph_tensao) / ph_inclinacao
     return _normalizar_ph(ph)
 
-
 def _normalizar_ph(ph):
     if not math.isfinite(ph):
         raise IngestaoLeituraErro("campo invalido: ph")
@@ -339,7 +337,6 @@ def _normalizar_ph(ph):
     if ph > 14:
         return 14.0
     return ph
-
 
 def _adc_para_tensao(adc, *, campo):
     if adc < 0 or adc > ADC_VALOR_MAXIMO:
