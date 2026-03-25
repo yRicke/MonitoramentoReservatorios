@@ -34,6 +34,16 @@ const CHARTS_CONFIG = [
         colorAntes: "#3b82f6",
         colorDepois: "#9333ea",
     },
+    {
+        chartId: "chartPH",
+        emptyId: "emptyPH",
+        seriesAntesId: "ph-series-antes-data",
+        seriesDepoisId: "ph-series-depois-data",
+        lastReadingId: "lastReadingPH",
+        yLabel: "pH",
+        colorAntes: "#0ea5e9",
+        colorDepois: "#10b981",
+    },
 ];
 
 function getJsonScriptData(id) {

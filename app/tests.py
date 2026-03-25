@@ -62,7 +62,28 @@ class IndexReservatorioTests(TestCase):
             reservatorio.meta_celsius_temperatura,
             Reservatorio.META_PADRAO_CELSIUS_TEMPERATURA,
         )
+        self.assertEqual(reservatorio.meta_ph, Reservatorio.META_PADRAO_PH)
         self.assertEqual(reservatorio.pontos_monitoramento.count(), 2)
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+        self.assertEqual(
+            ponto_antes.ph_voltagem_referencia_7,
+            PontoMonitoramento.PH_VOLTAGEM_REFERENCIA_7_PADRAO,
+        )
+        self.assertEqual(
+            ponto_antes.ph_inclinacao,
+            PontoMonitoramento.PH_INCLINACAO_PADRAO,
+        )
+        self.assertIsNone(ponto_antes.ph_calibrado_em)
+        self.assertEqual(
+            ponto_depois.ph_voltagem_referencia_7,
+            PontoMonitoramento.PH_VOLTAGEM_REFERENCIA_7_PADRAO,
+        )
+        self.assertEqual(
+            ponto_depois.ph_inclinacao,
+            PontoMonitoramento.PH_INCLINACAO_PADRAO,
+        )
+        self.assertIsNone(ponto_depois.ph_calibrado_em)
 
     def test_excluir_remove_reservatorio(self):
         self._logar()
@@ -107,6 +128,7 @@ class IndexReservatorioTests(TestCase):
                 "meta_ppm_tds": "700.0",
                 "meta_ntu_turbidez": "1.9",
                 "meta_celsius_temperatura": "27.5",
+                "meta_ph": "6.80",
             },
         )
 
@@ -117,6 +139,173 @@ class IndexReservatorioTests(TestCase):
         self.assertEqual(reservatorio.meta_ppm_tds, 700.0)
         self.assertEqual(reservatorio.meta_ntu_turbidez, 1.9)
         self.assertEqual(reservatorio.meta_celsius_temperatura, 27.5)
+        self.assertEqual(reservatorio.meta_ph, 6.8)
+
+    def test_calibracao_ph_view_atualiza_parametros_por_ponto(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio calibracao",
+            status=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.post(
+            reverse("reservatorio_calibracao_ph_atualizar", args=[reservatorio.id]),
+            {
+                "ph7_antes": "2.420",
+                "inclinacao_antes": "0.225",
+                "ph7_depois": "2.390",
+                "inclinacao_depois": "0.230",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+        self.assertAlmostEqual(ponto_antes.ph_voltagem_referencia_7, 2.42, places=3)
+        self.assertAlmostEqual(ponto_antes.ph_inclinacao, 0.225, places=3)
+        self.assertIsNotNone(ponto_antes.ph_calibrado_em)
+        self.assertAlmostEqual(ponto_depois.ph_voltagem_referencia_7, 2.39, places=3)
+        self.assertAlmostEqual(ponto_depois.ph_inclinacao, 0.23, places=3)
+        self.assertIsNotNone(ponto_depois.ph_calibrado_em)
+
+        detalhe = self.client.get(reverse("reservatorio_detalhe", args=[reservatorio.id]))
+        self.assertContains(detalhe, 'id="ph7_antes"')
+        self.assertContains(detalhe, 'value="2.42"')
+        self.assertContains(detalhe, 'id="inclinacao_antes"')
+        self.assertContains(detalhe, 'value="0.225"')
+
+    def test_calibracao_ph_auto_define_ph7_pela_ultima_tensao_e_mantem_inclinacao(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio calibracao auto",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_antes.atualizar_calibracao_ph(
+            ph_voltagem_referencia_7=2.30,
+            ph_inclinacao=0.215,
+        )
+
+        ponto_antes.registrar_leitura(
+            temperatura=24.0,
+            tds=200.0,
+            turbidez=0.6,
+            ph=6.8,
+            sinais_brutos={"adc_ph": 3051},
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.post(
+            reverse("reservatorio_calibracao_ph_auto", args=[reservatorio.id]),
+            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        ponto_antes.refresh_from_db()
+        self.assertAlmostEqual(ponto_antes.ph_voltagem_referencia_7, 2.46, places=2)
+        self.assertAlmostEqual(ponto_antes.ph_inclinacao, 0.215, places=3)
+        self.assertIsNotNone(ponto_antes.ph_calibrado_em)
+
+    def test_calibracao_ph_auto_nao_altera_quando_nao_tem_tensao(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio calibracao auto sem leitura",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        voltagem_original = ponto_antes.ph_voltagem_referencia_7
+        inclinacao_original = ponto_antes.ph_inclinacao
+
+        response = self.client.post(
+            reverse("reservatorio_calibracao_ph_auto", args=[reservatorio.id]),
+            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        ponto_antes.refresh_from_db()
+        self.assertEqual(ponto_antes.ph_voltagem_referencia_7, voltagem_original)
+        self.assertEqual(ponto_antes.ph_inclinacao, inclinacao_original)
+
+    def test_detalhe_mostra_alerta_calibracao_ph_vencida_e_ok(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio calibracao alerta",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+
+        ponto_antes.ph_calibrado_em = timezone.now() - timedelta(days=20)
+        ponto_antes.save(update_fields=["ph_calibrado_em", "updated_at"])
+        ponto_depois.ph_calibrado_em = timezone.now() - timedelta(days=3)
+        ponto_depois.save(update_fields=["ph_calibrado_em", "updated_at"])
+
+        response = self.client.get(reverse("reservatorio_detalhe", args=[reservatorio.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["ph_calibracao_antes"]["vencida"])
+        self.assertEqual(response.context["ph_calibracao_antes"]["dias"], 20)
+        self.assertFalse(response.context["ph_calibracao_depois"]["vencida"])
+        self.assertEqual(response.context["ph_calibracao_depois"]["dias"], 3)
+        self.assertIsNone(response.context["ph_calibracao_antes"]["ultima_tensao"])
+        self.assertIsNone(response.context["ph_calibracao_depois"]["ultima_tensao"])
+
+    def test_detalhe_expoe_ultima_voltagem_ph_por_ponto(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio voltagem ph",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+
+        ponto_antes.registrar_leitura(
+            temperatura=24.0,
+            tds=200.0,
+            turbidez=0.6,
+            ph=6.8,
+            sinais_brutos={"adc_ph": 3051},
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+        ponto_depois.registrar_leitura(
+            temperatura=24.0,
+            tds=200.0,
+            turbidez=0.6,
+            ph=7.0,
+            sinais_brutos={"ph_tensao": 2.410},
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.get(reverse("reservatorio_detalhe", args=[reservatorio.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertAlmostEqual(response.context["ph_calibracao_antes"]["ultima_tensao"], 2.46, places=2)
+        self.assertAlmostEqual(response.context["ph_calibracao_depois"]["ultima_tensao"], 2.41, places=2)
+
+    def test_detalhe_expoe_ultima_voltagem_ph_com_formato_legado(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio voltagem ph legado",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+
+        ponto_antes.registrar_leitura(
+            temperatura=24.0,
+            tds=200.0,
+            turbidez=0.6,
+            ph=6.8,
+            sinais_brutos={"raw": {"ph_adc": 3051}},
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.get(reverse("reservatorio_detalhe", args=[reservatorio.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertAlmostEqual(response.context["ph_calibracao_antes"]["ultima_tensao"], 2.46, places=2)
 
     def test_detalhe_nao_permite_acesso_a_reservatorio_de_outro_usuario(self):
         self._logar()
@@ -184,18 +373,21 @@ class IndexReservatorioTests(TestCase):
             temperatura=99.0,
             tds=999.0,
             turbidez=9.9,
+            ph=5.2,
             status_leitura=Reservatorio.STATUS_PERIGO,
         )
         ponto_antes.registrar_leitura(
             temperatura=21.0,
             tds=210.0,
             turbidez=1.5,
+            ph=6.8,
             status_leitura=Reservatorio.STATUS_ATENCAO,
         )
         ponto_depois.registrar_leitura(
             temperatura=18.0,
             tds=120.0,
             turbidez=0.6,
+            ph=6.4,
             status_leitura=Reservatorio.STATUS_BOM,
         )
 
@@ -213,16 +405,20 @@ class IndexReservatorioTests(TestCase):
         self.assertAlmostEqual(card["antes"]["temperatura"], 21.0, places=2)
         self.assertAlmostEqual(card["antes"]["tds"], 210.0, places=2)
         self.assertAlmostEqual(card["antes"]["turbidez"], 1.5, places=2)
+        self.assertAlmostEqual(card["antes"]["ph"], 6.8, places=2)
         self.assertEqual(card["status_antes"]["temperatura"], Reservatorio.STATUS_BOM)
         self.assertEqual(card["status_antes"]["tds"], Reservatorio.STATUS_BOM)
         self.assertEqual(card["status_antes"]["turbidez"], Reservatorio.STATUS_ATENCAO)
+        self.assertEqual(card["status_antes"]["ph"], Reservatorio.STATUS_BOM)
 
         self.assertAlmostEqual(card["depois"]["temperatura"], 18.0, places=2)
         self.assertAlmostEqual(card["depois"]["tds"], 120.0, places=2)
         self.assertAlmostEqual(card["depois"]["turbidez"], 0.6, places=2)
+        self.assertAlmostEqual(card["depois"]["ph"], 6.4, places=2)
         self.assertEqual(card["status_depois"]["temperatura"], Reservatorio.STATUS_ATENCAO)
         self.assertEqual(card["status_depois"]["tds"], Reservatorio.STATUS_BOM)
         self.assertEqual(card["status_depois"]["turbidez"], Reservatorio.STATUS_BOM)
+        self.assertEqual(card["status_depois"]["ph"], Reservatorio.STATUS_ATENCAO)
 
 
 class ReservatorioModelCrudTests(TestCase):
@@ -244,6 +440,16 @@ class ReservatorioModelCrudTests(TestCase):
         self.assertEqual(
             primeiro.meta_celsius_temperatura,
             Reservatorio.META_PADRAO_CELSIUS_TEMPERATURA,
+        )
+        self.assertEqual(primeiro.meta_ph, Reservatorio.META_PADRAO_PH)
+        ponto_antes = primeiro.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        self.assertEqual(
+            ponto_antes.ph_voltagem_referencia_7,
+            PontoMonitoramento.PH_VOLTAGEM_REFERENCIA_7_PADRAO,
+        )
+        self.assertEqual(
+            ponto_antes.ph_inclinacao,
+            PontoMonitoramento.PH_INCLINACAO_PADRAO,
         )
 
     def test_read_listar_com_busca(self):
@@ -298,12 +504,14 @@ class ReservatorioModelCrudTests(TestCase):
             meta_ppm_tds=450.5,
             meta_ntu_turbidez=1.2,
             meta_celsius_temperatura=24.0,
+            meta_ph=6.9,
         )
 
         reservatorio.refresh_from_db()
         self.assertEqual(reservatorio.meta_ppm_tds, 450.5)
         self.assertEqual(reservatorio.meta_ntu_turbidez, 1.2)
         self.assertEqual(reservatorio.meta_celsius_temperatura, 24.0)
+        self.assertEqual(reservatorio.meta_ph, 6.9)
 
     def test_delete_exclui_por_id(self):
         reservatorio = Reservatorio.criar_reservatorio(
@@ -511,6 +719,7 @@ class Esp32IngestaoTests(TestCase):
             meta_ppm_tds=300.0,
             meta_ntu_turbidez=1.0,
             meta_celsius_temperatura=25.0,
+            meta_ph=7.0,
         )
 
         response = self._post_json(
@@ -520,12 +729,14 @@ class Esp32IngestaoTests(TestCase):
                 "temperatura": 25.0,
                 "tds": 320.0,
                 "turbidez": 0.5,
+                "ph": 7.0,
             }
         )
 
         self.assertEqual(response.status_code, 201)
         leitura = LeituraQualidade.objects.latest("id")
         self.assertEqual(leitura.status_leitura, Reservatorio.STATUS_ATENCAO)
+        self.assertAlmostEqual(leitura.ph, 7.0, places=2)
 
     def test_esp32_leitura_aceita_raw_e_calcula_tds_turbidez_no_backend(self):
         response = self._post_json(
@@ -547,6 +758,7 @@ class Esp32IngestaoTests(TestCase):
         self.assertAlmostEqual(leitura.temperatura, 25.0, places=2)
         self.assertAlmostEqual(leitura.turbidez, 0.79, places=2)
         self.assertAlmostEqual(leitura.tds, 580.20, places=2)
+        self.assertIsNone(leitura.ph)
         self.assertEqual(
             leitura.sinais_brutos,
             {
@@ -555,6 +767,83 @@ class Esp32IngestaoTests(TestCase):
                 "firmware_ts_ms": 93000,
             },
         )
+
+    def test_esp32_leitura_salva_ph_quando_enviado(self):
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_DEPOIS,
+                "temperatura": 25.5,
+                "tds": 280.0,
+                "turbidez": 0.6,
+                "ph": 6.7,
+            }
+        )
+
+        self.assertEqual(response.status_code, 201)
+        leitura = LeituraQualidade.objects.latest("id")
+        self.assertAlmostEqual(leitura.ph, 6.7, places=2)
+
+    def test_esp32_leitura_calcula_ph_por_adc_raw(self):
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_DEPOIS,
+                "temperatura": 25.0,
+                "tds": 300.0,
+                "turbidez": 0.5,
+                "raw": {
+                    "adc_ph": 3051,
+                },
+            }
+        )
+
+        self.assertEqual(response.status_code, 201)
+        leitura = LeituraQualidade.objects.latest("id")
+        self.assertAlmostEqual(leitura.ph, 6.70, places=2)
+
+    def test_esp32_leitura_prioriza_ph_raw_quando_recebe_ph_e_adc(self):
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_DEPOIS,
+                "temperatura": 25.0,
+                "tds": 300.0,
+                "turbidez": 0.5,
+                "ph": 1.2,
+                "raw": {
+                    "adc_ph": 3051,
+                },
+            }
+        )
+
+        self.assertEqual(response.status_code, 201)
+        leitura = LeituraQualidade.objects.latest("id")
+        self.assertAlmostEqual(leitura.ph, 6.70, places=2)
+
+    def test_esp32_leitura_usa_calibracao_ph_do_ponto(self):
+        ponto_depois = self.reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+        ponto_depois.atualizar_calibracao_ph(
+            ph_voltagem_referencia_7=2.50,
+            ph_inclinacao=0.20,
+        )
+
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_DEPOIS,
+                "temperatura": 25.0,
+                "tds": 300.0,
+                "turbidez": 0.5,
+                "raw": {
+                    "adc_ph": 3051,
+                },
+            }
+        )
+
+        self.assertEqual(response.status_code, 201)
+        leitura = LeituraQualidade.objects.latest("id")
+        self.assertAlmostEqual(leitura.ph, 7.21, places=2)
 
     def test_esp32_leitura_retorna_400_quando_raw_tem_formato_invalido(self):
         response = self._post_json(

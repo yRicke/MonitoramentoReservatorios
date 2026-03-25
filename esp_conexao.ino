@@ -30,6 +30,10 @@ const unsigned long INTERVALO_ENVIO_MS = 1 * 1000 * 60;
 #define DS18B20_PIN 4
 #define TDS_PIN 34
 #define TURBIDITY_PIN 35
+#define PH_PIN 32
+
+// ===== AMOSTRAGEM pH (RAW) =====
+const int QTD_AMOSTRAS_PH = 60;
 
 OneWire oneWire(DS18B20_PIN);
 DallasTemperature sensors(&oneWire);
@@ -48,6 +52,7 @@ struct LeituraPendente {
   float temperatura;
   int adcTds;
   int adcTurb;
+  int adcPh;
   unsigned long firmwareTsMs;
 };
 
@@ -178,10 +183,45 @@ SinalAnalogico lerSinalAnalogicoMedio(
   return {adcMedio};
 }
 
+int lerAdcPhFiltradoRobusto() {
+  int leituras[QTD_AMOSTRAS_PH];
+
+  for (int i = 0; i < QTD_AMOSTRAS_PH; i++) {
+    leituras[i] = analogRead(PH_PIN);
+    delay(5);
+  }
+
+  for (int i = 0; i < QTD_AMOSTRAS_PH - 1; i++) {
+    for (int j = i + 1; j < QTD_AMOSTRAS_PH; j++) {
+      if (leituras[i] > leituras[j]) {
+        int tmp = leituras[i];
+        leituras[i] = leituras[j];
+        leituras[j] = tmp;
+      }
+    }
+  }
+
+  const int inicioFaixa = QTD_AMOSTRAS_PH / 3;
+  const int fimFaixa = QTD_AMOSTRAS_PH - inicioFaixa;
+  const int quantidadeFaixa = fimFaixa - inicioFaixa;
+
+  long somaCentral = 0;
+  for (int i = inicioFaixa; i < fimFaixa; i++) {
+    somaCentral += leituras[i];
+  }
+
+  int adcFiltrado = (quantidadeFaixa > 0)
+    ? (int)(somaCentral / quantidadeFaixa)
+    : 0;
+
+  return adcFiltrado;
+}
+
 bool enviarLeitura(
   float temperatura,
   int adcTds,
   int adcTurb,
+  int adcPh,
   unsigned long firmwareTsMs
 ) {
   if (WiFi.softAPgetStationNum() <= 0) {
@@ -204,6 +244,7 @@ bool enviarLeitura(
   body += "\"raw\":{";
   body += "\"adc_tds\":" + String(adcTds) + ",";
   body += "\"adc_turb\":" + String(adcTurb) + ",";
+  body += "\"adc_ph\":" + String(adcPh) + ",";
   body += "\"firmware_ts_ms\":" + String(firmwareTsMs);
   body += "}";
   body += "}";
@@ -226,6 +267,7 @@ void enfileirarLeitura(
   float temperatura,
   int adcTds,
   int adcTurb,
+  int adcPh,
   unsigned long firmwareTsMs
 ) {
   // Se lotar, descarta a mais antiga para manter as mais recentes.
@@ -238,6 +280,7 @@ void enfileirarLeitura(
   filaLeituras[filaFim].temperatura = temperatura;
   filaLeituras[filaFim].adcTds = adcTds;
   filaLeituras[filaFim].adcTurb = adcTurb;
+  filaLeituras[filaFim].adcPh = adcPh;
   filaLeituras[filaFim].firmwareTsMs = firmwareTsMs;
 
   filaFim = (filaFim + 1) % FILA_MAX_LEITURAS;
@@ -273,6 +316,7 @@ void tentarEnviarFila(int limitePorCiclo) {
       leitura.temperatura,
       leitura.adcTds,
       leitura.adcTurb,
+      leitura.adcPh,
       leitura.firmwareTsMs
     )) {
       Serial.println("Falha no envio da fila. Mantendo pendencias.");
@@ -339,6 +383,7 @@ void loop() {
       5,
       true
     );
+    int adcPh = lerAdcPhFiltradoRobusto();
 
     unsigned long firmwareTsMs = millis();
 
@@ -350,12 +395,15 @@ void loop() {
     Serial.print(sinalTurbidez.adc);
     Serial.print(" | ADC TDS: ");
     Serial.print(sinalTDS.adc);
+    Serial.print(" | ADC pH: ");
+    Serial.print(adcPh);
     Serial.println();
 
     enfileirarLeitura(
       temp,
       sinalTDS.adc,
       sinalTurbidez.adc,
+      adcPh,
       firmwareTsMs
     );
     tentarEnviarFila(10);

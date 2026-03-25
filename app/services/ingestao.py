@@ -6,6 +6,8 @@ from app.services.regras import calcular_status
 
 ADC_TENSAO_REFERENCIA = 3.3
 ADC_VALOR_MAXIMO = 4095
+PH_VOLTAGEM_REFERENCIA_7 = 2.39
+PH_INCLINACAO = 0.23
 
 
 class IngestaoLeituraErro(ValueError):
@@ -19,8 +21,6 @@ def processar_leitura_esp32(request_body):
     ponto_tipo = _extrair_ponto_tipo(payload)
     temperatura = _extrair_float(payload, "temperatura")
     sinais_brutos = _extrair_sinais_brutos(payload)
-    tds = _resolver_tds(payload, sinais_brutos, temperatura)
-    turbidez = _resolver_turbidez(payload, sinais_brutos)
 
     reservatorio = Reservatorio.obter_por_id(reservatorio_id)
     if reservatorio is None:
@@ -31,19 +31,31 @@ def processar_leitura_esp32(request_body):
     if ponto is None:
         raise IngestaoLeituraErro("ponto_tipo invalido")
 
+    tds = _resolver_tds(payload, sinais_brutos, temperatura)
+    turbidez = _resolver_turbidez(payload, sinais_brutos)
+    ph = _resolver_ph(
+        payload,
+        sinais_brutos,
+        ph_voltagem_referencia_7=ponto.ph_voltagem_referencia_7,
+        ph_inclinacao=ponto.ph_inclinacao,
+    )
+
     status_leitura = calcular_status(
         temperatura=temperatura,
         tds=tds,
         turbidez=turbidez,
+        ph=ph,
         meta_ppm_tds=reservatorio.meta_ppm_tds,
         meta_ntu_turbidez=reservatorio.meta_ntu_turbidez,
         meta_celsius_temperatura=reservatorio.meta_celsius_temperatura,
+        meta_ph=reservatorio.meta_ph,
     )
 
     ponto.registrar_leitura(
         temperatura=temperatura,
         tds=tds,
         turbidez=turbidez,
+        ph=ph,
         sinais_brutos=sinais_brutos,
         status_leitura=status_leitura,
         status_origem=LeituraQualidade.ORIGEM_REGRAS,
@@ -199,6 +211,22 @@ def _extrair_sinais_brutos(payload):
     if turbidez_tensao is not None:
         sinais_brutos["turbidez_tensao"] = turbidez_tensao
 
+    adc_ph = _extrair_int_opcional_alias(
+        sinais_payload,
+        ["adc_ph", "ph_adc"],
+        "adc_ph",
+    )
+    if adc_ph is not None:
+        sinais_brutos["adc_ph"] = adc_ph
+
+    ph_tensao = _extrair_float_opcional_alias(
+        sinais_payload,
+        ["ph_tensao"],
+        "ph_tensao",
+    )
+    if ph_tensao is not None:
+        sinais_brutos["ph_tensao"] = ph_tensao
+
     firmware_ts_ms = _extrair_int_opcional(sinais_payload, "firmware_ts_ms")
     if firmware_ts_ms is not None:
         sinais_brutos["firmware_ts_ms"] = firmware_ts_ms
@@ -232,6 +260,37 @@ def _resolver_turbidez(payload, sinais_brutos):
     return _extrair_float(payload, "turbidez")
 
 
+def _resolver_ph(
+    payload,
+    sinais_brutos,
+    *,
+    ph_voltagem_referencia_7,
+    ph_inclinacao,
+):
+    ph_tensao = sinais_brutos.get("ph_tensao")
+    if ph_tensao is not None:
+        return _calcular_ph_por_tensao(
+            ph_tensao=ph_tensao,
+            ph_voltagem_referencia_7=ph_voltagem_referencia_7,
+            ph_inclinacao=ph_inclinacao,
+        )
+
+    adc_ph = sinais_brutos.get("adc_ph")
+    if adc_ph is not None:
+        ph_tensao = _adc_para_tensao(adc_ph, campo="adc_ph")
+        return _calcular_ph_por_tensao(
+            ph_tensao=ph_tensao,
+            ph_voltagem_referencia_7=ph_voltagem_referencia_7,
+            ph_inclinacao=ph_inclinacao,
+        )
+
+    ph = _extrair_float_opcional(payload, "ph")
+    if ph is not None:
+        return _normalizar_ph(ph)
+
+    return None
+
+
 def _calcular_tds_por_tensao(*, tds_tensao, temperatura):
     coeficiente_compensacao = 1.0 + 0.02 * (temperatura - 25.0)
     if coeficiente_compensacao == 0:
@@ -254,6 +313,32 @@ def _calcular_turbidez_por_tensao(*, turbidez_tensao):
     if turbidez_tensao < 0:
         raise IngestaoLeituraErro("campo invalido: turbidez")
     return turbidez_tensao
+
+
+def _calcular_ph_por_tensao(
+    *,
+    ph_tensao,
+    ph_voltagem_referencia_7=PH_VOLTAGEM_REFERENCIA_7,
+    ph_inclinacao=PH_INCLINACAO,
+):
+    if not math.isfinite(ph_voltagem_referencia_7) or ph_voltagem_referencia_7 <= 0:
+        raise IngestaoLeituraErro("calibracao invalida: ph_voltagem_referencia_7")
+    if not math.isfinite(ph_inclinacao) or ph_inclinacao <= 0:
+        raise IngestaoLeituraErro("calibracao invalida: ph_inclinacao")
+
+    ph = 7.0 + (ph_voltagem_referencia_7 - ph_tensao) / ph_inclinacao
+    return _normalizar_ph(ph)
+
+
+def _normalizar_ph(ph):
+    if not math.isfinite(ph):
+        raise IngestaoLeituraErro("campo invalido: ph")
+
+    if ph < 0:
+        return 0.0
+    if ph > 14:
+        return 14.0
+    return ph
 
 
 def _adc_para_tensao(adc, *, campo):

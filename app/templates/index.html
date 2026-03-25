@@ -121,6 +121,15 @@
                             {% if card.depois.turbidez is not None %}{{ card.depois.turbidez|floatformat:2 }}{% else %}--{% endif %}
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row">pH</th>
+                        <td class="dashboard-value status-{{ card.status_antes.ph }}">
+                            {% if card.antes.ph is not None %}{{ card.antes.ph|floatformat:2 }}{% else %}--{% endif %}
+                        </td>
+                        <td class="dashboard-value status-{{ card.status_depois.ph }}">
+                            {% if card.depois.ph is not None %}{{ card.depois.ph|floatformat:2 }}{% else %}--{% endif %}
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </section>

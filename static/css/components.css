@@ -17,7 +17,8 @@
 .search input:focus-visible,
 .edit-form input:focus-visible,
 .edit-form select:focus-visible,
-.auth-form input:focus-visible {
+.auth-form input:focus-visible,
+.ph-calibration-form input:focus-visible {
     outline: 2px solid rgba(10, 159, 113, 0.42);
     outline-offset: 2px;
 }
@@ -600,6 +601,108 @@
     font-weight: 700;
 }
 
+.ph-calibration-section {
+    margin-top: 14px;
+    border: 1px solid #d8e3df;
+    background: #f7fbf9;
+    border-radius: 14px;
+    padding: 12px;
+}
+
+.ph-calibration-section h5 {
+    margin-bottom: 6px;
+    font-size: 15px;
+}
+
+.ph-auto-grid,
+.ph-manual-grid {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.ph-auto-card,
+.ph-manual-card {
+    border: 1px solid #d8e3df;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+}
+
+.ph-auto-card h6,
+.ph-manual-card h6 {
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #355348;
+}
+
+.ph-calibration-form {
+    display: grid;
+    gap: 8px;
+}
+
+.ph-calibration-form h6 {
+    margin-top: 8px;
+    margin-bottom: 2px;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #355348;
+}
+
+.ph-calibration-status {
+    margin: 0 0 2px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.ph-calibration-status.is-ok {
+    background: #e6f8ef;
+    color: #0f774e;
+    border: 1px solid #b9e8d2;
+}
+
+.ph-calibration-status.is-overdue {
+    background: #fff3e8;
+    color: #a95700;
+    border: 1px solid #ffd7b1;
+}
+
+.ph-voltage-hint {
+    margin: 0 0 2px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #3f564d;
+}
+
+.ph-calibration-form label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #2c4239;
+}
+
+.ph-calibration-form input {
+    width: 100%;
+    border: 1px solid #cad8d3;
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: #ffffff;
+    color: var(--color-text);
+}
+
+.ph-calibration-form .btn-main {
+    margin-top: 8px;
+    padding: 9px 14px;
+    font-size: 14px;
+}
+
 @media (max-width: 1024px) {
     .nav-pill {
         font-size: 13px;
@@ -646,6 +749,11 @@
 
     .dashboard-metrics-table tbody td {
         font-size: 13px;
+    }
+
+    .ph-auto-grid,
+    .ph-manual-grid {
+        grid-template-columns: 1fr;
     }
 }
 

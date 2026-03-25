@@ -3,6 +3,7 @@ import math
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 
 class Reservatorio(models.Model):
@@ -12,6 +13,7 @@ class Reservatorio(models.Model):
     META_PADRAO_PPM_TDS = 600.0
     META_PADRAO_NTU_TURBIDEZ = 1.5
     META_PADRAO_CELSIUS_TEMPERATURA = 25.0
+    META_PADRAO_PH = 7.0
     STATUS_CHOICES = (
         (STATUS_BOM, "Bom"),
         (STATUS_ATENCAO, "Atencao"),
@@ -28,6 +30,7 @@ class Reservatorio(models.Model):
     meta_ppm_tds = models.FloatField(default=META_PADRAO_PPM_TDS)
     meta_ntu_turbidez = models.FloatField(default=META_PADRAO_NTU_TURBIDEZ)
     meta_celsius_temperatura = models.FloatField(default=META_PADRAO_CELSIUS_TEMPERATURA)
+    meta_ph = models.FloatField(default=META_PADRAO_PH)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -70,6 +73,7 @@ class Reservatorio(models.Model):
         meta_ppm_tds=None,
         meta_ntu_turbidez=None,
         meta_celsius_temperatura=None,
+        meta_ph=None,
     ):
         if usuario is None:
             raise ValueError("Usuario obrigatorio para criar reservatorio.")
@@ -91,6 +95,7 @@ class Reservatorio(models.Model):
             campo="meta_celsius_temperatura",
             padrao=cls.META_PADRAO_CELSIUS_TEMPERATURA,
         )
+        meta_ph_final = cls._normalizar_meta_ph(meta_ph, padrao=cls.META_PADRAO_PH)
 
         reservatorio = cls.objects.create(
             nome=nome_final,
@@ -99,6 +104,7 @@ class Reservatorio(models.Model):
             meta_ppm_tds=meta_ppm_tds_final,
             meta_ntu_turbidez=meta_ntu_turbidez_final,
             meta_celsius_temperatura=meta_celsius_temperatura_final,
+            meta_ph=meta_ph_final,
         )
         reservatorio.garantir_pontos_monitoramento()
         return reservatorio
@@ -111,6 +117,7 @@ class Reservatorio(models.Model):
         meta_ppm_tds=None,
         meta_ntu_turbidez=None,
         meta_celsius_temperatura=None,
+        meta_ph=None,
     ):
         if status is not None:
             raise ValueError("Status do reservatorio e automatico e nao pode ser editado manualmente.")
@@ -143,6 +150,13 @@ class Reservatorio(models.Model):
                 padrao=self.META_PADRAO_CELSIUS_TEMPERATURA,
             )
             campos_para_salvar.append("meta_celsius_temperatura")
+
+        if meta_ph is not None:
+            self.meta_ph = self._normalizar_meta_ph(
+                meta_ph,
+                padrao=self.META_PADRAO_PH,
+            )
+            campos_para_salvar.append("meta_ph")
 
         if not campos_para_salvar:
             return self
@@ -207,6 +221,13 @@ class Reservatorio(models.Model):
 
         return numero
 
+    @classmethod
+    def _normalizar_meta_ph(cls, meta, *, padrao):
+        numero = cls._normalizar_meta(meta, campo="meta_ph", padrao=padrao)
+        if numero > 14:
+            raise ValueError("meta_ph deve ser menor ou igual a 14.")
+        return numero
+
     @staticmethod
     def _normalizar_nome(nome):
         if not isinstance(nome, str):
@@ -232,6 +253,8 @@ class Reservatorio(models.Model):
 class PontoMonitoramento(models.Model):
     TIPO_ANTES = "antes_tratamento"
     TIPO_DEPOIS = "depois_tratamento"
+    PH_VOLTAGEM_REFERENCIA_7_PADRAO = 2.39
+    PH_INCLINACAO_PADRAO = 0.23
     TIPOS = (
         TIPO_ANTES,
         TIPO_DEPOIS,
@@ -254,6 +277,9 @@ class PontoMonitoramento(models.Model):
     )
     confianca_status = models.FloatField(null=True, blank=True)
     modelo_versao = models.CharField(max_length=64, blank=True, default="")
+    ph_voltagem_referencia_7 = models.FloatField(default=PH_VOLTAGEM_REFERENCIA_7_PADRAO)
+    ph_inclinacao = models.FloatField(default=PH_INCLINACAO_PADRAO)
+    ph_calibrado_em = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -287,12 +313,38 @@ class PontoMonitoramento(models.Model):
         self.save(update_fields=["status_atual", "confianca_status", "modelo_versao", "updated_at"])
         return self
 
+    def atualizar_calibracao_ph(
+        self,
+        *,
+        ph_voltagem_referencia_7=None,
+        ph_inclinacao=None,
+    ):
+        campos_para_salvar = []
+
+        if ph_voltagem_referencia_7 is not None:
+            self.ph_voltagem_referencia_7 = self._normalizar_ph_voltagem_referencia_7(
+                ph_voltagem_referencia_7
+            )
+            campos_para_salvar.append("ph_voltagem_referencia_7")
+
+        if ph_inclinacao is not None:
+            self.ph_inclinacao = self._normalizar_ph_inclinacao(ph_inclinacao)
+            campos_para_salvar.append("ph_inclinacao")
+
+        if not campos_para_salvar:
+            return self
+
+        self.ph_calibrado_em = timezone.now()
+        self.save(update_fields=[*campos_para_salvar, "ph_calibrado_em", "updated_at"])
+        return self
+
     def registrar_leitura(
         self,
         *,
         temperatura,
         tds,
         turbidez,
+        ph=None,
         sinais_brutos=None,
         status_leitura,
         status_origem="regras",
@@ -306,6 +358,7 @@ class PontoMonitoramento(models.Model):
             temperatura=temperatura,
             tds=tds,
             turbidez=turbidez,
+            ph=ph,
             sinais_brutos=sinais_brutos_final,
             status_leitura=status_final,
             status_origem=status_origem,
@@ -318,6 +371,28 @@ class PontoMonitoramento(models.Model):
             modelo_versao=modelo_versao,
         )
         return leitura
+
+    @staticmethod
+    def _normalizar_ph_voltagem_referencia_7(valor):
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Calibracao pH7 invalida para o ponto.") from exc
+
+        if not math.isfinite(numero) or numero <= 0 or numero > 3.3:
+            raise ValueError("Calibracao pH7 deve estar entre 0 e 3.3V.")
+        return numero
+
+    @staticmethod
+    def _normalizar_ph_inclinacao(valor):
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Inclinacao de pH invalida para o ponto.") from exc
+
+        if not math.isfinite(numero) or numero <= 0:
+            raise ValueError("Inclinacao de pH deve ser maior que zero.")
+        return numero
 
 
 class LeituraQualidade(models.Model):
@@ -336,6 +411,7 @@ class LeituraQualidade(models.Model):
     tds = models.FloatField()
     temperatura = models.FloatField()
     turbidez = models.FloatField()
+    ph = models.FloatField(null=True, blank=True)
     sinais_brutos = models.JSONField(default=dict, blank=True)
     status_leitura = models.CharField(
         max_length=20,

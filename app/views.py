@@ -1,4 +1,5 @@
 from datetime import timedelta
+import math
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -13,8 +14,15 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from app.models import LeituraQualidade, PontoMonitoramento, Reservatorio
-from app.services.ingestao import IngestaoLeituraErro, processar_leitura_esp32
+from app.services.ingestao import (
+    ADC_TENSAO_REFERENCIA,
+    ADC_VALOR_MAXIMO,
+    IngestaoLeituraErro,
+    processar_leitura_esp32,
+)
 from app.services.regras import (
+    DESVIO_PH_ATENCAO,
+    DESVIO_PH_PERIGO,
     DESVIO_TEMPERATURA_ATENCAO,
     DESVIO_TEMPERATURA_PERIGO,
     FATOR_PERIGO_TDS,
@@ -25,6 +33,7 @@ MAX_PONTOS_GRAFICO = 1200
 PERIODO_PADRAO_DIAS = 5
 PERIODOS_DIAS_DISPONIVEIS = (1, 3, 5, 7, 10, 15, 30)
 STATUS_SEM_DADO = "sem-dado"
+DIAS_ALERTA_CALIBRACAO_PH = 15
 
 
 @login_required(login_url="entrar")
@@ -89,12 +98,16 @@ def reservatorio_detalhe(request, reservatorio_id):
             "reservatorio": reservatorio,
             "ponto_antes": ponto_antes,
             "ponto_depois": ponto_depois,
+            "ph_calibracao_antes": _resumo_calibracao_ph(ponto_antes),
+            "ph_calibracao_depois": _resumo_calibracao_ph(ponto_depois),
             "tds_series_antes": series_antes["tds"],
             "tds_series_depois": series_depois["tds"],
             "temperatura_series_antes": series_antes["temperatura"],
             "temperatura_series_depois": series_depois["temperatura"],
             "turbidez_series_antes": series_antes["turbidez"],
             "turbidez_series_depois": series_depois["turbidez"],
+            "ph_series_antes": series_antes["ph"],
+            "ph_series_depois": series_depois["ph"],
         },
     )
 
@@ -111,6 +124,7 @@ def reservatorio_atualizar(request, reservatorio_id):
     meta_ppm_tds = request.POST.get("meta_ppm_tds")
     meta_ntu_turbidez = request.POST.get("meta_ntu_turbidez")
     meta_celsius_temperatura = request.POST.get("meta_celsius_temperatura")
+    meta_ph = request.POST.get("meta_ph")
 
     try:
         reservatorio.atualizar_reservatorio(
@@ -118,6 +132,7 @@ def reservatorio_atualizar(request, reservatorio_id):
             meta_ppm_tds=meta_ppm_tds,
             meta_ntu_turbidez=meta_ntu_turbidez,
             meta_celsius_temperatura=meta_celsius_temperatura,
+            meta_ph=meta_ph,
         )
     except ValueError as exc:
         messages.error(request, str(exc))
@@ -127,6 +142,87 @@ def reservatorio_atualizar(request, reservatorio_id):
         return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
 
     messages.success(request, "Reservatorio atualizado.")
+    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+
+@login_required(login_url="entrar")
+@require_http_methods(["POST"])
+def reservatorio_calibracao_ph_atualizar(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "Reservatorio nao encontrado.")
+        return redirect("index")
+
+    reservatorio.garantir_pontos_monitoramento()
+    ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+    ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+
+    ph7_antes = request.POST.get("ph7_antes")
+    ph7_depois = request.POST.get("ph7_depois")
+    inclinacao_antes = request.POST.get("inclinacao_antes")
+    inclinacao_depois = request.POST.get("inclinacao_depois")
+
+    if not all([ph7_antes, ph7_depois, inclinacao_antes, inclinacao_depois]):
+        messages.error(request, "Preencha todos os campos de calibracao de pH.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    try:
+        if ponto_antes is not None:
+            ponto_antes.atualizar_calibracao_ph(
+                ph_voltagem_referencia_7=ph7_antes,
+                ph_inclinacao=inclinacao_antes,
+            )
+
+        if ponto_depois is not None:
+            ponto_depois.atualizar_calibracao_ph(
+                ph_voltagem_referencia_7=ph7_depois,
+                ph_inclinacao=inclinacao_depois,
+            )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    messages.success(request, "Calibracao de pH atualizada por ponto.")
+    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+
+@login_required(login_url="entrar")
+@require_http_methods(["POST"])
+def reservatorio_calibracao_ph_auto(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "Reservatorio nao encontrado.")
+        return redirect("index")
+
+    ponto_tipo = request.POST.get("ponto_tipo")
+    try:
+        ponto_tipo_normalizado = PontoMonitoramento.normalizar_tipo(ponto_tipo)
+    except ValueError:
+        messages.error(request, "Ponto de calibracao invalido.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    reservatorio.garantir_pontos_monitoramento()
+    ponto = reservatorio.obter_ponto_monitoramento(ponto_tipo_normalizado)
+    if ponto is None:
+        messages.error(request, "Ponto de calibracao nao encontrado.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    ultima_tensao = _ultima_tensao_ph_por_ponto(ponto)
+    if ultima_tensao is None:
+        messages.error(request, "Nao ha voltagem de pH na ultima leitura deste ponto.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    try:
+        ponto.atualizar_calibracao_ph(ph_voltagem_referencia_7=ultima_tensao)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    nome_ponto = "antes" if ponto.tipo == PontoMonitoramento.TIPO_ANTES else "depois"
+    messages.success(
+        request,
+        f"Calibracao automatica aplicada no ponto {nome_ponto} com {ultima_tensao:.3f}V.",
+    )
     return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
 
 
@@ -205,6 +301,7 @@ def _medias_vazias():
         "temperatura": None,
         "tds": None,
         "turbidez": None,
+        "ph": None,
     }
 
 
@@ -226,6 +323,7 @@ def _montar_dashboard_cards(reservatorios, periodo_dias):
             media_temperatura=Avg("temperatura"),
             media_tds=Avg("tds"),
             media_turbidez=Avg("turbidez"),
+            media_ph=Avg("ph"),
         )
     )
 
@@ -239,6 +337,7 @@ def _montar_dashboard_cards(reservatorios, periodo_dias):
             "temperatura": item["media_temperatura"],
             "tds": item["media_tds"],
             "turbidez": item["media_turbidez"],
+            "ph": item["media_ph"],
         }
 
     cards = []
@@ -285,6 +384,10 @@ def _status_metricas_por_meta(medias, *, reservatorio):
             medias.get("turbidez"),
             meta=reservatorio.meta_ntu_turbidez,
         ),
+        "ph": _status_media_ph(
+            medias.get("ph"),
+            meta=reservatorio.meta_ph,
+        ),
     }
 
 
@@ -322,9 +425,21 @@ def _status_media_turbidez(valor, *, meta):
     return Reservatorio.STATUS_BOM
 
 
+def _status_media_ph(valor, *, meta):
+    if valor is None:
+        return STATUS_SEM_DADO
+
+    desvio = abs(valor - meta)
+    if desvio >= DESVIO_PH_PERIGO:
+        return Reservatorio.STATUS_PERIGO
+    if desvio >= DESVIO_PH_ATENCAO:
+        return Reservatorio.STATUS_ATENCAO
+    return Reservatorio.STATUS_BOM
+
+
 def _series_leituras_por_ponto(ponto):
     if ponto is None:
-        return {"tds": [], "temperatura": [], "turbidez": []}
+        return {"tds": [], "temperatura": [], "turbidez": [], "ph": []}
 
     # Limita a janela para evitar payload/render excessivo no frontend.
     leituras = list(
@@ -336,15 +451,122 @@ def _series_leituras_por_ponto(ponto):
     tds = []
     temperatura = []
     turbidez = []
+    ph = []
     for leitura in leituras:
         data_hora_local = timezone.localtime(leitura.data_hora)
         x_label = data_hora_local.strftime("%d/%m %H:%M:%S")
         tds.append({"x": x_label, "y": leitura.tds})
         temperatura.append({"x": x_label, "y": leitura.temperatura})
         turbidez.append({"x": x_label, "y": leitura.turbidez})
+        ph.append({"x": x_label, "y": leitura.ph})
 
     return {
         "tds": tds,
         "temperatura": temperatura,
         "turbidez": turbidez,
+        "ph": ph,
     }
+
+
+def _resumo_calibracao_ph(ponto):
+    ultima_tensao = _ultima_tensao_ph_por_ponto(ponto)
+
+    if ponto is None:
+        return {
+            "calibrado_em": None,
+            "dias": None,
+            "vencida": True,
+            "ultima_tensao": ultima_tensao,
+        }
+
+    calibrado_em = ponto.ph_calibrado_em
+    if calibrado_em is None:
+        return {
+            "calibrado_em": None,
+            "dias": None,
+            "vencida": True,
+            "ultima_tensao": ultima_tensao,
+        }
+
+    agora = timezone.now()
+    delta = agora - calibrado_em
+    dias = max(0, delta.days)
+    return {
+        "calibrado_em": calibrado_em,
+        "dias": dias,
+        "vencida": dias >= DIAS_ALERTA_CALIBRACAO_PH,
+        "ultima_tensao": ultima_tensao,
+    }
+
+
+def _ultima_tensao_ph_por_ponto(ponto):
+    if ponto is None:
+        return None
+
+    ultima_leitura = (
+        LeituraQualidade.objects.filter(ponto=ponto)
+        .order_by("-data_hora")
+        .only("sinais_brutos")
+        .first()
+    )
+    if ultima_leitura is None:
+        return None
+
+    sinais = ultima_leitura.sinais_brutos if isinstance(ultima_leitura.sinais_brutos, dict) else {}
+    return _resolver_tensao_em_sinais_brutos(sinais)
+
+
+def _resolver_tensao_em_sinais_brutos(sinais):
+    if not isinstance(sinais, dict):
+        return None
+
+    ph_tensao = _normalizar_tensao(sinais.get("ph_tensao"))
+    if ph_tensao is not None:
+        return ph_tensao
+
+    adc_ph = _normalizar_adc(sinais.get("adc_ph"))
+    if adc_ph is not None:
+        return (adc_ph * ADC_TENSAO_REFERENCIA) / ADC_VALOR_MAXIMO
+
+    adc_ph_legado = _normalizar_adc(sinais.get("ph_adc"))
+    if adc_ph_legado is not None:
+        return (adc_ph_legado * ADC_TENSAO_REFERENCIA) / ADC_VALOR_MAXIMO
+
+    # Compatibilidade com leituras antigas que salvavam "raw" dentro do JSON.
+    bruto_aninhado = sinais.get("raw")
+    if isinstance(bruto_aninhado, dict):
+        return _resolver_tensao_em_sinais_brutos(bruto_aninhado)
+
+    return None
+
+
+def _normalizar_tensao(valor):
+    if valor is None:
+        return None
+
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(numero) or numero < 0:
+        return None
+    return numero
+
+
+def _normalizar_adc(valor):
+    if valor is None:
+        return None
+
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(numero) or not numero.is_integer():
+        return None
+
+    inteiro = int(numero)
+    if inteiro < 0 or inteiro > ADC_VALOR_MAXIMO:
+        return None
+    return inteiro

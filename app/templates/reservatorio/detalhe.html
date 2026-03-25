@@ -1,5 +1,5 @@
 {% extends "blocos/base.html" %}
-{% load static %}
+{% load static l10n %}
 
 {% block title %}Reservatorio {{ reservatorio.nome }}{% endblock %}
 
@@ -7,9 +7,9 @@
 <section class="message-wrap">
     <p><a class="btn-main" href="{% url 'index' %}">Voltar</a></p>
     {% if messages %}
-        {% for message in messages %}
-        <p class="message {{ message.tags }}">{{ message }}</p>
-        {% endfor %}
+    {% for message in messages %}
+    <p class="message {{ message.tags }}">{{ message }}</p>
+    {% endfor %}
     {% endif %}
 </section>
 
@@ -25,11 +25,13 @@
     <article class="panel">
         <h4>Status antes do tratamento</h4>
         <p class="detail-status">
-            <strong class="status-text status-{{ ponto_antes.status_atual }}">{{ ponto_antes.get_status_atual_display }}</strong>
+            <strong class="status-text status-{{ ponto_antes.status_atual }}">{{ ponto_antes.get_status_atual_display
+                }}</strong>
         </p>
         {% if ponto_antes.modelo_versao %}
         <p class="status-meta">
-            Modelo: {{ ponto_antes.modelo_versao }}{% if ponto_antes.confianca_status is not None %} ({{ ponto_antes.confianca_status|floatformat:2 }}){% endif %}
+            Modelo: {{ ponto_antes.modelo_versao }}{% if ponto_antes.confianca_status is not None %} ({{
+            ponto_antes.confianca_status|floatformat:2 }}){% endif %}
         </p>
         {% endif %}
     </article>
@@ -37,11 +39,13 @@
     <article class="panel">
         <h4>Status depois do tratamento</h4>
         <p class="detail-status">
-            <strong class="status-text status-{{ ponto_depois.status_atual }}">{{ ponto_depois.get_status_atual_display }}</strong>
+            <strong class="status-text status-{{ ponto_depois.status_atual }}">{{ ponto_depois.get_status_atual_display
+                }}</strong>
         </p>
         {% if ponto_depois.modelo_versao %}
         <p class="status-meta">
-            Modelo: {{ ponto_depois.modelo_versao }}{% if ponto_depois.confianca_status is not None %} ({{ ponto_depois.confianca_status|floatformat:2 }}){% endif %}
+            Modelo: {{ ponto_depois.modelo_versao }}{% if ponto_depois.confianca_status is not None %} ({{
+            ponto_depois.confianca_status|floatformat:2 }}){% endif %}
         </p>
         {% endif %}
     </article>
@@ -57,13 +61,20 @@
             <input id="nome" name="nome" type="text" value="{{ reservatorio.nome }}" required>
 
             <label for="meta_ppm_tds">Meta TDS (ppm)</label>
-            <input id="meta_ppm_tds" name="meta_ppm_tds" type="number" step="0.01" min="0.01" value="{{ reservatorio.meta_ppm_tds }}" required>
+            <input id="meta_ppm_tds" name="meta_ppm_tds" type="number" step="0.01" min="0.01"
+                value="{{ reservatorio.meta_ppm_tds }}" required>
 
             <label for="meta_ntu_turbidez">Meta turbidez (ntu)</label>
-            <input id="meta_ntu_turbidez" name="meta_ntu_turbidez" type="number" step="0.01" min="0.01" value="{{ reservatorio.meta_ntu_turbidez }}" required>
+            <input id="meta_ntu_turbidez" name="meta_ntu_turbidez" type="number" step="0.01" min="0.01"
+                value="{{ reservatorio.meta_ntu_turbidez }}" required>
 
             <label for="meta_celsius_temperatura">Meta temperatura (celsius)</label>
-            <input id="meta_celsius_temperatura" name="meta_celsius_temperatura" type="number" step="0.01" min="0.01" value="{{ reservatorio.meta_celsius_temperatura }}" required>
+            <input id="meta_celsius_temperatura" name="meta_celsius_temperatura" type="number" step="0.01" min="0.01"
+                value="{{ reservatorio.meta_celsius_temperatura }}" required>
+
+            <label for="meta_ph">Meta pH</label>
+            <input id="meta_ph" name="meta_ph" type="number" step="0.01" min="0.01" max="14"
+                value="{{ reservatorio.meta_ph }}" required>
 
             <p class="edit-help">
                 O status e calculado automaticamente com base nas metas deste reservatorio.
@@ -100,6 +111,109 @@
                 <div class="chart-empty" id="emptyTurbidez" hidden>Sem leituras de turbidez</div>
             </div>
         </article>
+
+        <article class="panel">
+            <h4>pH (data_hora)</h4>
+            <p id="lastReadingPH" class="chart-last-reading">Ultima leitura: --</p>
+            <div class="chart-wrap">
+                <div id="chartPH" class="apex-chart"></div>
+                <div class="chart-empty" id="emptyPH" hidden>Sem leituras de pH</div>
+            </div>
+
+            <section class="ph-calibration-section">
+                <h5>Calibração automática (pH 7) por ponto</h5>
+                <p class="status-meta">1. Retire o eletrodo do reservatório.</p>
+                <p class="status-meta">2. Enxágue cuidadosamente com água destilada (preferencialmente), sem esfregar o
+                    sensor.</p>
+                <p class="status-meta">3. Coloque o eletrodo em uma solução de pH 7.</p>
+                <p class="status-meta">4. Aguarde até que a leitura esteja estável (aproximadamente 10 minutos).</p>
+                <p class="status-meta">5. Clique em "Calibrar ponto em pH 7".</p>
+                <p class="status-meta">6. Retorne o eletrodo ao tanque.</p>
+
+                <div class="ph-auto-grid">
+                    <form class="ph-auto-card" method="post"
+                        action="{% url 'reservatorio_calibracao_ph_auto' reservatorio.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="ponto_tipo" value="antes_tratamento">
+                        <h6>Antes do tratamento</h6>
+                        <p
+                            class="ph-calibration-status {% if ph_calibracao_antes.vencida %}is-overdue{% else %}is-ok{% endif %}">
+                            {% if ph_calibracao_antes.calibrado_em %}
+                            Ultima calibracao: {{ ph_calibracao_antes.calibrado_em|date:"d/m/Y H:i" }} ({{ ph_calibracao_antes.dias }}d)
+                            {% else %}
+                            Ultima calibracao: nunca calibrado
+                            {% endif %}
+                        </p>
+                        <p class="ph-voltage-hint">
+                            Ultima voltagem lida:
+                            {% if ph_calibracao_antes.ultima_tensao is not None %}
+                            {{ ph_calibracao_antes.ultima_tensao|floatformat:3 }} V
+                            {% else %}
+                            --
+                            {% endif %}
+                        </p>
+                        <button class="btn-main" type="submit">Calibrar ponto em pH 7</button>
+                    </form>
+
+                    <form class="ph-auto-card" method="post"
+                        action="{% url 'reservatorio_calibracao_ph_auto' reservatorio.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="ponto_tipo" value="depois_tratamento">
+                        <h6>Depois do tratamento</h6>
+                        <p
+                            class="ph-calibration-status {% if ph_calibracao_depois.vencida %}is-overdue{% else %}is-ok{% endif %}">
+                            {% if ph_calibracao_depois.calibrado_em %}
+                            Ultima calibracao: {{ ph_calibracao_depois.calibrado_em|date:"d/m/Y H:i" }} ({{ ph_calibracao_depois.dias }}d)
+                            {% else %}
+                            Ultima calibracao: nunca calibrado
+                            {% endif %}
+                        </p>
+                        <p class="ph-voltage-hint">
+                            Ultima voltagem lida:
+                            {% if ph_calibracao_depois.ultima_tensao is not None %}
+                            {{ ph_calibracao_depois.ultima_tensao|floatformat:3 }} V
+                            {% else %}
+                            --
+                            {% endif %}
+                        </p>
+                        <button class="btn-main" type="submit">Calibrar ponto em pH 7</button>
+                    </form>
+                </div>
+            </section>
+
+            <section class="ph-calibration-section">
+                <h5>Calibracao manual</h5>
+                <form class="ph-calibration-form" method="post"
+                    action="{% url 'reservatorio_calibracao_ph_atualizar' reservatorio.id %}">
+                    {% csrf_token %}
+                    <div class="ph-manual-grid">
+                        <div class="ph-manual-card">
+                            <h6>Antes do tratamento</h6>
+                            <label for="ph7_antes">Voltagem pH 7 (V)</label>
+                            <input id="ph7_antes" name="ph7_antes" type="number" min="0.01" max="3.3" step="0.001"
+                                value="{{ ponto_antes.ph_voltagem_referencia_7|unlocalize }}" required>
+
+                            <label for="inclinacao_antes">Inclinacao</label>
+                            <input id="inclinacao_antes" name="inclinacao_antes" type="number" min="0.001" step="0.001"
+                                value="{{ ponto_antes.ph_inclinacao|unlocalize }}" required>
+                        </div>
+
+                        <div class="ph-manual-card">
+                            <h6>Depois do tratamento</h6>
+                            <label for="ph7_depois">Voltagem pH 7 (V)</label>
+                            <input id="ph7_depois" name="ph7_depois" type="number" min="0.01" max="3.3" step="0.001"
+                                value="{{ ponto_depois.ph_voltagem_referencia_7|unlocalize }}" required>
+
+                            <label for="inclinacao_depois">Inclinacao</label>
+                            <input id="inclinacao_depois" name="inclinacao_depois" type="number" min="0.001"
+                                step="0.001" value="{{ ponto_depois.ph_inclinacao|unlocalize }}" required>
+                        </div>
+                    </div>
+
+                    <button class="btn-main" type="submit">Salvar calibracao manual</button>
+                </form>
+            </section>
+        </article>
     </section>
 </section>
 
@@ -109,8 +223,10 @@
 {{ temperatura_series_depois|json_script:"temperatura-series-depois-data" }}
 {{ turbidez_series_antes|json_script:"turbidez-series-antes-data" }}
 {{ turbidez_series_depois|json_script:"turbidez-series-depois-data" }}
+{{ ph_series_antes|json_script:"ph-series-antes-data" }}
+{{ ph_series_depois|json_script:"ph-series-depois-data" }}
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260323-rebuild2"></script>
+<script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260325-ph2"></script>
 {% endblock %}
