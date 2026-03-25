@@ -45,10 +45,14 @@ def processar_leitura_esp32(request_body):
         tds=tds,
         turbidez=turbidez,
         ph=ph,
-        meta_ppm_tds=reservatorio.meta_ppm_tds,
-        meta_ntu_turbidez=reservatorio.meta_ntu_turbidez,
-        meta_celsius_temperatura=reservatorio.meta_celsius_temperatura,
-        meta_ph=reservatorio.meta_ph,
+        faixa_ppm_tds_min=reservatorio.faixa_ppm_tds_min,
+        faixa_ppm_tds_max=reservatorio.faixa_ppm_tds_max,
+        faixa_ntu_turbidez_min=reservatorio.faixa_ntu_turbidez_min,
+        faixa_ntu_turbidez_max=reservatorio.faixa_ntu_turbidez_max,
+        faixa_celsius_temperatura_min=reservatorio.faixa_celsius_temperatura_min,
+        faixa_celsius_temperatura_max=reservatorio.faixa_celsius_temperatura_max,
+        faixa_ph_min=reservatorio.faixa_ph_min,
+        faixa_ph_max=reservatorio.faixa_ph_max,
     )
 
     ponto.registrar_leitura(

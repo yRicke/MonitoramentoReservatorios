@@ -27,6 +27,7 @@ from app.services.regras import (
     DESVIO_TEMPERATURA_PERIGO,
     FATOR_PERIGO_TDS,
     FATOR_PERIGO_TURBIDEZ,
+    classificar_status_por_faixa,
 )
 
 MAX_PONTOS_GRAFICO = 1200
@@ -139,6 +140,16 @@ def reservatorio_atualizar(request, reservatorio_id):
         return redirect("index")
 
     nome = request.POST.get("nome")
+    faixa_ppm_tds_min = request.POST.get("faixa_ppm_tds_min")
+    faixa_ppm_tds_max = request.POST.get("faixa_ppm_tds_max")
+    faixa_ntu_turbidez_min = request.POST.get("faixa_ntu_turbidez_min")
+    faixa_ntu_turbidez_max = request.POST.get("faixa_ntu_turbidez_max")
+    faixa_celsius_temperatura_min = request.POST.get("faixa_celsius_temperatura_min")
+    faixa_celsius_temperatura_max = request.POST.get("faixa_celsius_temperatura_max")
+    faixa_ph_min = request.POST.get("faixa_ph_min")
+    faixa_ph_max = request.POST.get("faixa_ph_max")
+
+    # Compatibilidade com payload antigo.
     meta_ppm_tds = request.POST.get("meta_ppm_tds")
     meta_ntu_turbidez = request.POST.get("meta_ntu_turbidez")
     meta_celsius_temperatura = request.POST.get("meta_celsius_temperatura")
@@ -147,6 +158,14 @@ def reservatorio_atualizar(request, reservatorio_id):
     try:
         reservatorio.atualizar_reservatorio(
             nome=nome,
+            faixa_ppm_tds_min=faixa_ppm_tds_min,
+            faixa_ppm_tds_max=faixa_ppm_tds_max,
+            faixa_ntu_turbidez_min=faixa_ntu_turbidez_min,
+            faixa_ntu_turbidez_max=faixa_ntu_turbidez_max,
+            faixa_celsius_temperatura_min=faixa_celsius_temperatura_min,
+            faixa_celsius_temperatura_max=faixa_celsius_temperatura_max,
+            faixa_ph_min=faixa_ph_min,
+            faixa_ph_max=faixa_ph_max,
             meta_ppm_tds=meta_ppm_tds,
             meta_ntu_turbidez=meta_ntu_turbidez,
             meta_celsius_temperatura=meta_celsius_temperatura,
@@ -399,11 +418,11 @@ def _montar_dashboard_cards(reservatorios, periodo_delta):
                 "reservatorio": reservatorio,
                 "antes": medias_antes,
                 "depois": medias_depois,
-                "status_antes": _status_metricas_por_meta(
+                "status_antes": _status_metricas_por_faixa(
                     medias_antes,
                     reservatorio=reservatorio,
                 ),
-                "status_depois": _status_metricas_por_meta(
+                "status_depois": _status_metricas_por_faixa(
                     medias_depois,
                     reservatorio=reservatorio,
                 ),
@@ -413,71 +432,81 @@ def _montar_dashboard_cards(reservatorios, periodo_delta):
     return cards
 
 
-def _status_metricas_por_meta(medias, *, reservatorio):
+def _status_metricas_por_faixa(medias, *, reservatorio):
     return {
         "temperatura": _status_media_temperatura(
             medias.get("temperatura"),
-            meta=reservatorio.meta_celsius_temperatura,
+            minimo=reservatorio.faixa_celsius_temperatura_min,
+            maximo=reservatorio.faixa_celsius_temperatura_max,
         ),
         "tds": _status_media_tds(
             medias.get("tds"),
-            meta=reservatorio.meta_ppm_tds,
+            minimo=reservatorio.faixa_ppm_tds_min,
+            maximo=reservatorio.faixa_ppm_tds_max,
         ),
         "turbidez": _status_media_turbidez(
             medias.get("turbidez"),
-            meta=reservatorio.meta_ntu_turbidez,
+            minimo=reservatorio.faixa_ntu_turbidez_min,
+            maximo=reservatorio.faixa_ntu_turbidez_max,
         ),
         "ph": _status_media_ph(
             medias.get("ph"),
-            meta=reservatorio.meta_ph,
+            minimo=reservatorio.faixa_ph_min,
+            maximo=reservatorio.faixa_ph_max,
         ),
     }
 
 
-def _status_media_temperatura(valor, *, meta):
+def _status_media_temperatura(valor, *, minimo, maximo):
     if valor is None:
         return STATUS_SEM_DADO
 
-    desvio = abs(valor - meta)
-    if desvio >= DESVIO_TEMPERATURA_PERIGO:
-        return Reservatorio.STATUS_PERIGO
-    if desvio >= DESVIO_TEMPERATURA_ATENCAO:
-        return Reservatorio.STATUS_ATENCAO
-    return Reservatorio.STATUS_BOM
+    return classificar_status_por_faixa(
+        valor,
+        minimo=minimo,
+        maximo=maximo,
+        margem_atencao=DESVIO_TEMPERATURA_ATENCAO,
+        margem_perigo=DESVIO_TEMPERATURA_PERIGO,
+    )
 
 
-def _status_media_tds(valor, *, meta):
+def _status_media_tds(valor, *, minimo, maximo):
     if valor is None:
         return STATUS_SEM_DADO
 
-    if valor >= meta * FATOR_PERIGO_TDS:
-        return Reservatorio.STATUS_PERIGO
-    if valor >= meta:
-        return Reservatorio.STATUS_ATENCAO
-    return Reservatorio.STATUS_BOM
+    return classificar_status_por_faixa(
+        valor,
+        minimo=minimo,
+        maximo=maximo,
+        margem_atencao=0.0,
+        margem_perigo=maximo * (FATOR_PERIGO_TDS - 1.0),
+    )
 
 
-def _status_media_turbidez(valor, *, meta):
+def _status_media_turbidez(valor, *, minimo, maximo):
     if valor is None:
         return STATUS_SEM_DADO
 
-    if valor >= meta * FATOR_PERIGO_TURBIDEZ:
-        return Reservatorio.STATUS_PERIGO
-    if valor >= meta:
-        return Reservatorio.STATUS_ATENCAO
-    return Reservatorio.STATUS_BOM
+    return classificar_status_por_faixa(
+        valor,
+        minimo=minimo,
+        maximo=maximo,
+        margem_atencao=0.0,
+        margem_perigo=maximo * (FATOR_PERIGO_TURBIDEZ - 1.0),
+    )
 
 
-def _status_media_ph(valor, *, meta):
+def _status_media_ph(valor, *, minimo, maximo):
     if valor is None:
         return STATUS_SEM_DADO
 
-    desvio = abs(valor - meta)
-    if desvio >= DESVIO_PH_PERIGO:
-        return Reservatorio.STATUS_PERIGO
-    if desvio >= DESVIO_PH_ATENCAO:
-        return Reservatorio.STATUS_ATENCAO
-    return Reservatorio.STATUS_BOM
+    return classificar_status_por_faixa(
+        valor,
+        minimo=minimo,
+        maximo=maximo,
+        margem_atencao=DESVIO_PH_ATENCAO,
+        margem_perigo=DESVIO_PH_PERIGO,
+    )
 
 
 def _series_leituras_por_ponto(ponto):

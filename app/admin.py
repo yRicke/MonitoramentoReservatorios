@@ -9,10 +9,14 @@ class ReservatorioAdmin(admin.ModelAdmin):
         "id",
         "nome",
         "status",
-        "meta_ppm_tds",
-        "meta_ntu_turbidez",
-        "meta_celsius_temperatura",
-        "meta_ph",
+        "faixa_ppm_tds_min",
+        "faixa_ppm_tds_max",
+        "faixa_ntu_turbidez_min",
+        "faixa_ntu_turbidez_max",
+        "faixa_celsius_temperatura_min",
+        "faixa_celsius_temperatura_max",
+        "faixa_ph_min",
+        "faixa_ph_max",
         "created_at",
     )
     search_fields = ("nome",)

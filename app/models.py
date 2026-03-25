@@ -10,6 +10,14 @@ class Reservatorio(models.Model):
     STATUS_BOM = "bom"
     STATUS_ATENCAO = "atencao"
     STATUS_PERIGO = "perigo"
+    FAIXA_PADRAO_PPM_TDS_MIN = 0.0
+    FAIXA_PADRAO_PPM_TDS_MAX = 500.0
+    FAIXA_PADRAO_NTU_TURBIDEZ_MIN = 0.0
+    FAIXA_PADRAO_NTU_TURBIDEZ_MAX = 5.0
+    FAIXA_PADRAO_CELSIUS_TEMPERATURA_MIN = 5.0
+    FAIXA_PADRAO_CELSIUS_TEMPERATURA_MAX = 30.0
+    FAIXA_PADRAO_PH_MIN = 6.0
+    FAIXA_PADRAO_PH_MAX = 9.5
     META_PADRAO_PPM_TDS = 600.0
     META_PADRAO_NTU_TURBIDEZ = 1.5
     META_PADRAO_CELSIUS_TEMPERATURA = 25.0
@@ -27,6 +35,14 @@ class Reservatorio(models.Model):
     )
     nome = models.CharField(max_length=120, unique=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_BOM)
+    faixa_ppm_tds_min = models.FloatField(default=FAIXA_PADRAO_PPM_TDS_MIN)
+    faixa_ppm_tds_max = models.FloatField(default=FAIXA_PADRAO_PPM_TDS_MAX)
+    faixa_ntu_turbidez_min = models.FloatField(default=FAIXA_PADRAO_NTU_TURBIDEZ_MIN)
+    faixa_ntu_turbidez_max = models.FloatField(default=FAIXA_PADRAO_NTU_TURBIDEZ_MAX)
+    faixa_celsius_temperatura_min = models.FloatField(default=FAIXA_PADRAO_CELSIUS_TEMPERATURA_MIN)
+    faixa_celsius_temperatura_max = models.FloatField(default=FAIXA_PADRAO_CELSIUS_TEMPERATURA_MAX)
+    faixa_ph_min = models.FloatField(default=FAIXA_PADRAO_PH_MIN)
+    faixa_ph_max = models.FloatField(default=FAIXA_PADRAO_PH_MAX)
     meta_ppm_tds = models.FloatField(default=META_PADRAO_PPM_TDS)
     meta_ntu_turbidez = models.FloatField(default=META_PADRAO_NTU_TURBIDEZ)
     meta_celsius_temperatura = models.FloatField(default=META_PADRAO_CELSIUS_TEMPERATURA)
@@ -74,12 +90,70 @@ class Reservatorio(models.Model):
         meta_ntu_turbidez=None,
         meta_celsius_temperatura=None,
         meta_ph=None,
+        faixa_ppm_tds_min=None,
+        faixa_ppm_tds_max=None,
+        faixa_ntu_turbidez_min=None,
+        faixa_ntu_turbidez_max=None,
+        faixa_celsius_temperatura_min=None,
+        faixa_celsius_temperatura_max=None,
+        faixa_ph_min=None,
+        faixa_ph_max=None,
     ):
         if usuario is None:
             raise ValueError("Usuario obrigatorio para criar reservatorio.")
 
         nome_final = cls._normalizar_nome(nome) if nome is not None else cls._proximo_nome()
         status_final = cls._normalizar_status(status)
+
+        # Compatibilidade com metas antigas: converte meta -> faixa quando necessario.
+        if meta_ppm_tds is not None and faixa_ppm_tds_max is None:
+            faixa_ppm_tds_max = meta_ppm_tds
+        if meta_ntu_turbidez is not None and faixa_ntu_turbidez_max is None:
+            faixa_ntu_turbidez_max = meta_ntu_turbidez
+        if meta_celsius_temperatura is not None:
+            if faixa_celsius_temperatura_min is None:
+                faixa_celsius_temperatura_min = meta_celsius_temperatura
+            if faixa_celsius_temperatura_max is None:
+                faixa_celsius_temperatura_max = meta_celsius_temperatura
+        if meta_ph is not None:
+            if faixa_ph_min is None:
+                faixa_ph_min = meta_ph
+            if faixa_ph_max is None:
+                faixa_ph_max = meta_ph
+
+        faixa_ppm_tds_min_final, faixa_ppm_tds_max_final = cls._normalizar_faixa(
+            faixa_ppm_tds_min,
+            faixa_ppm_tds_max,
+            campo="faixa_ppm_tds",
+            padrao_min=cls.FAIXA_PADRAO_PPM_TDS_MIN,
+            padrao_max=cls.FAIXA_PADRAO_PPM_TDS_MAX,
+            permitir_zero=True,
+        )
+        faixa_ntu_turbidez_min_final, faixa_ntu_turbidez_max_final = cls._normalizar_faixa(
+            faixa_ntu_turbidez_min,
+            faixa_ntu_turbidez_max,
+            campo="faixa_ntu_turbidez",
+            padrao_min=cls.FAIXA_PADRAO_NTU_TURBIDEZ_MIN,
+            padrao_max=cls.FAIXA_PADRAO_NTU_TURBIDEZ_MAX,
+            permitir_zero=True,
+        )
+        (
+            faixa_celsius_temperatura_min_final,
+            faixa_celsius_temperatura_max_final,
+        ) = cls._normalizar_faixa(
+            faixa_celsius_temperatura_min,
+            faixa_celsius_temperatura_max,
+            campo="faixa_celsius_temperatura",
+            padrao_min=cls.FAIXA_PADRAO_CELSIUS_TEMPERATURA_MIN,
+            padrao_max=cls.FAIXA_PADRAO_CELSIUS_TEMPERATURA_MAX,
+            permitir_zero=False,
+        )
+        faixa_ph_min_final, faixa_ph_max_final = cls._normalizar_faixa_ph(
+            faixa_ph_min,
+            faixa_ph_max,
+            padrao_min=cls.FAIXA_PADRAO_PH_MIN,
+            padrao_max=cls.FAIXA_PADRAO_PH_MAX,
+        )
         meta_ppm_tds_final = cls._normalizar_meta(
             meta_ppm_tds,
             campo="meta_ppm_tds",
@@ -101,6 +175,14 @@ class Reservatorio(models.Model):
             nome=nome_final,
             status=status_final,
             usuario=usuario,
+            faixa_ppm_tds_min=faixa_ppm_tds_min_final,
+            faixa_ppm_tds_max=faixa_ppm_tds_max_final,
+            faixa_ntu_turbidez_min=faixa_ntu_turbidez_min_final,
+            faixa_ntu_turbidez_max=faixa_ntu_turbidez_max_final,
+            faixa_celsius_temperatura_min=faixa_celsius_temperatura_min_final,
+            faixa_celsius_temperatura_max=faixa_celsius_temperatura_max_final,
+            faixa_ph_min=faixa_ph_min_final,
+            faixa_ph_max=faixa_ph_max_final,
             meta_ppm_tds=meta_ppm_tds_final,
             meta_ntu_turbidez=meta_ntu_turbidez_final,
             meta_celsius_temperatura=meta_celsius_temperatura_final,
@@ -118,6 +200,14 @@ class Reservatorio(models.Model):
         meta_ntu_turbidez=None,
         meta_celsius_temperatura=None,
         meta_ph=None,
+        faixa_ppm_tds_min=None,
+        faixa_ppm_tds_max=None,
+        faixa_ntu_turbidez_min=None,
+        faixa_ntu_turbidez_max=None,
+        faixa_celsius_temperatura_min=None,
+        faixa_celsius_temperatura_max=None,
+        faixa_ph_min=None,
+        faixa_ph_max=None,
     ):
         if status is not None:
             raise ValueError("Status do reservatorio e automatico e nao pode ser editado manualmente.")
@@ -126,6 +216,85 @@ class Reservatorio(models.Model):
         if nome is not None:
             self.nome = self._normalizar_nome(nome)
             campos_para_salvar.append("nome")
+
+        # Compatibilidade com metas antigas: converte meta -> faixa quando necessario.
+        if meta_ppm_tds is not None and faixa_ppm_tds_max is None:
+            faixa_ppm_tds_max = meta_ppm_tds
+        if meta_ntu_turbidez is not None and faixa_ntu_turbidez_max is None:
+            faixa_ntu_turbidez_max = meta_ntu_turbidez
+        if meta_celsius_temperatura is not None:
+            if faixa_celsius_temperatura_min is None:
+                faixa_celsius_temperatura_min = meta_celsius_temperatura
+            if faixa_celsius_temperatura_max is None:
+                faixa_celsius_temperatura_max = meta_celsius_temperatura
+        if meta_ph is not None:
+            if faixa_ph_min is None:
+                faixa_ph_min = meta_ph
+            if faixa_ph_max is None:
+                faixa_ph_max = meta_ph
+
+        if faixa_ppm_tds_min is not None or faixa_ppm_tds_max is not None:
+            minimo, maximo = self._normalizar_faixa(
+                faixa_ppm_tds_min if faixa_ppm_tds_min is not None else self.faixa_ppm_tds_min,
+                faixa_ppm_tds_max if faixa_ppm_tds_max is not None else self.faixa_ppm_tds_max,
+                campo="faixa_ppm_tds",
+                padrao_min=self.FAIXA_PADRAO_PPM_TDS_MIN,
+                padrao_max=self.FAIXA_PADRAO_PPM_TDS_MAX,
+                permitir_zero=True,
+            )
+            self.faixa_ppm_tds_min = minimo
+            self.faixa_ppm_tds_max = maximo
+            campos_para_salvar.extend(["faixa_ppm_tds_min", "faixa_ppm_tds_max"])
+
+        if faixa_ntu_turbidez_min is not None or faixa_ntu_turbidez_max is not None:
+            minimo, maximo = self._normalizar_faixa(
+                faixa_ntu_turbidez_min if faixa_ntu_turbidez_min is not None else self.faixa_ntu_turbidez_min,
+                faixa_ntu_turbidez_max if faixa_ntu_turbidez_max is not None else self.faixa_ntu_turbidez_max,
+                campo="faixa_ntu_turbidez",
+                padrao_min=self.FAIXA_PADRAO_NTU_TURBIDEZ_MIN,
+                padrao_max=self.FAIXA_PADRAO_NTU_TURBIDEZ_MAX,
+                permitir_zero=True,
+            )
+            self.faixa_ntu_turbidez_min = minimo
+            self.faixa_ntu_turbidez_max = maximo
+            campos_para_salvar.extend(["faixa_ntu_turbidez_min", "faixa_ntu_turbidez_max"])
+
+        if faixa_celsius_temperatura_min is not None or faixa_celsius_temperatura_max is not None:
+            minimo, maximo = self._normalizar_faixa(
+                (
+                    faixa_celsius_temperatura_min
+                    if faixa_celsius_temperatura_min is not None
+                    else self.faixa_celsius_temperatura_min
+                ),
+                (
+                    faixa_celsius_temperatura_max
+                    if faixa_celsius_temperatura_max is not None
+                    else self.faixa_celsius_temperatura_max
+                ),
+                campo="faixa_celsius_temperatura",
+                padrao_min=self.FAIXA_PADRAO_CELSIUS_TEMPERATURA_MIN,
+                padrao_max=self.FAIXA_PADRAO_CELSIUS_TEMPERATURA_MAX,
+                permitir_zero=False,
+            )
+            self.faixa_celsius_temperatura_min = minimo
+            self.faixa_celsius_temperatura_max = maximo
+            campos_para_salvar.extend(
+                [
+                    "faixa_celsius_temperatura_min",
+                    "faixa_celsius_temperatura_max",
+                ]
+            )
+
+        if faixa_ph_min is not None or faixa_ph_max is not None:
+            minimo, maximo = self._normalizar_faixa_ph(
+                faixa_ph_min if faixa_ph_min is not None else self.faixa_ph_min,
+                faixa_ph_max if faixa_ph_max is not None else self.faixa_ph_max,
+                padrao_min=self.FAIXA_PADRAO_PH_MIN,
+                padrao_max=self.FAIXA_PADRAO_PH_MAX,
+            )
+            self.faixa_ph_min = minimo
+            self.faixa_ph_max = maximo
+            campos_para_salvar.extend(["faixa_ph_min", "faixa_ph_max"])
 
         if meta_ppm_tds is not None:
             self.meta_ppm_tds = self._normalizar_meta(
@@ -161,7 +330,8 @@ class Reservatorio(models.Model):
         if not campos_para_salvar:
             return self
 
-        self.save(update_fields=[*campos_para_salvar, "updated_at"])
+        campos_unicos = list(dict.fromkeys(campos_para_salvar))
+        self.save(update_fields=[*campos_unicos, "updated_at"])
         return self
 
     def excluir_reservatorio(self):
@@ -226,6 +396,67 @@ class Reservatorio(models.Model):
         numero = cls._normalizar_meta(meta, campo="meta_ph", padrao=padrao)
         if numero > 14:
             raise ValueError("meta_ph deve ser menor ou igual a 14.")
+        return numero
+
+    @classmethod
+    def _normalizar_faixa(
+        cls,
+        minimo,
+        maximo,
+        *,
+        campo,
+        padrao_min,
+        padrao_max,
+        permitir_zero,
+    ):
+        min_final = cls._normalizar_numero_faixa(
+            minimo,
+            campo=f"{campo}_min",
+            padrao=padrao_min,
+            permitir_zero=permitir_zero,
+        )
+        max_final = cls._normalizar_numero_faixa(
+            maximo,
+            campo=f"{campo}_max",
+            padrao=padrao_max,
+            permitir_zero=False,
+        )
+
+        if max_final < min_final:
+            raise ValueError(f"{campo}_max deve ser maior ou igual a {campo}_min.")
+
+        return min_final, max_final
+
+    @classmethod
+    def _normalizar_faixa_ph(cls, minimo, maximo, *, padrao_min, padrao_max):
+        min_final, max_final = cls._normalizar_faixa(
+            minimo,
+            maximo,
+            campo="faixa_ph",
+            padrao_min=padrao_min,
+            padrao_max=padrao_max,
+            permitir_zero=False,
+        )
+        if min_final < 0 or max_final > 14:
+            raise ValueError("faixa_ph deve estar entre 0 e 14.")
+        return min_final, max_final
+
+    @staticmethod
+    def _normalizar_numero_faixa(valor, *, campo, padrao, permitir_zero):
+        if valor is None:
+            numero = float(padrao)
+        else:
+            try:
+                numero = float(valor)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{campo} invalida para reservatorio.") from exc
+
+        if not math.isfinite(numero):
+            raise ValueError(f"{campo} invalida para reservatorio.")
+        if permitir_zero and numero == 0:
+            return numero
+        if numero <= 0:
+            raise ValueError(f"{campo} deve ser maior que zero.")
         return numero
 
     @staticmethod

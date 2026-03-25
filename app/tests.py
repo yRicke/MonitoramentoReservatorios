@@ -56,6 +56,26 @@ class IndexReservatorioTests(TestCase):
         reservatorio = Reservatorio.objects.first()
         self.assertEqual(reservatorio.nome, "Reservatorio 1")
         self.assertEqual(reservatorio.status, Reservatorio.STATUS_BOM)
+        self.assertEqual(reservatorio.faixa_ppm_tds_min, Reservatorio.FAIXA_PADRAO_PPM_TDS_MIN)
+        self.assertEqual(reservatorio.faixa_ppm_tds_max, Reservatorio.FAIXA_PADRAO_PPM_TDS_MAX)
+        self.assertEqual(
+            reservatorio.faixa_ntu_turbidez_min,
+            Reservatorio.FAIXA_PADRAO_NTU_TURBIDEZ_MIN,
+        )
+        self.assertEqual(
+            reservatorio.faixa_ntu_turbidez_max,
+            Reservatorio.FAIXA_PADRAO_NTU_TURBIDEZ_MAX,
+        )
+        self.assertEqual(
+            reservatorio.faixa_celsius_temperatura_min,
+            Reservatorio.FAIXA_PADRAO_CELSIUS_TEMPERATURA_MIN,
+        )
+        self.assertEqual(
+            reservatorio.faixa_celsius_temperatura_max,
+            Reservatorio.FAIXA_PADRAO_CELSIUS_TEMPERATURA_MAX,
+        )
+        self.assertEqual(reservatorio.faixa_ph_min, Reservatorio.FAIXA_PADRAO_PH_MIN)
+        self.assertEqual(reservatorio.faixa_ph_max, Reservatorio.FAIXA_PADRAO_PH_MAX)
         self.assertEqual(reservatorio.meta_ppm_tds, Reservatorio.META_PADRAO_PPM_TDS)
         self.assertEqual(reservatorio.meta_ntu_turbidez, Reservatorio.META_PADRAO_NTU_TURBIDEZ)
         self.assertEqual(
@@ -409,17 +429,17 @@ class IndexReservatorioTests(TestCase):
         self.assertAlmostEqual(card["antes"]["ph"], 6.8, places=2)
         self.assertEqual(card["status_antes"]["temperatura"], Reservatorio.STATUS_BOM)
         self.assertEqual(card["status_antes"]["tds"], Reservatorio.STATUS_BOM)
-        self.assertEqual(card["status_antes"]["turbidez"], Reservatorio.STATUS_ATENCAO)
+        self.assertEqual(card["status_antes"]["turbidez"], Reservatorio.STATUS_BOM)
         self.assertEqual(card["status_antes"]["ph"], Reservatorio.STATUS_BOM)
 
         self.assertAlmostEqual(card["depois"]["temperatura"], 18.0, places=2)
         self.assertAlmostEqual(card["depois"]["tds"], 120.0, places=2)
         self.assertAlmostEqual(card["depois"]["turbidez"], 0.6, places=2)
         self.assertAlmostEqual(card["depois"]["ph"], 6.4, places=2)
-        self.assertEqual(card["status_depois"]["temperatura"], Reservatorio.STATUS_ATENCAO)
+        self.assertEqual(card["status_depois"]["temperatura"], Reservatorio.STATUS_BOM)
         self.assertEqual(card["status_depois"]["tds"], Reservatorio.STATUS_BOM)
         self.assertEqual(card["status_depois"]["turbidez"], Reservatorio.STATUS_BOM)
-        self.assertEqual(card["status_depois"]["ph"], Reservatorio.STATUS_ATENCAO)
+        self.assertEqual(card["status_depois"]["ph"], Reservatorio.STATUS_BOM)
 
     def test_dashboard_aceita_periodos_em_horas_e_minutos(self):
         self._logar()
@@ -448,6 +468,26 @@ class ReservatorioModelCrudTests(TestCase):
         self.assertEqual(primeiro.nome, "Reservatorio 1")
         self.assertEqual(segundo.nome, "Reservatorio 2")
         self.assertEqual(primeiro.status, Reservatorio.STATUS_BOM)
+        self.assertEqual(primeiro.faixa_ppm_tds_min, Reservatorio.FAIXA_PADRAO_PPM_TDS_MIN)
+        self.assertEqual(primeiro.faixa_ppm_tds_max, Reservatorio.FAIXA_PADRAO_PPM_TDS_MAX)
+        self.assertEqual(
+            primeiro.faixa_ntu_turbidez_min,
+            Reservatorio.FAIXA_PADRAO_NTU_TURBIDEZ_MIN,
+        )
+        self.assertEqual(
+            primeiro.faixa_ntu_turbidez_max,
+            Reservatorio.FAIXA_PADRAO_NTU_TURBIDEZ_MAX,
+        )
+        self.assertEqual(
+            primeiro.faixa_celsius_temperatura_min,
+            Reservatorio.FAIXA_PADRAO_CELSIUS_TEMPERATURA_MIN,
+        )
+        self.assertEqual(
+            primeiro.faixa_celsius_temperatura_max,
+            Reservatorio.FAIXA_PADRAO_CELSIUS_TEMPERATURA_MAX,
+        )
+        self.assertEqual(primeiro.faixa_ph_min, Reservatorio.FAIXA_PADRAO_PH_MIN)
+        self.assertEqual(primeiro.faixa_ph_max, Reservatorio.FAIXA_PADRAO_PH_MAX)
         self.assertEqual(primeiro.meta_ppm_tds, Reservatorio.META_PADRAO_PPM_TDS)
         self.assertEqual(primeiro.meta_ntu_turbidez, Reservatorio.META_PADRAO_NTU_TURBIDEZ)
         self.assertEqual(

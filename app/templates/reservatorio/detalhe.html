@@ -56,24 +56,40 @@
             <label for="nome">Nome</label>
             <input id="nome" name="nome" type="text" value="{{ reservatorio.nome }}" required>
 
-            <label for="meta_ppm_tds">Meta TDS (ppm)</label>
-            <input id="meta_ppm_tds" name="meta_ppm_tds" type="number" step="0.01" min="0.01"
-                value="{{ reservatorio.meta_ppm_tds }}" required>
+            <label for="faixa_ppm_tds_min">Faixa TDS min (ppm)</label>
+            <input id="faixa_ppm_tds_min" name="faixa_ppm_tds_min" type="number" step="0.01" min="0"
+                value="{{ reservatorio.faixa_ppm_tds_min|unlocalize }}" required>
 
-            <label for="meta_ntu_turbidez">Meta turbidez (ntu)</label>
-            <input id="meta_ntu_turbidez" name="meta_ntu_turbidez" type="number" step="0.01" min="0.01"
-                value="{{ reservatorio.meta_ntu_turbidez }}" required>
+            <label for="faixa_ppm_tds_max">Faixa TDS max (ppm)</label>
+            <input id="faixa_ppm_tds_max" name="faixa_ppm_tds_max" type="number" step="0.01" min="0.01"
+                value="{{ reservatorio.faixa_ppm_tds_max|unlocalize }}" required>
 
-            <label for="meta_celsius_temperatura">Meta temperatura (celsius)</label>
-            <input id="meta_celsius_temperatura" name="meta_celsius_temperatura" type="number" step="0.01" min="0.01"
-                value="{{ reservatorio.meta_celsius_temperatura }}" required>
+            <label for="faixa_ntu_turbidez_min">Faixa turbidez min (ntu)</label>
+            <input id="faixa_ntu_turbidez_min" name="faixa_ntu_turbidez_min" type="number" step="0.01" min="0"
+                value="{{ reservatorio.faixa_ntu_turbidez_min|unlocalize }}" required>
 
-            <label for="meta_ph">Meta pH</label>
-            <input id="meta_ph" name="meta_ph" type="number" step="0.01" min="0.01" max="14"
-                value="{{ reservatorio.meta_ph }}" required>
+            <label for="faixa_ntu_turbidez_max">Faixa turbidez max (ntu)</label>
+            <input id="faixa_ntu_turbidez_max" name="faixa_ntu_turbidez_max" type="number" step="0.01" min="0.01"
+                value="{{ reservatorio.faixa_ntu_turbidez_max|unlocalize }}" required>
+
+            <label for="faixa_celsius_temperatura_min">Faixa temperatura min (celsius)</label>
+            <input id="faixa_celsius_temperatura_min" name="faixa_celsius_temperatura_min" type="number" step="0.01" min="0.01"
+                value="{{ reservatorio.faixa_celsius_temperatura_min|unlocalize }}" required>
+
+            <label for="faixa_celsius_temperatura_max">Faixa temperatura max (celsius)</label>
+            <input id="faixa_celsius_temperatura_max" name="faixa_celsius_temperatura_max" type="number" step="0.01" min="0.01"
+                value="{{ reservatorio.faixa_celsius_temperatura_max|unlocalize }}" required>
+
+            <label for="faixa_ph_min">Faixa pH min</label>
+            <input id="faixa_ph_min" name="faixa_ph_min" type="number" step="0.01" min="0.01" max="14"
+                value="{{ reservatorio.faixa_ph_min|unlocalize }}" required>
+
+            <label for="faixa_ph_max">Faixa pH max</label>
+            <input id="faixa_ph_max" name="faixa_ph_max" type="number" step="0.01" min="0.01" max="14"
+                value="{{ reservatorio.faixa_ph_max|unlocalize }}" required>
 
             <p class="edit-help">
-                O status e calculado automaticamente com base nas metas deste reservatorio.
+                O status e calculado automaticamente com base nas faixas deste reservatorio.
             </p>
 
             <button class="btn-main" type="submit">Salvar alteracoes</button>
