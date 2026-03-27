@@ -34,6 +34,9 @@ const unsigned long INTERVALO_ENVIO_MS = 1 * 1000 * 60;
 
 // ===== AMOSTRAGEM pH (RAW) =====
 const int QTD_AMOSTRAS_PH = 60;
+const int QTD_AMOSTRAS_TDS = 60;
+const int QTD_AMOSTRAS_TURBIDEZ = 60;
+const int MAX_AMOSTRAS_FILTRO = 80;
 
 OneWire oneWire(DS18B20_PIN);
 DallasTemperature sensors(&oneWire);
@@ -43,10 +46,6 @@ unsigned long ultimoFlushFila = 0;
 
 const unsigned long INTERVALO_FLUSH_FILA_MS = 2000;
 const int FILA_MAX_LEITURAS = 180;
-
-struct SinalAnalogico {
-  int adc;
-};
 
 struct LeituraPendente {
   float temperatura;
@@ -161,38 +160,9 @@ float lerTemperatura() {
   return temp;
 }
 
-SinalAnalogico lerSinalAnalogicoMedio(
-  int pino,
-  int totalAmostras,
-  int atrasoPorAmostraMs,
-  bool ignorarZeros = false
-) {
-  long soma = 0;
-  int cont = 0;
-
-  for (int i = 0; i < totalAmostras; i++) {
-    int leitura = analogRead(pino);
-    if (!ignorarZeros || leitura > 0) {
-      soma += leitura;
-      cont += 1;
-    }
-    delay(atrasoPorAmostraMs);
-  }
-
-  int adcMedio = (cont > 0) ? (soma / cont) : 0;
-  return {adcMedio};
-}
-
-int lerAdcPhFiltradoRobusto() {
-  int leituras[QTD_AMOSTRAS_PH];
-
-  for (int i = 0; i < QTD_AMOSTRAS_PH; i++) {
-    leituras[i] = analogRead(PH_PIN);
-    delay(5);
-  }
-
-  for (int i = 0; i < QTD_AMOSTRAS_PH - 1; i++) {
-    for (int j = i + 1; j < QTD_AMOSTRAS_PH; j++) {
+void ordenarLeituras(int* leituras, int total) {
+  for (int i = 0; i < total - 1; i++) {
+    for (int j = i + 1; j < total; j++) {
       if (leituras[i] > leituras[j]) {
         int tmp = leituras[i];
         leituras[i] = leituras[j];
@@ -200,14 +170,24 @@ int lerAdcPhFiltradoRobusto() {
       }
     }
   }
+}
 
-  const int inicioFaixa = QTD_AMOSTRAS_PH / 3;
-  const int fimFaixa = QTD_AMOSTRAS_PH - inicioFaixa;
-  const int quantidadeFaixa = fimFaixa - inicioFaixa;
+int mediaMioloEstavel(int* leiturasOrdenadas, int total) {
+  if (total <= 0) return 0;
+
+  int inicioFaixa = total / 3;
+  int fimFaixa = total - inicioFaixa;
+  int quantidadeFaixa = fimFaixa - inicioFaixa;
+
+  if (quantidadeFaixa <= 0) {
+    inicioFaixa = 0;
+    fimFaixa = total;
+    quantidadeFaixa = total;
+  }
 
   long somaCentral = 0;
   for (int i = inicioFaixa; i < fimFaixa; i++) {
-    somaCentral += leituras[i];
+    somaCentral += leiturasOrdenadas[i];
   }
 
   int adcFiltrado = (quantidadeFaixa > 0)
@@ -215,6 +195,42 @@ int lerAdcPhFiltradoRobusto() {
     : 0;
 
   return adcFiltrado;
+}
+
+int lerAdcFiltradoRobusto(
+  int pino,
+  int totalAmostras,
+  int atrasoPorAmostraMs,
+  bool ignorarZeros = false
+) {
+  if (totalAmostras <= 0) return 0;
+
+  int alvoAmostras = totalAmostras;
+  if (alvoAmostras > MAX_AMOSTRAS_FILTRO) {
+    alvoAmostras = MAX_AMOSTRAS_FILTRO;
+  }
+
+  int leituras[MAX_AMOSTRAS_FILTRO];
+  int validas = 0;
+  for (int i = 0; i < alvoAmostras; i++) {
+    int leitura = analogRead(pino);
+    if (!ignorarZeros || leitura > 0) {
+      leituras[validas] = leitura;
+      validas += 1;
+    }
+    delay(atrasoPorAmostraMs);
+  }
+
+  if (validas <= 0) {
+    return 0;
+  }
+
+  ordenarLeituras(leituras, validas);
+  return mediaMioloEstavel(leituras, validas);
+}
+
+int lerAdcPhFiltradoRobusto() {
+  return lerAdcFiltradoRobusto(PH_PIN, QTD_AMOSTRAS_PH, 5, false);
 }
 
 bool enviarLeitura(
@@ -371,15 +387,15 @@ void loop() {
       return;
     }
 
-    SinalAnalogico sinalTurbidez = lerSinalAnalogicoMedio(
+    int adcTurbidez = lerAdcFiltradoRobusto(
       TURBIDITY_PIN,
-      20,
+      QTD_AMOSTRAS_TURBIDEZ,
       10,
       false
     );
-    SinalAnalogico sinalTDS = lerSinalAnalogicoMedio(
+    int adcTDS = lerAdcFiltradoRobusto(
       TDS_PIN,
-      30,
+      QTD_AMOSTRAS_TDS,
       5,
       true
     );
@@ -392,17 +408,17 @@ void loop() {
     Serial.print(" | Temp: ");
     Serial.print(temp, 2);
     Serial.print(" C | ADC Turbidez: ");
-    Serial.print(sinalTurbidez.adc);
+    Serial.print(adcTurbidez);
     Serial.print(" | ADC TDS: ");
-    Serial.print(sinalTDS.adc);
+    Serial.print(adcTDS);
     Serial.print(" | ADC pH: ");
     Serial.print(adcPh);
     Serial.println();
 
     enfileirarLeitura(
       temp,
-      sinalTDS.adc,
-      sinalTurbidez.adc,
+      adcTDS,
+      adcTurbidez,
       adcPh,
       firmwareTsMs
     );
