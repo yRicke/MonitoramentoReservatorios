@@ -1,5 +1,5 @@
 const MAX_POINTS_RENDER = 420;
-const INITIAL_ZOOM_POINTS = 80;
+const INITIAL_ZOOM_POINTS = 20;
 
 const CHARTS_CONFIG = [
     {
