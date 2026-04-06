@@ -1,0 +1,45 @@
+{% extends "blocos/base.html" %}
+
+{% block title %}Calibracao {{ reservatorio.nome }}{% endblock %}
+
+{% block content %}
+<section class="message-wrap">
+    <p><a class="btn-main" href="{% url 'reservatorio_detalhe' reservatorio.id %}">Voltar ao detalhe</a></p>
+    {% if messages %}
+    {% for message in messages %}
+    <p class="message {{ message.tags }}">{{ message }}</p>
+    {% endfor %}
+    {% endif %}
+</section>
+
+<section class="detail-hero calibration-hero">
+    <div class="detail-hero-copy">
+        <h2>CALIBRACAO {{ reservatorio.nome|upper }}</h2>
+        <p class="index-hero-subtitle">
+            Escolha primeiro o ponto do reservatorio que voce quer calibrar. A calibracao segue em etapas separadas para ficar mais direta no uso.
+        </p>
+    </div>
+    <div class="detail-hero-actions">
+        <a class="btn-main" href="{% url 'reservatorio_detalhe' reservatorio.id %}">Voltar</a>
+    </div>
+</section>
+
+<section class="panel calibration-page-panel">
+    <div class="calibration-step-kicker">Passo 1</div>
+    <h3>Escolha o ponto</h3>
+    <div class="calibration-choice-grid calibration-choice-grid-points">
+        <a class="calibration-choice-card calibration-point-card"
+            href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_antes.tipo %}">
+            <strong>Antes do tratamento</strong>
+            <span>Status atual: {{ ponto_antes.get_status_atual_display }}</span>
+            <span>Abra os sensores instalados neste ponto.</span>
+        </a>
+        <a class="calibration-choice-card calibration-point-card"
+            href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_depois.tipo %}">
+            <strong>Depois do tratamento</strong>
+            <span>Status atual: {{ ponto_depois.get_status_atual_display }}</span>
+            <span>Continue para escolher qual sensor calibrar.</span>
+        </a>
+    </div>
+</section>
+{% endblock %}

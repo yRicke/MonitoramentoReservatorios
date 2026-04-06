@@ -1,3 +1,4 @@
+from datetime import timedelta
 import math
 
 from django.conf import settings
@@ -484,8 +485,11 @@ class Reservatorio(models.Model):
 class PontoMonitoramento(models.Model):
     TIPO_ANTES = "antes_tratamento"
     TIPO_DEPOIS = "depois_tratamento"
+    TEMPERATURA_INCLINACAO_PADRAO = 1.0
     PH_VOLTAGEM_REFERENCIA_7_PADRAO = 2.39
     PH_INCLINACAO_PADRAO = 0.23
+    TDS_INCLINACAO_PADRAO = 1.0
+    TURBIDEZ_INCLINACAO_PADRAO = 1.0
     TDS_ALVO_CALIBRACAO_PADRAO = 40.0
     TURBIDEZ_ALVO_CALIBRACAO_PADRAO = 0.4
     TIPOS = (
@@ -510,11 +514,21 @@ class PontoMonitoramento(models.Model):
     )
     confianca_status = models.FloatField(null=True, blank=True)
     modelo_versao = models.CharField(max_length=64, blank=True, default="")
+    temperatura_inclinacao = models.FloatField(default=TEMPERATURA_INCLINACAO_PADRAO)
+    temperatura_offset_c = models.FloatField(default=0.0)
+    temperatura_valor_referencia_c = models.FloatField(null=True, blank=True)
+    temperatura_bruta_referencia_c = models.FloatField(null=True, blank=True)
+    temperatura_calibrado_em = models.DateTimeField(null=True, blank=True)
     ph_voltagem_referencia_7 = models.FloatField(default=PH_VOLTAGEM_REFERENCIA_7_PADRAO)
     ph_inclinacao = models.FloatField(default=PH_INCLINACAO_PADRAO)
+    ph_temperatura_calibracao_c = models.FloatField(default=25.0)
     ph_calibrado_em = models.DateTimeField(null=True, blank=True)
+    tds_inclinacao = models.FloatField(default=TDS_INCLINACAO_PADRAO)
     tds_offset_ppm = models.FloatField(default=0.0)
+    tds_calibrado_em = models.DateTimeField(null=True, blank=True)
+    turbidez_inclinacao = models.FloatField(default=TURBIDEZ_INCLINACAO_PADRAO)
     turbidez_offset_ntu = models.FloatField(default=0.0)
+    turbidez_calibrado_em = models.DateTimeField(null=True, blank=True)
     tds_alvo_calibracao_ppm = models.FloatField(default=TDS_ALVO_CALIBRACAO_PADRAO)
     turbidez_alvo_calibracao_ntu = models.FloatField(default=TURBIDEZ_ALVO_CALIBRACAO_PADRAO)
     tds_adc_calibracao = models.IntegerField(null=True, blank=True)
@@ -553,11 +567,52 @@ class PontoMonitoramento(models.Model):
         self.save(update_fields=["status_atual", "confianca_status", "modelo_versao", "updated_at"])
         return self
 
+    def atualizar_calibracao_temperatura(
+        self,
+        *,
+        temperatura_bruta_c,
+        temperatura_referencia_c,
+        temperatura_inclinacao=None,
+    ):
+        temperatura_bruta_final = self._normalizar_temperatura_calibracao(
+            temperatura_bruta_c,
+            campo="temperatura_bruta_referencia_c",
+        )
+        temperatura_referencia_final = self._normalizar_temperatura_calibracao(
+            temperatura_referencia_c,
+            campo="temperatura_valor_referencia_c",
+        )
+        inclinacao_final = (
+            self._normalizar_temperatura_inclinacao(temperatura_inclinacao)
+            if temperatura_inclinacao is not None
+            else self.temperatura_inclinacao
+        )
+
+        self.temperatura_inclinacao = inclinacao_final
+        self.temperatura_offset_c = (
+            temperatura_referencia_final - (temperatura_bruta_final * inclinacao_final)
+        )
+        self.temperatura_valor_referencia_c = temperatura_referencia_final
+        self.temperatura_bruta_referencia_c = temperatura_bruta_final
+        self.temperatura_calibrado_em = timezone.now()
+        self.save(
+            update_fields=[
+                "temperatura_inclinacao",
+                "temperatura_offset_c",
+                "temperatura_valor_referencia_c",
+                "temperatura_bruta_referencia_c",
+                "temperatura_calibrado_em",
+                "updated_at",
+            ]
+        )
+        return self
+
     def atualizar_calibracao_ph(
         self,
         *,
         ph_voltagem_referencia_7=None,
         ph_inclinacao=None,
+        temperatura_calibracao_c=None,
     ):
         campos_para_salvar = []
 
@@ -570,6 +625,13 @@ class PontoMonitoramento(models.Model):
         if ph_inclinacao is not None:
             self.ph_inclinacao = self._normalizar_ph_inclinacao(ph_inclinacao)
             campos_para_salvar.append("ph_inclinacao")
+
+        if temperatura_calibracao_c is not None:
+            self.ph_temperatura_calibracao_c = self._normalizar_temperatura_calibracao(
+                temperatura_calibracao_c,
+                campo="ph_temperatura_calibracao_c",
+            )
+            campos_para_salvar.append("ph_temperatura_calibracao_c")
 
         if not campos_para_salvar:
             return self
@@ -616,10 +678,100 @@ class PontoMonitoramento(models.Model):
         )
         return self
 
+    def atualizar_calibracao_tds(
+        self,
+        *,
+        tds_base_ppm,
+        tds_alvo_ppm,
+        tds_adc=None,
+        tds_inclinacao=None,
+    ):
+        tds_alvo_final = self._normalizar_tds_alvo_calibracao(tds_alvo_ppm)
+        tds_inclinacao_final = (
+            self._normalizar_inclinacao_sensor(
+                tds_inclinacao,
+                campo="tds_inclinacao",
+            )
+            if tds_inclinacao is not None
+            else self.tds_inclinacao
+        )
+
+        self.tds_inclinacao = tds_inclinacao_final
+        self.tds_offset_ppm = tds_alvo_final - (float(tds_base_ppm) * tds_inclinacao_final)
+        self.tds_alvo_calibracao_ppm = tds_alvo_final
+        self.tds_adc_calibracao = self._normalizar_adc_calibracao(tds_adc, campo="tds_adc_calibracao")
+        self.tds_calibrado_em = timezone.now()
+        self.agua_calibrado_em = self.tds_calibrado_em
+        self.save(
+            update_fields=[
+                "tds_inclinacao",
+                "tds_offset_ppm",
+                "tds_alvo_calibracao_ppm",
+                "tds_adc_calibracao",
+                "tds_calibrado_em",
+                "agua_calibrado_em",
+                "updated_at",
+            ]
+        )
+        return self
+
+    def atualizar_calibracao_turbidez(
+        self,
+        *,
+        turbidez_base_ntu,
+        turbidez_alvo_ntu,
+        turbidez_adc=None,
+        turbidez_inclinacao=None,
+    ):
+        turbidez_alvo_final = self._normalizar_turbidez_alvo_calibracao(turbidez_alvo_ntu)
+        turbidez_inclinacao_final = (
+            self._normalizar_inclinacao_sensor(
+                turbidez_inclinacao,
+                campo="turbidez_inclinacao",
+            )
+            if turbidez_inclinacao is not None
+            else self.turbidez_inclinacao
+        )
+
+        self.turbidez_inclinacao = turbidez_inclinacao_final
+        self.turbidez_offset_ntu = (
+            turbidez_alvo_final - (float(turbidez_base_ntu) * turbidez_inclinacao_final)
+        )
+        self.turbidez_alvo_calibracao_ntu = turbidez_alvo_final
+        self.turbidez_adc_calibracao = self._normalizar_adc_calibracao(
+            turbidez_adc,
+            campo="turbidez_adc_calibracao",
+        )
+        self.turbidez_calibrado_em = timezone.now()
+        self.agua_calibrado_em = self.turbidez_calibrado_em
+        self.save(
+            update_fields=[
+                "turbidez_inclinacao",
+                "turbidez_offset_ntu",
+                "turbidez_alvo_calibracao_ntu",
+                "turbidez_adc_calibracao",
+                "turbidez_calibrado_em",
+                "agua_calibrado_em",
+                "updated_at",
+            ]
+        )
+        return self
+
     def aplicar_calibracao_agua(self, *, tds, turbidez):
-        tds_ajustado = float(tds) + float(self.tds_offset_ppm)
-        turbidez_ajustada = float(turbidez) + float(self.turbidez_offset_ntu)
+        tds_ajustado = (float(tds) * float(self.tds_inclinacao)) + float(self.tds_offset_ppm)
+        turbidez_ajustada = (
+            float(turbidez) * float(self.turbidez_inclinacao)
+        ) + float(self.turbidez_offset_ntu)
         return max(0.0, tds_ajustado), max(0.0, turbidez_ajustada)
+
+    def aplicar_calibracao_temperatura(self, temperatura):
+        temperatura_corrigida = (
+            float(temperatura) * float(self.temperatura_inclinacao)
+        ) + float(self.temperatura_offset_c)
+        return self._normalizar_temperatura_calibracao(
+            temperatura_corrigida,
+            campo="temperatura",
+        )
 
     def registrar_leitura(
         self,
@@ -678,6 +830,28 @@ class PontoMonitoramento(models.Model):
         return numero
 
     @staticmethod
+    def _normalizar_temperatura_inclinacao(valor):
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Inclinacao de temperatura invalida para o ponto.") from exc
+
+        if not math.isfinite(numero) or numero <= 0:
+            raise ValueError("Inclinacao de temperatura deve ser maior que zero.")
+        return numero
+
+    @staticmethod
+    def _normalizar_temperatura_calibracao(valor, *, campo):
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{campo} invalida para calibracao.") from exc
+
+        if not math.isfinite(numero) or numero < -50 or numero > 150:
+            raise ValueError(f"{campo} deve estar entre -50C e 150C.")
+        return numero
+
+    @staticmethod
     def _normalizar_tds_alvo_calibracao(valor):
         try:
             numero = float(valor)
@@ -697,6 +871,16 @@ class PontoMonitoramento(models.Model):
 
         if not math.isfinite(numero) or numero < 0 or numero >= 0.5:
             raise ValueError("Alvo de turbidez da calibracao deve estar entre 0 e menor que 0.5 NTU.")
+        return numero
+
+    @staticmethod
+    def _normalizar_inclinacao_sensor(valor, *, campo):
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{campo} invalida.") from exc
+        if not math.isfinite(numero) or numero <= 0:
+            raise ValueError(f"{campo} deve ser maior que zero.")
         return numero
 
     @staticmethod
@@ -749,3 +933,171 @@ class LeituraQualidade(models.Model):
         indexes = [
             models.Index(fields=["ponto", "data_hora"]),
         ]
+
+
+class SessaoCalibracao(models.Model):
+    STATUS_ATIVA = "ativa"
+    STATUS_ENCERRADA = "encerrada"
+    STATUS_EXPIRADA = "expirada"
+    SENSOR_TEMPERATURA = "temperatura"
+    SENSOR_TDS = "tds"
+    SENSOR_TURBIDEZ = "turbidez"
+    SENSOR_PH = "ph"
+    STATUS_CHOICES = (
+        (STATUS_ATIVA, "Ativa"),
+        (STATUS_ENCERRADA, "Encerrada"),
+        (STATUS_EXPIRADA, "Expirada"),
+    )
+    SENSOR_CHOICES = (
+        (SENSOR_TEMPERATURA, "Temperatura"),
+        (SENSOR_TDS, "TDS"),
+        (SENSOR_TURBIDEZ, "Turbidez"),
+        (SENSOR_PH, "pH"),
+    )
+    DURACAO_PADRAO_SEGUNDOS = 15 * 60
+    INTERVALO_ENVIO_PADRAO_MS = 5000
+    QTD_AMOSTRAS_PADRAO = 80
+    ATRASO_AMOSTRA_PADRAO_MS = 50
+
+    ponto = models.ForeignKey(
+        PontoMonitoramento,
+        on_delete=models.CASCADE,
+        related_name="sessoes_calibracao",
+    )
+    sensor = models.CharField(max_length=20, choices=SENSOR_CHOICES)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_ATIVA)
+    iniciada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sessoes_calibracao_iniciadas",
+    )
+    intervalo_envio_ms = models.PositiveIntegerField(default=INTERVALO_ENVIO_PADRAO_MS)
+    qtd_amostras = models.PositiveIntegerField(default=QTD_AMOSTRAS_PADRAO)
+    atraso_amostra_ms = models.PositiveIntegerField(default=ATRASO_AMOSTRA_PADRAO_MS)
+    dados_fluxo = models.JSONField(default=dict, blank=True)
+    iniciada_em = models.DateTimeField(auto_now_add=True)
+    ultima_amostra_em = models.DateTimeField(null=True, blank=True)
+    encerrada_em = models.DateTimeField(null=True, blank=True)
+    expira_em = models.DateTimeField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-iniciada_em"]
+        indexes = [
+            models.Index(fields=["ponto", "status", "expira_em"]),
+            models.Index(fields=["ponto", "sensor", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.ponto} - {self.get_sensor_display()} ({self.status})"
+
+    @classmethod
+    def iniciar(
+        cls,
+        *,
+        ponto,
+        sensor,
+        iniciada_por=None,
+        intervalo_envio_ms=None,
+        qtd_amostras=None,
+        atraso_amostra_ms=None,
+        duracao_segundos=None,
+    ):
+        sensor_final = cls.normalizar_sensor(sensor)
+        cls.encerrar_ativas_do_ponto(ponto)
+        agora = timezone.now()
+        duracao_final = duracao_segundos or cls.DURACAO_PADRAO_SEGUNDOS
+        return cls.objects.create(
+            ponto=ponto,
+            sensor=sensor_final,
+            status=cls.STATUS_ATIVA,
+            iniciada_por=iniciada_por,
+            intervalo_envio_ms=intervalo_envio_ms or cls.INTERVALO_ENVIO_PADRAO_MS,
+            qtd_amostras=qtd_amostras or cls.QTD_AMOSTRAS_PADRAO,
+            atraso_amostra_ms=atraso_amostra_ms or cls.ATRASO_AMOSTRA_PADRAO_MS,
+            expira_em=agora + timedelta(seconds=duracao_final),
+        )
+
+    @classmethod
+    def encerrar_ativas_do_ponto(cls, ponto):
+        agora = timezone.now()
+        cls.objects.filter(
+            ponto=ponto,
+            status=cls.STATUS_ATIVA,
+        ).update(
+            status=cls.STATUS_ENCERRADA,
+            encerrada_em=agora,
+            updated_at=agora,
+        )
+
+    @classmethod
+    def obter_ativa(cls, *, ponto, sensor=None):
+        agora = timezone.now()
+        expiradas = cls.objects.filter(
+            ponto=ponto,
+            status=cls.STATUS_ATIVA,
+            expira_em__lt=agora,
+        )
+        if expiradas.exists():
+            expiradas.update(
+                status=cls.STATUS_EXPIRADA,
+                encerrada_em=agora,
+                updated_at=agora,
+            )
+
+        filtros = {
+            "ponto": ponto,
+            "status": cls.STATUS_ATIVA,
+            "expira_em__gte": agora,
+        }
+        if sensor is not None:
+            filtros["sensor"] = cls.normalizar_sensor(sensor)
+        return cls.objects.filter(**filtros).order_by("-iniciada_em").first()
+
+    @classmethod
+    def normalizar_sensor(cls, sensor):
+        if not isinstance(sensor, str):
+            raise ValueError("sensor invalido")
+        sensor_normalizado = sensor.strip().lower()
+        validos = {item[0] for item in cls.SENSOR_CHOICES}
+        if sensor_normalizado not in validos:
+            raise ValueError("sensor invalido")
+        return sensor_normalizado
+
+    def encerrar(self, *, status=STATUS_ENCERRADA):
+        if self.status != self.STATUS_ATIVA:
+            return self
+        self.status = status
+        self.encerrada_em = timezone.now()
+        self.save(update_fields=["status", "encerrada_em", "updated_at"])
+        return self
+
+    @property
+    def esta_ativa(self):
+        return self.status == self.STATUS_ATIVA and self.expira_em >= timezone.now()
+
+
+class AmostraCalibracao(models.Model):
+    sessao = models.ForeignKey(
+        SessaoCalibracao,
+        on_delete=models.CASCADE,
+        related_name="amostras",
+    )
+    temperatura = models.FloatField(null=True, blank=True)
+    adc_tds = models.IntegerField(null=True, blank=True)
+    adc_turb = models.IntegerField(null=True, blank=True)
+    adc_ph = models.IntegerField(null=True, blank=True)
+    firmware_ts_ms = models.BigIntegerField(null=True, blank=True)
+    sinais_brutos = models.JSONField(default=dict, blank=True)
+    coletada_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-coletada_em"]
+        indexes = [
+            models.Index(fields=["sessao", "coletada_em"]),
+        ]
+
+    def __str__(self):
+        return f"Sessao {self.sessao_id} - {self.coletada_em:%d/%m/%Y %H:%M:%S}"

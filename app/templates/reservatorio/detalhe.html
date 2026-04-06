@@ -14,11 +14,16 @@
 </section>
 
 <section class="detail-hero">
-    <h2>{{ reservatorio.nome|upper }}</h2>
-    <p class="detail-status">
-        <span>Status geral:</span>
-        <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
-    </p>
+    <div class="detail-hero-copy">
+        <h2>{{ reservatorio.nome|upper }}</h2>
+        <p class="detail-status">
+            <span>Status geral:</span>
+            <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
+        </p>
+    </div>
+    <div class="detail-hero-actions">
+        <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Calibrar</a>
+    </div>
 </section>
 
 <section class="detail-layout detail-status-grid">
@@ -104,263 +109,42 @@
     </div>
 </section>
 
-<section class="detail-main-layout">
-    <section class="chart-stack">
-        <article class="panel">
-            <h4>Temperatura (celsius / data_hora)</h4>
-            <p id="lastReadingTemperatura" class="chart-last-reading">Ultima leitura: --</p>
-            <div class="chart-wrap">
-                <div id="chartTemperatura" class="apex-chart"></div>
-                <div class="chart-empty" id="emptyTemperatura" hidden>Sem leituras de temperatura</div>
-            </div>
-        </article>
-
-        <article class="panel">
-            <h4>TDS (ppm / data_hora)</h4>
-            <p id="lastReadingTDS" class="chart-last-reading">Ultima leitura: --</p>
-            <div class="chart-wrap">
-                <div id="chartTDS" class="apex-chart"></div>
-                <div class="chart-empty" id="emptyTDS" hidden>Sem leituras de TDS</div>
-            </div>
-        </article>
-
-        <article class="panel">
-            <h4>Turbidez (ntu / data_hora)</h4>
-            <p id="lastReadingTurbidez" class="chart-last-reading">Ultima leitura: --</p>
-            <div class="chart-wrap">
-                <div id="chartTurbidez" class="apex-chart"></div>
-                <div class="chart-empty" id="emptyTurbidez" hidden>Sem leituras de turbidez</div>
-            </div>
-        </article>
-
-        <article class="panel">
-            <h4>pH (data_hora)</h4>
-            <p id="lastReadingPH" class="chart-last-reading">Ultima leitura: --</p>
-            <div class="chart-wrap">
-                <div id="chartPH" class="apex-chart"></div>
-                <div class="chart-empty" id="emptyPH" hidden>Sem leituras de pH</div>
-            </div>
-        </article>
-    </section>
-
-    <aside class="panel calibration-sidebar">
-        <h3>Calibracoes</h3>
-        <div class="calibration-toggle-menu" role="tablist" aria-label="Menu de calibracoes">
-            <button type="button" class="calibration-toggle-btn is-active" data-calib-target="calibrationWater" role="tab"
-                aria-selected="true">TDS + Turbidez</button>
-            <button type="button" class="calibration-toggle-btn" data-calib-target="calibrationPhAuto" role="tab"
-                aria-selected="false">pH automatico</button>
-            <button type="button" class="calibration-toggle-btn" data-calib-target="calibrationPhManual" role="tab"
-                aria-selected="false">pH manual</button>
+<section class="chart-stack">
+    <article class="panel">
+        <h4>Temperatura (celsius / data_hora)</h4>
+        <p id="lastReadingTemperatura" class="chart-last-reading">Ultima leitura: --</p>
+        <div class="chart-wrap">
+            <div id="chartTemperatura" class="apex-chart"></div>
+            <div class="chart-empty" id="emptyTemperatura" hidden>Sem leituras de temperatura</div>
         </div>
+    </article>
 
-        <div id="calibrationWater" class="calibration-toggle-panel is-active" role="tabpanel">
-            <section class="water-calibration-section">
-                <h5>Calibracao automatica TDS + Turbidez (agua limpa)</h5>
-                <p class="status-meta">1. Retire os sensores do reservatorio.</p>
-                <p class="status-meta">2. Enxague com agua destilada (preferencialmente), sem esfregar as pontas.</p>
-                <p class="status-meta">3. Mergulhe em agua limpa/destilada e aguarde estabilizar.</p>
-                <p class="status-meta">4. Clique em calibrar no ponto correto (antes/depois).</p>
-                <p class="status-meta">5. Recomendado recalibrar a cada 15 dias.</p>
-
-                <div class="water-auto-grid">
-                    <form class="water-auto-card" method="post"
-                        action="{% url 'reservatorio_calibracao_agua_auto' reservatorio.id %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="ponto_tipo" value="antes_tratamento">
-                        <h6>Antes do tratamento</h6>
-                        <p
-                            class="water-calibration-status {% if agua_calibracao_antes.vencida %}is-overdue{% else %}is-ok{% endif %}">
-                            {% if agua_calibracao_antes.calibrado_em %}
-                            Ultima calibracao: {{ agua_calibracao_antes.calibrado_em|date:"d/m/Y H:i" }} ({{ agua_calibracao_antes.dias }}d)
-                            {% else %}
-                            Ultima calibracao: nunca calibrado
-                            {% endif %}
-                        </p>
-                        <p class="water-reading-hint">
-                            Ultimo ADC TDS/Turbidez:
-                            {% if agua_calibracao_antes.adc_tds is not None and agua_calibracao_antes.adc_turb is not None %}
-                            {{ agua_calibracao_antes.adc_tds }} / {{ agua_calibracao_antes.adc_turb }}
-                            {% else %}
-                            --
-                            {% endif %}
-                        </p>
-                        <p class="water-reading-hint">
-                            Base estimada (ppm/NTU):
-                            {% if agua_calibracao_antes.tds_estimado_ppm is not None and agua_calibracao_antes.turbidez_estimada_ntu is not None %}
-                            {{ agua_calibracao_antes.tds_estimado_ppm|floatformat:2 }} / {{ agua_calibracao_antes.turbidez_estimada_ntu|floatformat:3 }}
-                            {% else %}
-                            --
-                            {% endif %}
-                        </p>
-                        <div class="water-target-grid">
-                            <div>
-                                <label for="tds_alvo_antes">TDS alvo (ppm)</label>
-                                <input id="tds_alvo_antes" name="tds_alvo_ppm" type="number" min="0" max="49.99"
-                                    step="0.01" value="{{ ponto_antes.tds_alvo_calibracao_ppm|unlocalize }}" required>
-                            </div>
-                            <div>
-                                <label for="turbidez_alvo_antes">Turbidez alvo (NTU)</label>
-                                <input id="turbidez_alvo_antes" name="turbidez_alvo_ntu" type="number" min="0"
-                                    max="0.499" step="0.001"
-                                    value="{{ ponto_antes.turbidez_alvo_calibracao_ntu|unlocalize }}" required>
-                            </div>
-                        </div>
-                        <button class="btn-main" type="submit">Calibrar ponto</button>
-                    </form>
-
-                    <form class="water-auto-card" method="post"
-                        action="{% url 'reservatorio_calibracao_agua_auto' reservatorio.id %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="ponto_tipo" value="depois_tratamento">
-                        <h6>Depois do tratamento</h6>
-                        <p
-                            class="water-calibration-status {% if agua_calibracao_depois.vencida %}is-overdue{% else %}is-ok{% endif %}">
-                            {% if agua_calibracao_depois.calibrado_em %}
-                            Ultima calibracao: {{ agua_calibracao_depois.calibrado_em|date:"d/m/Y H:i" }} ({{ agua_calibracao_depois.dias }}d)
-                            {% else %}
-                            Ultima calibracao: nunca calibrado
-                            {% endif %}
-                        </p>
-                        <p class="water-reading-hint">
-                            Ultimo ADC TDS/Turbidez:
-                            {% if agua_calibracao_depois.adc_tds is not None and agua_calibracao_depois.adc_turb is not None %}
-                            {{ agua_calibracao_depois.adc_tds }} / {{ agua_calibracao_depois.adc_turb }}
-                            {% else %}
-                            --
-                            {% endif %}
-                        </p>
-                        <p class="water-reading-hint">
-                            Base estimada (ppm/NTU):
-                            {% if agua_calibracao_depois.tds_estimado_ppm is not None and agua_calibracao_depois.turbidez_estimada_ntu is not None %}
-                            {{ agua_calibracao_depois.tds_estimado_ppm|floatformat:2 }} / {{ agua_calibracao_depois.turbidez_estimada_ntu|floatformat:3 }}
-                            {% else %}
-                            --
-                            {% endif %}
-                        </p>
-                        <div class="water-target-grid">
-                            <div>
-                                <label for="tds_alvo_depois">TDS alvo (ppm)</label>
-                                <input id="tds_alvo_depois" name="tds_alvo_ppm" type="number" min="0" max="49.99"
-                                    step="0.01" value="{{ ponto_depois.tds_alvo_calibracao_ppm|unlocalize }}" required>
-                            </div>
-                            <div>
-                                <label for="turbidez_alvo_depois">Turbidez alvo (NTU)</label>
-                                <input id="turbidez_alvo_depois" name="turbidez_alvo_ntu" type="number" min="0"
-                                    max="0.499" step="0.001"
-                                    value="{{ ponto_depois.turbidez_alvo_calibracao_ntu|unlocalize }}" required>
-                            </div>
-                        </div>
-                        <button class="btn-main" type="submit">Calibrar ponto</button>
-                    </form>
-                </div>
-            </section>
+    <article class="panel">
+        <h4>TDS (ppm / data_hora)</h4>
+        <p id="lastReadingTDS" class="chart-last-reading">Ultima leitura: --</p>
+        <div class="chart-wrap">
+            <div id="chartTDS" class="apex-chart"></div>
+            <div class="chart-empty" id="emptyTDS" hidden>Sem leituras de TDS</div>
         </div>
+    </article>
 
-        <div id="calibrationPhAuto" class="calibration-toggle-panel" role="tabpanel" hidden>
-            <section class="ph-calibration-section">
-                <h5>Calibracao automatica por ponto (solucao de pH conhecido)</h5>
-                <p class="status-meta">1. Retire o eletrodo do reservatorio.</p>
-                <p class="status-meta">2. Enxague cuidadosamente com agua destilada (preferencialmente), sem esfregar o sensor.</p>
-                <p class="status-meta">3. Coloque o eletrodo em uma solucao de pH conhecido.</p>
-                <p class="status-meta">4. Aguarde ate que a leitura esteja estavel (aproximadamente 10 minutos).</p>
-                <p class="status-meta">5. Informe o pH da solucao e clique em calibrar.</p>
-                <p class="status-meta">6. Enxague cuidadosamente com agua destilada (preferencialmente), sem esfregar o sensor.</p>
-                <p class="status-meta">7. Retorne o eletrodo ao tanque.</p>
-
-                <div class="ph-auto-grid">
-                    <form class="ph-auto-card" method="post"
-                        action="{% url 'reservatorio_calibracao_ph_auto' reservatorio.id %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="ponto_tipo" value="antes_tratamento">
-                        <h6>Antes do tratamento</h6>
-                        <p
-                            class="ph-calibration-status {% if ph_calibracao_antes.vencida %}is-overdue{% else %}is-ok{% endif %}">
-                            {% if ph_calibracao_antes.calibrado_em %}
-                            Ultima calibracao: {{ ph_calibracao_antes.calibrado_em|date:"d/m/Y H:i" }} ({{ ph_calibracao_antes.dias }}d)
-                            {% else %}
-                            Ultima calibracao: nunca calibrado
-                            {% endif %}
-                        </p>
-                        <p class="ph-voltage-hint">
-                            Ultima voltagem lida:
-                            {% if ph_calibracao_antes.ultima_tensao is not None %}
-                            {{ ph_calibracao_antes.ultima_tensao|floatformat:3 }} V
-                            {% else %}
-                            --
-                            {% endif %}
-                        </p>
-                        <label for="ph_solucao_antes">pH da solucao conhecida</label>
-                        <input id="ph_solucao_antes" name="ph_solucao" type="number" min="0" max="14" step="0.01"
-                            value="7.00" required>
-                        <button class="btn-main" type="submit">Calibrar ponto</button>
-                    </form>
-
-                    <form class="ph-auto-card" method="post"
-                        action="{% url 'reservatorio_calibracao_ph_auto' reservatorio.id %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="ponto_tipo" value="depois_tratamento">
-                        <h6>Depois do tratamento</h6>
-                        <p
-                            class="ph-calibration-status {% if ph_calibracao_depois.vencida %}is-overdue{% else %}is-ok{% endif %}">
-                            {% if ph_calibracao_depois.calibrado_em %}
-                            Ultima calibracao: {{ ph_calibracao_depois.calibrado_em|date:"d/m/Y H:i" }} ({{ ph_calibracao_depois.dias }}d)
-                            {% else %}
-                            Ultima calibracao: nunca calibrado
-                            {% endif %}
-                        </p>
-                        <p class="ph-voltage-hint">
-                            Ultima voltagem lida:
-                            {% if ph_calibracao_depois.ultima_tensao is not None %}
-                            {{ ph_calibracao_depois.ultima_tensao|floatformat:3 }} V
-                            {% else %}
-                            --
-                            {% endif %}
-                        </p>
-                        <label for="ph_solucao_depois">pH da solucao conhecida</label>
-                        <input id="ph_solucao_depois" name="ph_solucao" type="number" min="0" max="14" step="0.01"
-                            value="7.00" required>
-                        <button class="btn-main" type="submit">Calibrar ponto</button>
-                    </form>
-                </div>
-            </section>
+    <article class="panel">
+        <h4>Turbidez (ntu / data_hora)</h4>
+        <p id="lastReadingTurbidez" class="chart-last-reading">Ultima leitura: --</p>
+        <div class="chart-wrap">
+            <div id="chartTurbidez" class="apex-chart"></div>
+            <div class="chart-empty" id="emptyTurbidez" hidden>Sem leituras de turbidez</div>
         </div>
+    </article>
 
-        <div id="calibrationPhManual" class="calibration-toggle-panel" role="tabpanel" hidden>
-            <section class="ph-calibration-section">
-                <h5>Calibracao manual</h5>
-                <form class="ph-calibration-form" method="post"
-                    action="{% url 'reservatorio_calibracao_ph_atualizar' reservatorio.id %}">
-                    {% csrf_token %}
-                    <div class="ph-manual-grid">
-                        <div class="ph-manual-card">
-                            <h6>Antes do tratamento</h6>
-                            <label for="ph7_antes">Voltagem pH 7 (V)</label>
-                            <input id="ph7_antes" name="ph7_antes" type="number" min="0.01" max="3.3" step="0.001"
-                                value="{{ ponto_antes.ph_voltagem_referencia_7|unlocalize }}" required>
-
-                            <label for="inclinacao_antes">Inclinacao</label>
-                            <input id="inclinacao_antes" name="inclinacao_antes" type="number" min="0.001" step="0.001"
-                                value="{{ ponto_antes.ph_inclinacao|unlocalize }}" required>
-                        </div>
-
-                        <div class="ph-manual-card">
-                            <h6>Depois do tratamento</h6>
-                            <label for="ph7_depois">Voltagem pH 7 (V)</label>
-                            <input id="ph7_depois" name="ph7_depois" type="number" min="0.01" max="3.3" step="0.001"
-                                value="{{ ponto_depois.ph_voltagem_referencia_7|unlocalize }}" required>
-
-                            <label for="inclinacao_depois">Inclinacao</label>
-                            <input id="inclinacao_depois" name="inclinacao_depois" type="number" min="0.001"
-                                step="0.001" value="{{ ponto_depois.ph_inclinacao|unlocalize }}" required>
-                        </div>
-                    </div>
-
-                    <button class="btn-main" type="submit">Salvar calibracao manual</button>
-                </form>
-            </section>
+    <article class="panel">
+        <h4>pH (data_hora)</h4>
+        <p id="lastReadingPH" class="chart-last-reading">Ultima leitura: --</p>
+        <div class="chart-wrap">
+            <div id="chartPH" class="apex-chart"></div>
+            <div class="chart-empty" id="emptyPH" hidden>Sem leituras de pH</div>
         </div>
-    </aside>
+    </article>
 </section>
 
 {{ tds_series_antes|json_script:"tds-series-antes-data" }}

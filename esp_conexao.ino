@@ -17,6 +17,8 @@ IPAddress apSubnet(255, 255, 255, 0);
 const char* djangoHost = "192.168.50.2"; // IP da sua maquina nessa rede
 const int djangoPort = 8000;
 const char* djangoPath = "/api/esp32/leituras/";
+const char* djangoCalibrationCommandPath = "/api/esp32/calibracao/comando/";
+const char* djangoCalibrationSamplesPath = "/api/esp32/calibracao/amostras/";
 const char* apiToken = "Oqc9zeW5fZjRFvxXZhaJtdVAD3sRrhy2G0a7IWegMR3ZOR3dsAxQ142qRut3fWtA";
 const int reservatorioId = 8;
 
@@ -24,7 +26,10 @@ const int reservatorioId = 8;
 const char* pontoTipo = "depois_tratamento"; // "antes_tratamento" ou "depois_tratamento"
 
 // ===== INTERVALO =====
-const unsigned long INTERVALO_ENVIO_MS = 1 * 1000 * 60;
+const unsigned long INTERVALO_ENVIO_MS = 1UL * 1000UL * 60UL;
+const unsigned long INTERVALO_POLL_CALIBRACAO_MS = 2000;
+const unsigned long INTERVALO_ENVIO_CALIBRACAO_PADRAO_MS = 5000;
+const unsigned long DELAY_LOOP_MS = 50;
 
 // ===== PINOS =====
 #define DS18B20_PIN 4
@@ -32,20 +37,36 @@ const unsigned long INTERVALO_ENVIO_MS = 1 * 1000 * 60;
 #define TURBIDITY_PIN 35
 #define PH_PIN 32
 
-// ===== AMOSTRAGEM pH (RAW) =====
+// ===== AMOSTRAGEM =====
 const int QTD_AMOSTRAS_PH = 60;
 const int QTD_AMOSTRAS_TDS = 60;
 const int QTD_AMOSTRAS_TURBIDEZ = 60;
+const int QTD_AMOSTRAS_CALIBRACAO_PADRAO = 80;
+const int ATRASO_AMOSTRA_CALIBRACAO_PADRAO_MS = 50;
 const int MAX_AMOSTRAS_FILTRO = 80;
+
+const char* SENSOR_TEMPERATURA = "temperatura";
+const char* SENSOR_TDS = "tds";
+const char* SENSOR_TURBIDEZ = "turbidez";
+const char* SENSOR_PH = "ph";
 
 OneWire oneWire(DS18B20_PIN);
 DallasTemperature sensors(&oneWire);
 
 unsigned long ultimoEnvio = 0;
 unsigned long ultimoFlushFila = 0;
+unsigned long ultimoPollCalibracao = 0;
+unsigned long ultimoEnvioCalibracao = 0;
 
 const unsigned long INTERVALO_FLUSH_FILA_MS = 2000;
 const int FILA_MAX_LEITURAS = 180;
+
+bool calibracaoAtiva = false;
+String sensorCalibracaoAtivo = "";
+unsigned long intervaloEnvioCalibracaoMs = INTERVALO_ENVIO_CALIBRACAO_PADRAO_MS;
+int qtdAmostrasCalibracao = QTD_AMOSTRAS_CALIBRACAO_PADRAO;
+int atrasoAmostraCalibracaoMs = ATRASO_AMOSTRA_CALIBRACAO_PADRAO_MS;
+long sessaoCalibracaoId = 0;
 
 struct LeituraPendente {
   float temperatura;
@@ -70,8 +91,19 @@ const char* NVS_KEY_DADOS_B = "dados_b";
 
 bool nvsDisponivel = false;
 
-String montarUrlDjango() {
+String montarUrlDjangoLeituras() {
   return String("http://") + djangoHost + ":" + String(djangoPort) + djangoPath;
+}
+
+String montarUrlDjangoComandoCalibracao() {
+  String url = String("http://") + djangoHost + ":" + String(djangoPort) + djangoCalibrationCommandPath;
+  url += "?reservatorio_id=" + String(reservatorioId);
+  url += "&ponto_tipo=" + String(pontoTipo);
+  return url;
+}
+
+String montarUrlDjangoAmostrasCalibracao() {
+  return String("http://") + djangoHost + ":" + String(djangoPort) + djangoCalibrationSamplesPath;
 }
 
 void resetarFilaEmMemoria() {
@@ -190,11 +222,9 @@ int mediaMioloEstavel(int* leiturasOrdenadas, int total) {
     somaCentral += leiturasOrdenadas[i];
   }
 
-  int adcFiltrado = (quantidadeFaixa > 0)
+  return (quantidadeFaixa > 0)
     ? (int)(somaCentral / quantidadeFaixa)
     : 0;
-
-  return adcFiltrado;
 }
 
 int lerAdcFiltradoRobusto(
@@ -229,8 +259,8 @@ int lerAdcFiltradoRobusto(
   return mediaMioloEstavel(leituras, validas);
 }
 
-int lerAdcPhFiltradoRobusto() {
-  return lerAdcFiltradoRobusto(PH_PIN, QTD_AMOSTRAS_PH, 5, false);
+int lerAdcPhFiltradoRobusto(int quantidadeAmostras, int atrasoAmostraMs) {
+  return lerAdcFiltradoRobusto(PH_PIN, quantidadeAmostras, atrasoAmostraMs, false);
 }
 
 bool enviarLeitura(
@@ -248,7 +278,7 @@ bool enviarLeitura(
   HTTPClient http;
   http.setTimeout(10000);
 
-  String url = montarUrlDjango();
+  String url = montarUrlDjangoLeituras();
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-API-Token", apiToken);
@@ -286,7 +316,6 @@ void enfileirarLeitura(
   int adcPh,
   unsigned long firmwareTsMs
 ) {
-  // Se lotar, descarta a mais antiga para manter as mais recentes.
   if (filaQuantidade >= FILA_MAX_LEITURAS) {
     filaInicio = (filaInicio + 1) % FILA_MAX_LEITURAS;
     filaQuantidade--;
@@ -345,14 +374,342 @@ void tentarEnviarFila(int limitePorCiclo) {
 
   if (enviados > 0) {
     salvarFilaEmFlash();
-  }
-
-  if (enviados > 0) {
     Serial.print("Fila enviada: ");
     Serial.print(enviados);
     Serial.print(" | Restantes: ");
     Serial.println(filaQuantidade);
   }
+}
+
+String extrairCampoJsonString(const String& json, const String& chave) {
+  String marcador = "\"" + chave + "\":";
+  int inicio = json.indexOf(marcador);
+  if (inicio < 0) return "";
+
+  inicio += marcador.length();
+  while (inicio < (int)json.length() && (json[inicio] == ' ' || json[inicio] == '\n' || json[inicio] == '\r' || json[inicio] == '\t')) {
+    inicio++;
+  }
+
+  if (inicio >= (int)json.length() || json[inicio] != '"') return "";
+  inicio += 1;
+  int fim = json.indexOf('"', inicio);
+  if (fim < 0) return "";
+  return json.substring(inicio, fim);
+}
+
+long extrairCampoJsonLong(const String& json, const String& chave, long padrao) {
+  String marcador = "\"" + chave + "\":";
+  int inicio = json.indexOf(marcador);
+  if (inicio < 0) return padrao;
+
+  inicio += marcador.length();
+  while (inicio < (int)json.length() && (json[inicio] == ' ' || json[inicio] == '\n' || json[inicio] == '\r' || json[inicio] == '\t')) {
+    inicio++;
+  }
+
+  int fim = inicio;
+  while (
+    fim < (int)json.length() &&
+    json[fim] != ',' &&
+    json[fim] != '}' &&
+    json[fim] != '\n' &&
+    json[fim] != '\r'
+  ) {
+    fim++;
+  }
+
+  String valor = json.substring(inicio, fim);
+  valor.trim();
+  if (valor.length() <= 0) return padrao;
+  return valor.toInt();
+}
+
+void desativarModoCalibracao() {
+  if (calibracaoAtiva) {
+    Serial.println("Modo calibracao encerrado. Voltando para o fluxo normal.");
+  }
+  calibracaoAtiva = false;
+  sensorCalibracaoAtivo = "";
+  intervaloEnvioCalibracaoMs = INTERVALO_ENVIO_CALIBRACAO_PADRAO_MS;
+  qtdAmostrasCalibracao = QTD_AMOSTRAS_CALIBRACAO_PADRAO;
+  atrasoAmostraCalibracaoMs = ATRASO_AMOSTRA_CALIBRACAO_PADRAO_MS;
+  sessaoCalibracaoId = 0;
+}
+
+void aplicarModoCalibracao(
+  const String& sensor,
+  long sessaoId,
+  unsigned long intervaloEnvioMs,
+  int qtdAmostras,
+  int atrasoAmostraMs
+) {
+  bool mudou = (!calibracaoAtiva) || sensorCalibracaoAtivo != sensor || sessaoCalibracaoId != sessaoId;
+
+  calibracaoAtiva = true;
+  sensorCalibracaoAtivo = sensor;
+  sessaoCalibracaoId = sessaoId;
+  intervaloEnvioCalibracaoMs = intervaloEnvioMs;
+  qtdAmostrasCalibracao = qtdAmostras;
+  atrasoAmostraCalibracaoMs = atrasoAmostraMs;
+
+  if (mudou) {
+    ultimoEnvioCalibracao = millis() - intervaloEnvioCalibracaoMs;
+    Serial.print("Modo calibracao ativo. Sensor: ");
+    Serial.print(sensorCalibracaoAtivo);
+    Serial.print(" | sessao ");
+    Serial.println(sessaoCalibracaoId);
+  }
+}
+
+void atualizarModoCalibracao() {
+  if (WiFi.softAPgetStationNum() <= 0) {
+    return;
+  }
+
+  HTTPClient http;
+  http.setTimeout(5000);
+  String url = montarUrlDjangoComandoCalibracao();
+  http.begin(url);
+  http.addHeader("X-API-Token", apiToken);
+
+  int code = http.GET();
+  String resposta = http.getString();
+  http.end();
+
+  if (code < 200 || code >= 300) {
+    Serial.print("Falha ao consultar comando de calibracao. Code: ");
+    Serial.println(code);
+    return;
+  }
+
+  String modo = extrairCampoJsonString(resposta, "modo");
+  if (modo != "calibracao") {
+    desativarModoCalibracao();
+    return;
+  }
+
+  String sensor = extrairCampoJsonString(resposta, "sensor");
+  if (
+    sensor != SENSOR_TEMPERATURA &&
+    sensor != SENSOR_TDS &&
+    sensor != SENSOR_TURBIDEZ &&
+    sensor != SENSOR_PH
+  ) {
+    desativarModoCalibracao();
+    return;
+  }
+
+  long sessaoId = extrairCampoJsonLong(resposta, "sessao_id", 0);
+  unsigned long intervaloEnvioMs = (unsigned long)extrairCampoJsonLong(
+    resposta,
+    "intervalo_envio_ms",
+    INTERVALO_ENVIO_CALIBRACAO_PADRAO_MS
+  );
+  int qtdAmostras = (int)extrairCampoJsonLong(
+    resposta,
+    "qtd_amostras",
+    QTD_AMOSTRAS_CALIBRACAO_PADRAO
+  );
+  int atrasoAmostraMs = (int)extrairCampoJsonLong(
+    resposta,
+    "atraso_amostra_ms",
+    ATRASO_AMOSTRA_CALIBRACAO_PADRAO_MS
+  );
+
+  if (intervaloEnvioMs < 1000) {
+    intervaloEnvioMs = INTERVALO_ENVIO_CALIBRACAO_PADRAO_MS;
+  }
+  if (qtdAmostras <= 0) {
+    qtdAmostras = QTD_AMOSTRAS_CALIBRACAO_PADRAO;
+  }
+  if (atrasoAmostraMs <= 0) {
+    atrasoAmostraMs = ATRASO_AMOSTRA_CALIBRACAO_PADRAO_MS;
+  }
+
+  aplicarModoCalibracao(
+    sensor,
+    sessaoId,
+    intervaloEnvioMs,
+    qtdAmostras,
+    atrasoAmostraMs
+  );
+}
+
+bool enviarAmostraCalibracao(
+  const String& sensor,
+  float temperatura,
+  int adcTds,
+  int adcTurb,
+  int adcPh,
+  unsigned long firmwareTsMs
+) {
+  if (WiFi.softAPgetStationNum() <= 0) {
+    Serial.println("Sem cliente conectado no AP. Nao enviando amostra de calibracao.");
+    return false;
+  }
+
+  HTTPClient http;
+  http.setTimeout(10000);
+
+  String url = montarUrlDjangoAmostrasCalibracao();
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-API-Token", apiToken);
+
+  String body = "{";
+  body += "\"reservatorio_id\":" + String(reservatorioId) + ",";
+  body += "\"ponto_tipo\":\"" + String(pontoTipo) + "\",";
+  body += "\"sensor\":\"" + sensor + "\"";
+  if (!isnan(temperatura)) {
+    body += ",\"temperatura\":" + String(temperatura, 2);
+  }
+  body += ",\"raw\":{";
+
+  bool precisaVirgula = false;
+  if (adcTds >= 0) {
+    body += "\"adc_tds\":" + String(adcTds);
+    precisaVirgula = true;
+  }
+  if (adcTurb >= 0) {
+    if (precisaVirgula) body += ",";
+    body += "\"adc_turb\":" + String(adcTurb);
+    precisaVirgula = true;
+  }
+  if (adcPh >= 0) {
+    if (precisaVirgula) body += ",";
+    body += "\"adc_ph\":" + String(adcPh);
+    precisaVirgula = true;
+  }
+  if (precisaVirgula) body += ",";
+  body += "\"firmware_ts_ms\":" + String(firmwareTsMs);
+  body += "}}";
+
+  int code = http.POST(body);
+  String resposta = http.getString();
+  http.end();
+
+  Serial.print("Calibracao POST code: ");
+  Serial.println(code);
+  Serial.print("Resposta calibracao: ");
+  Serial.println(resposta);
+
+  return (code >= 200 && code < 300);
+}
+
+void executarCicloLeituraNormal() {
+  float temp = lerTemperatura();
+  if (isnan(temp)) {
+    Serial.println("Falha ao ler temperatura.");
+    return;
+  }
+
+  int adcTurbidez = lerAdcFiltradoRobusto(
+    TURBIDITY_PIN,
+    QTD_AMOSTRAS_TURBIDEZ,
+    10,
+    false
+  );
+  int adcTDS = lerAdcFiltradoRobusto(
+    TDS_PIN,
+    QTD_AMOSTRAS_TDS,
+    5,
+    true
+  );
+  int adcPh = lerAdcPhFiltradoRobusto(QTD_AMOSTRAS_PH, 5);
+
+  unsigned long firmwareTsMs = millis();
+
+  Serial.print("Ponto: ");
+  Serial.print(pontoTipo);
+  Serial.print(" | Temp: ");
+  Serial.print(temp, 2);
+  Serial.print(" C | ADC Turbidez: ");
+  Serial.print(adcTurbidez);
+  Serial.print(" | ADC TDS: ");
+  Serial.print(adcTDS);
+  Serial.print(" | ADC pH: ");
+  Serial.println(adcPh);
+
+  enfileirarLeitura(
+    temp,
+    adcTDS,
+    adcTurbidez,
+    adcPh,
+    firmwareTsMs
+  );
+  tentarEnviarFila(10);
+}
+
+void executarCicloCalibracao() {
+  float temperatura = NAN;
+  int adcTds = -1;
+  int adcTurb = -1;
+  int adcPh = -1;
+
+  if (sensorCalibracaoAtivo == SENSOR_TEMPERATURA) {
+    temperatura = lerTemperatura();
+    if (isnan(temperatura)) {
+      Serial.println("Falha ao ler temperatura para calibracao.");
+      return;
+    }
+  } else if (sensorCalibracaoAtivo == SENSOR_TDS) {
+    temperatura = lerTemperatura();
+    if (isnan(temperatura)) {
+      Serial.println("Falha ao ler temperatura para calibracao de TDS.");
+      return;
+    }
+    adcTds = lerAdcFiltradoRobusto(
+      TDS_PIN,
+      qtdAmostrasCalibracao,
+      atrasoAmostraCalibracaoMs,
+      true
+    );
+  } else if (sensorCalibracaoAtivo == SENSOR_TURBIDEZ) {
+    adcTurb = lerAdcFiltradoRobusto(
+      TURBIDITY_PIN,
+      qtdAmostrasCalibracao,
+      atrasoAmostraCalibracaoMs,
+      false
+    );
+  } else if (sensorCalibracaoAtivo == SENSOR_PH) {
+    temperatura = lerTemperatura();
+    if (isnan(temperatura)) {
+      Serial.println("Falha ao ler temperatura para calibracao de pH.");
+      return;
+    }
+    adcPh = lerAdcPhFiltradoRobusto(
+      qtdAmostrasCalibracao,
+      atrasoAmostraCalibracaoMs
+    );
+  } else {
+    return;
+  }
+
+  unsigned long firmwareTsMs = millis();
+  Serial.print("Calibracao | sensor: ");
+  Serial.print(sensorCalibracaoAtivo);
+  Serial.print(" | temp: ");
+  if (isnan(temperatura)) {
+    Serial.print("--");
+  } else {
+    Serial.print(temperatura, 2);
+  }
+  Serial.print(" | adc_tds: ");
+  Serial.print(adcTds);
+  Serial.print(" | adc_turb: ");
+  Serial.print(adcTurb);
+  Serial.print(" | adc_ph: ");
+  Serial.println(adcPh);
+
+  enviarAmostraCalibracao(
+    sensorCalibracaoAtivo,
+    temperatura,
+    adcTds,
+    adcTurb,
+    adcPh,
+    firmwareTsMs
+  );
 }
 
 void setup() {
@@ -369,61 +726,31 @@ void setup() {
 
   iniciarRedePropria();
   ultimoEnvio = millis() - INTERVALO_ENVIO_MS;
+  ultimoPollCalibracao = millis() - INTERVALO_POLL_CALIBRACAO_MS;
 }
 
 void loop() {
-  if (millis() - ultimoFlushFila >= INTERVALO_FLUSH_FILA_MS) {
-    ultimoFlushFila = millis();
+  unsigned long agora = millis();
+
+  if (agora - ultimoFlushFila >= INTERVALO_FLUSH_FILA_MS) {
+    ultimoFlushFila = agora;
     tentarEnviarFila(3);
   }
 
-  if (millis() - ultimoEnvio >= INTERVALO_ENVIO_MS) {
-    ultimoEnvio = millis();
-
-    float temp = lerTemperatura();
-    if (isnan(temp)) {
-      Serial.println("Falha ao ler temperatura.");
-      delay(500);
-      return;
-    }
-
-    int adcTurbidez = lerAdcFiltradoRobusto(
-      TURBIDITY_PIN,
-      QTD_AMOSTRAS_TURBIDEZ,
-      10,
-      false
-    );
-    int adcTDS = lerAdcFiltradoRobusto(
-      TDS_PIN,
-      QTD_AMOSTRAS_TDS,
-      5,
-      true
-    );
-    int adcPh = lerAdcPhFiltradoRobusto();
-
-    unsigned long firmwareTsMs = millis();
-
-    Serial.print("Ponto: ");
-    Serial.print(pontoTipo);
-    Serial.print(" | Temp: ");
-    Serial.print(temp, 2);
-    Serial.print(" C | ADC Turbidez: ");
-    Serial.print(adcTurbidez);
-    Serial.print(" | ADC TDS: ");
-    Serial.print(adcTDS);
-    Serial.print(" | ADC pH: ");
-    Serial.print(adcPh);
-    Serial.println();
-
-    enfileirarLeitura(
-      temp,
-      adcTDS,
-      adcTurbidez,
-      adcPh,
-      firmwareTsMs
-    );
-    tentarEnviarFila(10);
+  if (agora - ultimoPollCalibracao >= INTERVALO_POLL_CALIBRACAO_MS) {
+    ultimoPollCalibracao = agora;
+    atualizarModoCalibracao();
   }
 
-  delay(1000);
+  if (calibracaoAtiva) {
+    if (agora - ultimoEnvioCalibracao >= intervaloEnvioCalibracaoMs) {
+      ultimoEnvioCalibracao = agora;
+      executarCicloCalibracao();
+    }
+  } else if (agora - ultimoEnvio >= INTERVALO_ENVIO_MS) {
+    ultimoEnvio = agora;
+    executarCicloLeituraNormal();
+  }
+
+  delay(DELAY_LOOP_MS);
 }

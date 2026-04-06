@@ -1,0 +1,98 @@
+{% extends "blocos/base.html" %}
+{% load static %}
+
+{% block title %}{{ sensor_selecionado_nome }} {{ reservatorio.nome }}{% endblock %}
+
+{% block content %}
+<section class="message-wrap">
+    <p><a class="btn-main" href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo %}">Voltar aos sensores</a></p>
+    {% if messages %}
+    {% for message in messages %}
+    <p class="message {{ message.tags }}">{{ message }}</p>
+    {% endfor %}
+    {% endif %}
+</section>
+
+<section class="detail-hero calibration-hero">
+    <div class="detail-hero-copy">
+        <h2>{{ sensor_selecionado_nome|upper }} {{ reservatorio.nome|upper }}</h2>
+        <p class="index-hero-subtitle">
+            Ponto atual: <strong>{{ ponto_calibracao.get_tipo_display }}</strong>. Ajuste os parametros abaixo para este sensor.
+        </p>
+    </div>
+    <div class="detail-hero-actions">
+        <a class="btn-main" href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo %}">Trocar sensor</a>
+    </div>
+</section>
+
+<nav class="calibration-breadcrumbs" aria-label="Etapas da calibracao">
+    <a href="{% url 'reservatorio_calibracao' reservatorio.id %}">Pontos</a>
+    <a href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo %}">{{ ponto_calibracao.get_tipo_display }}</a>
+    <span>{{ sensor_selecionado_nome }}</span>
+</nav>
+
+<section class="panel calibration-page-panel">
+    <div class="calibration-session-toolbar">
+        <div>
+            <div class="calibration-step-kicker">Sessao</div>
+            <h3>Coleta em tempo real</h3>
+            <p class="status-meta calibration-page-intro">
+                Inicie a sessao para o ESP32 enviar amostras deste sensor a cada 5 segundos sem misturar com o historico normal.
+            </p>
+        </div>
+        <div class="calibration-session-actions">
+            {% if sessao_calibracao_ativa.ativa %}
+            <form method="post" action="{% url 'reservatorio_calibracao_sessao_encerrar' reservatorio.id ponto_calibracao.tipo sensor_selecionado %}">
+                {% csrf_token %}
+                <button class="btn-main" type="submit">Encerrar sessao</button>
+            </form>
+            {% else %}
+            <form method="post" action="{% url 'reservatorio_calibracao_sessao_iniciar' reservatorio.id ponto_calibracao.tipo sensor_selecionado %}">
+                {% csrf_token %}
+                <button class="btn-main" type="submit">Iniciar calibracao</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="calibration-live-grid" id="calibrationLivePanel"
+        data-status-url="{% url 'reservatorio_calibracao_sessao_status' reservatorio.id ponto_calibracao.tipo sensor_selecionado %}"
+        data-sensor="{{ sensor_selecionado }}">
+        <article class="calibration-live-card">
+            <h4>Status da sessao</h4>
+            <p class="calibration-live-value" data-live-status>
+                {% if sessao_calibracao_ativa.ativa %}Ativa{% else %}Inativa{% endif %}
+            </p>
+            <p class="status-meta" data-live-count>
+                {% if sessao_calibracao_ativa.ativa %}{{ sessao_calibracao_ativa.amostras }} amostras recebidas{% else %}Aguardando inicio da sessao{% endif %}
+            </p>
+        </article>
+        <article class="calibration-live-card">
+            <h4>Ultima amostra</h4>
+            <p class="calibration-live-value" data-live-last-value>--</p>
+            <p class="status-meta" data-live-last-meta>Sem amostras recentes</p>
+        </article>
+        <article class="calibration-live-card">
+            <h4>Media ultimas 30</h4>
+            <p class="calibration-live-value" data-live-avg-value>--</p>
+            <p class="status-meta" data-live-avg-meta>Sem dados suficientes</p>
+        </article>
+        <article class="calibration-live-card">
+            <h4>Estabilidade do sensor</h4>
+            <p class="calibration-live-value" data-live-stability-sensor>--</p>
+            <p class="status-meta" data-live-stability-sensor-meta>Sem dados suficientes</p>
+        </article>
+        <article class="calibration-live-card {% if sensor_selecionado == 'turbidez' or sensor_selecionado == 'temperatura' %}is-hidden{% endif %}" data-live-temp-card>
+            <h4>Estabilidade da temperatura</h4>
+            <p class="calibration-live-value" data-live-stability-temp>--</p>
+            <p class="status-meta" data-live-stability-temp-meta>Sem dados suficientes</p>
+        </article>
+    </div>
+
+    {% include "reservatorio/_calibration_content.html" %}
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/calibracao-sensor.js' %}?v=20260406-rt1"></script>
+{% endblock %}
