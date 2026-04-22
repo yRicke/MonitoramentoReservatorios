@@ -52,6 +52,49 @@
     </article>
 </section>
 
+<section class="detail-metrics-grid" aria-label="Medicoes mais recentes por sensor">
+    {% for metrica in metricas_recentes %}
+    <article class="panel detail-metric-card">
+        <div class="detail-metric-card-head">
+            <span class="detail-metric-kicker">Ultima medicao</span>
+            <h4>{{ metrica.nome }}</h4>
+        </div>
+
+        <div class="detail-metric-points">
+            <div class="detail-metric-point">
+                <span class="detail-metric-point-name">Antes</span>
+                <strong class="detail-metric-value">
+                    {% if metrica.antes.valor is not None %}
+                    {{ metrica.antes.valor|floatformat:metrica.casas }}{% if metrica.unidade %} {{ metrica.unidade }}{% endif %}
+                    {% else %}
+                    --
+                    {% endif %}
+                </strong>
+                <span class="detail-metric-status status-text status-{{ metrica.antes.status }}">{{ metrica.antes.status_label }}</span>
+                {% if metrica.antes.data_hora %}
+                <small>{{ metrica.antes.data_hora }}</small>
+                {% endif %}
+            </div>
+
+            <div class="detail-metric-point">
+                <span class="detail-metric-point-name">Depois</span>
+                <strong class="detail-metric-value">
+                    {% if metrica.depois.valor is not None %}
+                    {{ metrica.depois.valor|floatformat:metrica.casas }}{% if metrica.unidade %} {{ metrica.unidade }}{% endif %}
+                    {% else %}
+                    --
+                    {% endif %}
+                </strong>
+                <span class="detail-metric-status status-text status-{{ metrica.depois.status }}">{{ metrica.depois.status_label }}</span>
+                {% if metrica.depois.data_hora %}
+                <small>{{ metrica.depois.data_hora }}</small>
+                {% endif %}
+            </div>
+        </div>
+    </article>
+    {% endfor %}
+</section>
+
 <section class="panel detail-top-toggle">
     <div class="top-toggle-menu">
         <button class="top-toggle-btn" type="button" data-toggle-target="editReservatorioPanel"

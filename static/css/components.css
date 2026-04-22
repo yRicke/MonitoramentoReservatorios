@@ -255,6 +255,93 @@
     color: var(--color-status-perigo);
 }
 
+.status-text.status-sem-dado {
+    color: #6d7f78;
+}
+
+.detail-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.detail-metric-card {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    background:
+        radial-gradient(circle at top right, rgba(65, 132, 104, 0.12), transparent 34%),
+        linear-gradient(180deg, #ffffff 0%, #f5faf8 100%);
+}
+
+.detail-metric-card-head {
+    display: grid;
+    gap: 4px;
+}
+
+.detail-metric-kicker {
+    width: fit-content;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #e9f5ef;
+    color: #247052;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.detail-metric-card h4 {
+    margin: 0;
+    color: #17342a;
+}
+
+.detail-metric-points {
+    display: grid;
+    gap: 10px;
+}
+
+.detail-metric-point {
+    display: grid;
+    grid-template-columns: 62px minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid #deebe6;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.detail-metric-point-name {
+    color: #526a61;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.detail-metric-value {
+    color: #122820;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.detail-metric-status {
+    justify-self: end;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #f1f6f4;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.detail-metric-point small {
+    grid-column: 2 / -1;
+    color: #6d7f78;
+    font-size: 11px;
+    font-weight: 700;
+}
+
 .cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -1084,6 +1171,10 @@
         grid-template-columns: 1fr;
     }
 
+    .detail-metrics-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+
     .calibration-choice-grid-points,
     .calibration-choice-grid-sensors,
     .water-auto-grid,
@@ -1181,6 +1272,23 @@
 
     .dashboard-card-right {
         padding: 14px 12px;
+    }
+
+    .detail-metrics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-metric-point {
+        grid-template-columns: 58px minmax(0, 1fr);
+    }
+
+    .detail-metric-status {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    .detail-metric-point small {
+        grid-column: 2;
     }
 
     .dashboard-metrics-table {

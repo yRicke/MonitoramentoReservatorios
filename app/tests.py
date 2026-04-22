@@ -171,6 +171,53 @@ class IndexReservatorioTests(TestCase):
         self.assertContains(response, reverse("reservatorio_calibracao", args=[reservatorio.id]))
         self.assertContains(response, "Calibrar")
 
+    def test_detalhe_expoe_metricas_recentes_dos_dois_pontos(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio metricas recentes",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+
+        ponto_antes.registrar_leitura(
+            temperatura=36.0,
+            tds=760.0,
+            turbidez=5.5,
+            ph=9.8,
+            status_leitura=Reservatorio.STATUS_PERIGO,
+        )
+        ponto_depois.registrar_leitura(
+            temperatura=24.0,
+            tds=120.0,
+            turbidez=0.4,
+            ph=7.2,
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.get(reverse("reservatorio_detalhe", args=[reservatorio.id]))
+
+        self.assertEqual(response.status_code, 200)
+        metricas = response.context["metricas_recentes"]
+        self.assertEqual([metrica["id"] for metrica in metricas], ["temperatura", "tds", "turbidez", "ph"])
+
+        temperatura = metricas[0]
+        self.assertAlmostEqual(temperatura["antes"]["valor"], 36.0, places=2)
+        self.assertEqual(temperatura["antes"]["status"], Reservatorio.STATUS_ATENCAO)
+        self.assertAlmostEqual(temperatura["depois"]["valor"], 24.0, places=2)
+        self.assertEqual(temperatura["depois"]["status"], Reservatorio.STATUS_BOM)
+
+        tds = metricas[1]
+        self.assertAlmostEqual(tds["antes"]["valor"], 760.0, places=2)
+        self.assertEqual(tds["antes"]["status"], Reservatorio.STATUS_PERIGO)
+        self.assertAlmostEqual(tds["depois"]["valor"], 120.0, places=2)
+        self.assertEqual(tds["depois"]["status"], Reservatorio.STATUS_BOM)
+
+        self.assertContains(response, "Ultima medicao")
+        self.assertContains(response, "Antes")
+        self.assertContains(response, "Depois")
+
     def test_calibracao_retorna_200(self):
         self._logar()
         reservatorio = Reservatorio.objects.create(

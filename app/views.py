@@ -93,6 +93,12 @@ SENSORES_CALIBRACAO = (
         "descricao": "Ajuste solucao conhecida e inclinacao do eletrodo.",
     },
 )
+METRICAS_DETALHE_RECENTES = (
+    ("temperatura", "Temperatura", "celsius", 2),
+    ("tds", "TDS", "ppm", 2),
+    ("turbidez", "Turbidez", "ntu", 3),
+    ("ph", "pH", "", 2),
+)
 
 
 @login_required(login_url="entrar")
@@ -169,6 +175,11 @@ def reservatorio_detalhe(request, reservatorio_id):
             "turbidez_series_depois": series_depois["turbidez"],
             "ph_series_antes": series_antes["ph"],
             "ph_series_depois": series_depois["ph"],
+            "metricas_recentes": _metricas_recentes_reservatorio(
+                reservatorio,
+                ponto_antes=ponto_antes,
+                ponto_depois=ponto_depois,
+            ),
         },
     )
 
@@ -1633,6 +1644,84 @@ def _series_leituras_por_ponto(ponto):
         "turbidez": turbidez,
         "ph": ph,
     }
+
+
+def _metricas_recentes_reservatorio(reservatorio, *, ponto_antes, ponto_depois):
+    ultima_antes = _ultima_leitura_qualidade_por_ponto(ponto_antes)
+    ultima_depois = _ultima_leitura_qualidade_por_ponto(ponto_depois)
+
+    return [
+        {
+            "id": metrica_id,
+            "nome": nome,
+            "unidade": unidade,
+            "casas": casas,
+            "antes": _snapshot_metrica_recente(
+                ultima_antes,
+                metrica_id=metrica_id,
+                reservatorio=reservatorio,
+            ),
+            "depois": _snapshot_metrica_recente(
+                ultima_depois,
+                metrica_id=metrica_id,
+                reservatorio=reservatorio,
+            ),
+        }
+        for metrica_id, nome, unidade, casas in METRICAS_DETALHE_RECENTES
+    ]
+
+
+def _ultima_leitura_qualidade_por_ponto(ponto):
+    if ponto is None:
+        return None
+
+    return (
+        LeituraQualidade.objects.filter(ponto=ponto)
+        .order_by("-data_hora", "-id")
+        .first()
+    )
+
+
+def _snapshot_metrica_recente(leitura, *, metrica_id, reservatorio):
+    if leitura is None:
+        return _snapshot_metrica_sem_dado()
+
+    valor = getattr(leitura, metrica_id, None)
+    if valor is None:
+        return _snapshot_metrica_sem_dado(leitura=leitura)
+
+    status = _status_metricas_por_faixa(
+        {metrica_id: valor},
+        reservatorio=reservatorio,
+    )[metrica_id]
+
+    data_hora_local = timezone.localtime(leitura.data_hora)
+    return {
+        "valor": float(valor),
+        "status": status,
+        "status_label": _rotulo_status_metrica(status),
+        "data_hora": data_hora_local.strftime("%d/%m/%Y %H:%M:%S"),
+    }
+
+
+def _snapshot_metrica_sem_dado(leitura=None):
+    data_hora = None
+    if leitura is not None:
+        data_hora = timezone.localtime(leitura.data_hora).strftime("%d/%m/%Y %H:%M:%S")
+
+    return {
+        "valor": None,
+        "status": STATUS_SEM_DADO,
+        "status_label": _rotulo_status_metrica(STATUS_SEM_DADO),
+        "data_hora": data_hora,
+    }
+
+
+def _rotulo_status_metrica(status):
+    if status == STATUS_SEM_DADO:
+        return "Sem dado"
+
+    return dict(Reservatorio.STATUS_CHOICES).get(status, "Sem dado")
 
 
 def _resumo_calibracao_ph(ponto):
