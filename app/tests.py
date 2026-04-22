@@ -959,6 +959,7 @@ class Esp32IngestaoTests(TestCase):
             status=Reservatorio.STATUS_BOM,
         )
         self.url = reverse("esp32_leitura")
+        self.sync_url = reverse("esp32_sync")
         self.command_url = reverse("esp32_calibracao_comando")
         self.sample_url = reverse("esp32_calibracao_amostra")
 
@@ -988,6 +989,33 @@ class Esp32IngestaoTests(TestCase):
                 "turbidez": 0.8,
             },
             token="token-invalido",
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_esp32_sync_retorna_proxima_janela_de_leitura(self):
+        response = self.client.get(
+            self.sync_url,
+            HTTP_X_API_TOKEN="token-teste-esp32",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["intervalo_ms"], 60000)
+        self.assertGreater(data["server_epoch_ms"], 0)
+        self.assertGreater(data["proxima_leitura_epoch_ms"], data["server_epoch_ms"])
+        self.assertGreater(data["aguardar_ms"], 0)
+        self.assertLessEqual(data["aguardar_ms"], 60000)
+        self.assertEqual(
+            data["proxima_leitura_epoch_ms"] - data["server_epoch_ms"],
+            data["aguardar_ms"],
+        )
+
+    def test_esp32_sync_retorna_401_sem_token_valido(self):
+        response = self.client.get(
+            self.sync_url,
+            HTTP_X_API_TOKEN="token-invalido",
         )
 
         self.assertEqual(response.status_code, 401)
@@ -1279,6 +1307,33 @@ class Esp32IngestaoTests(TestCase):
                 "temperatura_bruta": 25.0,
             },
         )
+
+    def test_esp32_leitura_preserva_horario_de_coleta_quando_fila_atrasar(self):
+        antes_post = timezone.now()
+
+        response = self._post_json(
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "ponto_tipo": PontoMonitoramento.TIPO_DEPOIS,
+                "device_id": "esp_depois_tratamento",
+                "temperatura": 25.0,
+                "raw": {
+                    "adc_tds": 1861,
+                    "adc_turb": 980,
+                    "firmware_ts_ms": 1000,
+                    "firmware_now_ms": 61000,
+                },
+            }
+        )
+
+        depois_post = timezone.now()
+
+        self.assertEqual(response.status_code, 201)
+        leitura = LeituraQualidade.objects.latest("id")
+        self.assertGreaterEqual(leitura.data_hora, antes_post - timedelta(seconds=60))
+        self.assertLessEqual(leitura.data_hora, depois_post - timedelta(seconds=60))
+        self.assertEqual(leitura.sinais_brutos["device_id"], "esp_depois_tratamento")
+        self.assertEqual(leitura.sinais_brutos["firmware_now_ms"], 61000)
 
     def test_esp32_leitura_aplica_calibracao_de_temperatura_ao_tds(self):
         ponto_depois = self.reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)

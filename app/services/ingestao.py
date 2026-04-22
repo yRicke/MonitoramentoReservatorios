@@ -1,5 +1,8 @@
 import json
 import math
+from datetime import timedelta
+
+from django.utils import timezone
 
 from app.models import LeituraQualidade, PontoMonitoramento, Reservatorio
 from app.services.regras import calcular_status
@@ -22,6 +25,7 @@ def processar_leitura_esp32(request_body):
     temperatura_bruta = _extrair_float(payload, "temperatura")
     sinais_brutos = _extrair_sinais_brutos(payload)
     sinais_brutos["temperatura_bruta"] = temperatura_bruta
+    data_hora_leitura = _resolver_data_hora_leitura(sinais_brutos)
 
     reservatorio = Reservatorio.obter_por_id(reservatorio_id)
     if reservatorio is None:
@@ -70,6 +74,7 @@ def processar_leitura_esp32(request_body):
         status_origem=LeituraQualidade.ORIGEM_REGRAS,
         confianca=None,
         modelo_versao="",
+        data_hora=data_hora_leitura,
     )
 
     reservatorio.sincronizar_status_pelo_ponto_depois()
@@ -240,7 +245,33 @@ def _extrair_sinais_brutos(payload):
     if firmware_ts_ms is not None:
         sinais_brutos["firmware_ts_ms"] = firmware_ts_ms
 
+    firmware_now_ms = _extrair_int_opcional(sinais_payload, "firmware_now_ms")
+    if firmware_now_ms is not None:
+        sinais_brutos["firmware_now_ms"] = firmware_now_ms
+
+    device_id = sinais_payload.get("device_id") or payload.get("device_id")
+    if isinstance(device_id, str) and device_id.strip():
+        sinais_brutos["device_id"] = device_id.strip()[:80]
+
     return sinais_brutos
+
+
+def _resolver_data_hora_leitura(sinais_brutos):
+    firmware_ts_ms = sinais_brutos.get("firmware_ts_ms")
+    firmware_now_ms = sinais_brutos.get("firmware_now_ms")
+
+    if firmware_ts_ms is None or firmware_now_ms is None:
+        return None
+
+    atraso_ms = firmware_now_ms - firmware_ts_ms
+    if atraso_ms < 0:
+        return None
+
+    # Protege contra leituras antigas demais apos reboot/NVS corrompida.
+    if atraso_ms > 7 * 24 * 60 * 60 * 1000:
+        return None
+
+    return timezone.now() - timedelta(milliseconds=atraso_ms)
 
 
 def _resolver_tds(payload, sinais_brutos, temperatura):

@@ -785,21 +785,29 @@ class PontoMonitoramento(models.Model):
         status_origem="regras",
         confianca=None,
         modelo_versao="",
+        data_hora=None,
     ):
         status_final = Reservatorio._normalizar_status(status_leitura)
         sinais_brutos_final = sinais_brutos if isinstance(sinais_brutos, dict) else {}
+        dados_leitura = {
+            "ponto": self,
+            "temperatura": temperatura,
+            "tds": tds,
+            "turbidez": turbidez,
+            "ph": ph,
+            "sinais_brutos": sinais_brutos_final,
+            "status_leitura": status_final,
+            "status_origem": status_origem,
+            "confianca": confianca,
+            "modelo_versao": (modelo_versao or "").strip(),
+        }
         leitura = LeituraQualidade.objects.create(
-            ponto=self,
-            temperatura=temperatura,
-            tds=tds,
-            turbidez=turbidez,
-            ph=ph,
-            sinais_brutos=sinais_brutos_final,
-            status_leitura=status_final,
-            status_origem=status_origem,
-            confianca=confianca,
-            modelo_versao=(modelo_versao or "").strip(),
+            **dados_leitura,
         )
+        if data_hora is not None:
+            LeituraQualidade.objects.filter(id=leitura.id).update(data_hora=data_hora)
+            leitura.data_hora = data_hora
+
         self.atualizar_status(
             status=status_final,
             confianca=confianca,

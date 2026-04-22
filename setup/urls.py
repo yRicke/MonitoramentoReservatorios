@@ -84,6 +84,7 @@ urlpatterns = [
     path('sair/', views.sair, name="sair"),
 
     path("api/esp32/leituras/", views.esp32_leitura, name="esp32_leitura"),
+    path("api/esp32/sync/", views.esp32_sync, name="esp32_sync"),
     path("api/esp32/calibracao/comando/", views.esp32_calibracao_comando, name="esp32_calibracao_comando"),
     path("api/esp32/calibracao/amostras/", views.esp32_calibracao_amostra, name="esp32_calibracao_amostra"),
 ]

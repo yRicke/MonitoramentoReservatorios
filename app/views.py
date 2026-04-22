@@ -44,6 +44,7 @@ from app.services.regras import (
 
 MAX_PONTOS_GRAFICO = 1200
 PERIODO_PADRAO_VALOR = "5d"
+ESP32_SYNC_INTERVALO_MS = 60 * 1000
 PERIODOS_DISPONIVEIS = (
     ("15m", "15 min"),
     ("30m", "30 min"),
@@ -835,6 +836,30 @@ def esp32_leitura(request):
 
 @csrf_exempt
 @require_http_methods(["GET"])
+def esp32_sync(request):
+    token = request.headers.get("X-API-Token", "")
+    if token != settings.ESP32_API_TOKEN:
+        return JsonResponse({"erro": "nao autorizado"}, status=401)
+
+    agora_ms = int(timezone.now().timestamp() * 1000)
+    proxima_leitura_ms = (
+        (agora_ms // ESP32_SYNC_INTERVALO_MS) + 1
+    ) * ESP32_SYNC_INTERVALO_MS
+    aguardar_ms = proxima_leitura_ms - agora_ms
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "intervalo_ms": ESP32_SYNC_INTERVALO_MS,
+            "server_epoch_ms": agora_ms,
+            "proxima_leitura_epoch_ms": proxima_leitura_ms,
+            "aguardar_ms": aguardar_ms,
+        }
+    )
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
 def esp32_calibracao_comando(request):
     token = request.headers.get("X-API-Token", "")
     if token != settings.ESP32_API_TOKEN:
@@ -916,6 +941,9 @@ def esp32_calibracao_amostra(request):
         sinais_brutos = {}
     if not isinstance(sinais_brutos, dict):
         return JsonResponse({"erro": "campo invalido: raw"}, status=400)
+    device_id = payload.get("device_id")
+    if isinstance(device_id, str) and device_id.strip():
+        sinais_brutos = {**sinais_brutos, "device_id": device_id.strip()[:80]}
 
     try:
         amostra = _registrar_amostra_calibracao(

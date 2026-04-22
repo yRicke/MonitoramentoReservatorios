@@ -5,18 +5,20 @@
 #include <Preferences.h>
 #include <math.h>
 
-// ===== REDE PROPRIA DO ESP (AP) =====
-const char* apSsid = "MONITOR-ESP32";
-const char* apPassword = "12345678"; // minimo 8 chars
+// ===== REDE PRINCIPAL CRIADA PELO ESP ANTES (STA) =====
+const char* wifiSsid = "MONITOR-ESP32";
+const char* wifiPassword = "12345678"; // minimo 8 chars
 
-IPAddress apIP(192, 168, 50, 1);
-IPAddress apGateway(192, 168, 50, 1);
-IPAddress apSubnet(255, 255, 255, 0);
+IPAddress staIP(192, 168, 50, 3);
+IPAddress staGateway(192, 168, 50, 1);
+IPAddress staSubnet(255, 255, 255, 0);
+IPAddress staDns(192, 168, 50, 1);
 
-// ===== SERVIDOR DJANGO (MAQUINA CONECTADA AO AP DO ESP) =====
+// ===== SERVIDOR DJANGO (MAQUINA CONECTADA NA REDE DO ESP ANTES) =====
 const char* djangoHost = "192.168.50.2"; // IP da sua maquina nessa rede
 const int djangoPort = 8000;
 const char* djangoPath = "/api/esp32/leituras/";
+const char* djangoSyncPath = "/api/esp32/sync/";
 const char* djangoCalibrationCommandPath = "/api/esp32/calibracao/comando/";
 const char* djangoCalibrationSamplesPath = "/api/esp32/calibracao/amostras/";
 const char* apiToken = "Oqc9zeW5fZjRFvxXZhaJtdVAD3sRrhy2G0a7IWegMR3ZOR3dsAxQ142qRut3fWtA";
@@ -24,9 +26,11 @@ const int reservatorioId = 8;
 
 // ===== PONTO =====
 const char* pontoTipo = "depois_tratamento"; // "antes_tratamento" ou "depois_tratamento"
+const char* deviceId = "esp_depois_tratamento";
 
 // ===== INTERVALO =====
 const unsigned long INTERVALO_ENVIO_MS = 1UL * 1000UL * 60UL;
+const unsigned long INTERVALO_SYNC_RELOGIO_MS = 30UL * 1000UL;
 const unsigned long INTERVALO_POLL_CALIBRACAO_MS = 2000;
 const unsigned long INTERVALO_ENVIO_CALIBRACAO_PADRAO_MS = 5000;
 const unsigned long DELAY_LOOP_MS = 50;
@@ -55,8 +59,11 @@ DallasTemperature sensors(&oneWire);
 
 unsigned long ultimoEnvio = 0;
 unsigned long ultimoFlushFila = 0;
+unsigned long ultimaSincronizacaoRelogio = 0;
+unsigned long proximaLeituraSincronizada = 0;
 unsigned long ultimoPollCalibracao = 0;
 unsigned long ultimoEnvioCalibracao = 0;
+bool relogioSincronizado = false;
 
 const unsigned long INTERVALO_FLUSH_FILA_MS = 2000;
 const int FILA_MAX_LEITURAS = 180;
@@ -93,6 +100,10 @@ bool nvsDisponivel = false;
 
 String montarUrlDjangoLeituras() {
   return String("http://") + djangoHost + ":" + String(djangoPort) + djangoPath;
+}
+
+String montarUrlDjangoSync() {
+  return String("http://") + djangoHost + ":" + String(djangoPort) + djangoSyncPath;
 }
 
 String montarUrlDjangoComandoCalibracao() {
@@ -168,21 +179,46 @@ void carregarFilaDaFlash() {
   }
 }
 
-void iniciarRedePropria() {
-  WiFi.mode(WIFI_AP);
-  WiFi.softAPConfig(apIP, apGateway, apSubnet);
+void conectarNaRedePrincipal() {
+  WiFi.mode(WIFI_STA);
+  WiFi.config(staIP, staGateway, staSubnet, staDns);
+  WiFi.begin(wifiSsid, wifiPassword);
 
-  bool ok = WiFi.softAP(apSsid, apPassword);
-  if (!ok) {
-    Serial.println("Falha ao subir AP do ESP32.");
+  Serial.print("Conectando na rede principal ");
+  Serial.print(wifiSsid);
+
+  unsigned long inicio = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - inicio < 15000) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Falha ao conectar na rede principal. Nova tentativa sera feita no loop.");
     return;
   }
 
-  Serial.println("AP iniciado.");
-  Serial.print("SSID: ");
-  Serial.println(apSsid);
-  Serial.print("IP AP: ");
-  Serial.println(WiFi.softAPIP());
+  Serial.println("Conectado na rede principal.");
+  Serial.print("IP STA: ");
+  Serial.println(WiFi.localIP());
+}
+
+bool redeDisponivel() {
+  if (WiFi.status() == WL_CONNECTED) {
+    return true;
+  }
+
+  static unsigned long ultimaTentativaReconexao = 0;
+  unsigned long agora = millis();
+  if (agora - ultimaTentativaReconexao >= 10000) {
+    ultimaTentativaReconexao = agora;
+    Serial.println("WiFi desconectado. Tentando reconectar na rede principal...");
+    WiFi.disconnect();
+    WiFi.begin(wifiSsid, wifiPassword);
+  }
+
+  return false;
 }
 
 float lerTemperatura() {
@@ -270,8 +306,8 @@ bool enviarLeitura(
   int adcPh,
   unsigned long firmwareTsMs
 ) {
-  if (WiFi.softAPgetStationNum() <= 0) {
-    Serial.println("Sem cliente conectado no AP. Nao enviando.");
+  if (!redeDisponivel()) {
+    Serial.println("Sem conexao Wi-Fi. Nao enviando.");
     return false;
   }
 
@@ -286,12 +322,14 @@ bool enviarLeitura(
   String body = "{";
   body += "\"reservatorio_id\":" + String(reservatorioId) + ",";
   body += "\"ponto_tipo\":\"" + String(pontoTipo) + "\",";
+  body += "\"device_id\":\"" + String(deviceId) + "\",";
   body += "\"temperatura\":" + String(temperatura, 2) + ",";
   body += "\"raw\":{";
   body += "\"adc_tds\":" + String(adcTds) + ",";
   body += "\"adc_turb\":" + String(adcTurb) + ",";
   body += "\"adc_ph\":" + String(adcPh) + ",";
-  body += "\"firmware_ts_ms\":" + String(firmwareTsMs);
+  body += "\"firmware_ts_ms\":" + String(firmwareTsMs) + ",";
+  body += "\"firmware_now_ms\":" + String(millis());
   body += "}";
   body += "}";
 
@@ -350,7 +388,7 @@ void removerPrimeiraLeituraFila() {
 
 void tentarEnviarFila(int limitePorCiclo) {
   if (filaQuantidade <= 0) return;
-  if (WiFi.softAPgetStationNum() <= 0) return;
+  if (!redeDisponivel()) return;
 
   int enviados = 0;
   while (filaQuantidade > 0 && enviados < limitePorCiclo) {
@@ -425,6 +463,55 @@ long extrairCampoJsonLong(const String& json, const String& chave, long padrao) 
   return valor.toInt();
 }
 
+bool atualizarSincronizacaoLeitura(bool forcar = false) {
+  unsigned long agora = millis();
+  if (!forcar && relogioSincronizado && agora - ultimaSincronizacaoRelogio < INTERVALO_SYNC_RELOGIO_MS) {
+    return true;
+  }
+
+  ultimaSincronizacaoRelogio = agora;
+
+  if (!redeDisponivel()) {
+    return false;
+  }
+
+  HTTPClient http;
+  http.setTimeout(5000);
+
+  String url = montarUrlDjangoSync();
+  http.begin(url);
+  http.addHeader("X-API-Token", apiToken);
+
+  int code = http.GET();
+  String resposta = http.getString();
+  http.end();
+
+  if (code < 200 || code >= 300) {
+    Serial.print("Falha ao sincronizar leitura. Code: ");
+    Serial.println(code);
+    return false;
+  }
+
+  long aguardarMs = extrairCampoJsonLong(resposta, "aguardar_ms", -1);
+  long intervaloMs = extrairCampoJsonLong(resposta, "intervalo_ms", INTERVALO_ENVIO_MS);
+  if (aguardarMs < 0 || intervaloMs <= 0) {
+    Serial.println("Resposta de sincronizacao invalida.");
+    return false;
+  }
+
+  if (aguardarMs < 500) {
+    aguardarMs += intervaloMs;
+  }
+
+  proximaLeituraSincronizada = millis() + (unsigned long)aguardarMs;
+  relogioSincronizado = true;
+
+  Serial.print("Leitura sincronizada em ");
+  Serial.print(aguardarMs);
+  Serial.println(" ms.");
+  return true;
+}
+
 void desativarModoCalibracao() {
   if (calibracaoAtiva) {
     Serial.println("Modo calibracao encerrado. Voltando para o fluxo normal.");
@@ -463,7 +550,7 @@ void aplicarModoCalibracao(
 }
 
 void atualizarModoCalibracao() {
-  if (WiFi.softAPgetStationNum() <= 0) {
+  if (!redeDisponivel()) {
     return;
   }
 
@@ -544,8 +631,8 @@ bool enviarAmostraCalibracao(
   int adcPh,
   unsigned long firmwareTsMs
 ) {
-  if (WiFi.softAPgetStationNum() <= 0) {
-    Serial.println("Sem cliente conectado no AP. Nao enviando amostra de calibracao.");
+  if (!redeDisponivel()) {
+    Serial.println("Sem conexao Wi-Fi. Nao enviando amostra de calibracao.");
     return false;
   }
 
@@ -560,6 +647,7 @@ bool enviarAmostraCalibracao(
   String body = "{";
   body += "\"reservatorio_id\":" + String(reservatorioId) + ",";
   body += "\"ponto_tipo\":\"" + String(pontoTipo) + "\",";
+  body += "\"device_id\":\"" + String(deviceId) + "\",";
   body += "\"sensor\":\"" + sensor + "\"";
   if (!isnan(temperatura)) {
     body += ",\"temperatura\":" + String(temperatura, 2);
@@ -582,7 +670,8 @@ bool enviarAmostraCalibracao(
     precisaVirgula = true;
   }
   if (precisaVirgula) body += ",";
-  body += "\"firmware_ts_ms\":" + String(firmwareTsMs);
+  body += "\"firmware_ts_ms\":" + String(firmwareTsMs) + ",";
+  body += "\"firmware_now_ms\":" + String(millis());
   body += "}}";
 
   int code = http.POST(body);
@@ -724,8 +813,9 @@ void setup() {
     carregarFilaDaFlash();
   }
 
-  iniciarRedePropria();
+  conectarNaRedePrincipal();
   ultimoEnvio = millis() - INTERVALO_ENVIO_MS;
+  atualizarSincronizacaoLeitura(true);
   ultimoPollCalibracao = millis() - INTERVALO_POLL_CALIBRACAO_MS;
 }
 
@@ -747,9 +837,21 @@ void loop() {
       ultimoEnvioCalibracao = agora;
       executarCicloCalibracao();
     }
+  } else if (relogioSincronizado) {
+    if ((long)(agora - proximaLeituraSincronizada) >= 0) {
+      executarCicloLeituraNormal();
+      unsigned long depoisLeitura = millis();
+      do {
+        proximaLeituraSincronizada += INTERVALO_ENVIO_MS;
+      } while ((long)(depoisLeitura - proximaLeituraSincronizada) >= 0);
+    }
   } else if (agora - ultimoEnvio >= INTERVALO_ENVIO_MS) {
     ultimoEnvio = agora;
     executarCicloLeituraNormal();
+  }
+
+  if (!calibracaoAtiva && agora - ultimaSincronizacaoRelogio >= INTERVALO_SYNC_RELOGIO_MS) {
+    atualizarSincronizacaoLeitura();
   }
 
   delay(DELAY_LOOP_MS);
