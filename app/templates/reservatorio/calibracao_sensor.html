@@ -37,7 +37,11 @@
             <div class="calibration-step-kicker">Sessao</div>
             <h3>Coleta em tempo real</h3>
             <p class="status-meta calibration-page-intro">
+                {% if sensor_selecionado == "ph" %}
+                Inicie a sessao para acompanhar a tensao do sensor em tempo real, esperar estabilizar e anotar os valores antes de preencher a calibracao manual.
+                {% else %}
                 Inicie a sessao para o ESP32 enviar amostras deste sensor a cada 5 segundos sem misturar com o historico normal.
+                {% endif %}
             </p>
         </div>
         <div class="calibration-session-actions">
@@ -82,7 +86,7 @@
             <p class="calibration-live-value" data-live-stability-sensor>--</p>
             <p class="status-meta" data-live-stability-sensor-meta>Sem dados suficientes</p>
         </article>
-        <article class="calibration-live-card {% if sensor_selecionado == 'turbidez' or sensor_selecionado == 'temperatura' %}is-hidden{% endif %}" data-live-temp-card>
+        <article class="calibration-live-card {% if sensor_selecionado == 'turbidez' or sensor_selecionado == 'temperatura' or sensor_selecionado == 'ph' %}is-hidden{% endif %}" data-live-temp-card>
             <h4>Estabilidade da temperatura</h4>
             <p class="calibration-live-value" data-live-stability-temp>--</p>
             <p class="status-meta" data-live-stability-temp-meta>Sem dados suficientes</p>
@@ -94,6 +98,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{% static 'js/calibracao-sensor.js' %}?v=20260406-rt1"></script>
+<script src="{% static 'js/calibracao-sensor.js' %}?v=20260525-ph-paper-1"></script>
 <script src="{% static 'js/confirmar-reset-calibracao-sensor.js' %}?v=20260525-reset-calibracao-1"></script>
 {% endblock %}

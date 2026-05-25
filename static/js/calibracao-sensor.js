@@ -51,7 +51,7 @@
     }
 
     function shouldRequireTemperatureStability() {
-        return sensor === "tds" || sensor === "ph";
+        return sensor === "tds";
     }
 
     function updateButtons(data) {
@@ -59,9 +59,7 @@
         const tempStable = !shouldRequireTemperatureStability()
             || !!(data.estabilidade_temperatura && data.estabilidade_temperatura.estavel);
         const ready = data.ativa && sensorStable && tempStable;
-        const point1Captured = !!(data.dados_fluxo && data.dados_fluxo.ph_ponto_1);
-
-        if (refs.captureButton) {
+        if (refs.captureButton && refs.captureHint) {
             refs.captureButton.disabled = !ready;
             refs.captureHint.textContent = ready
                 ? "Sessao pronta para capturar o ponto 1."
@@ -72,26 +70,15 @@
             if (button === refs.captureButton) {
                 return;
             }
-
-            if (sensor === "ph") {
-                button.disabled = !(ready && point1Captured);
-            } else {
-                button.disabled = !ready;
-            }
+            button.disabled = !ready;
         });
 
         refs.confirmHints.forEach((hint) => {
-            if (sensor === "ph") {
-                hint.textContent = point1Captured
-                    ? (ready ? "Sessao pronta para confirmar o ponto 2." : "Aguardando estabilidade do ponto 2.")
-                    : "Capture primeiro o ponto 1.";
-            } else {
-                hint.textContent = ready
-                    ? "Sessao pronta para confirmar a calibracao."
-                    : (shouldRequireTemperatureStability()
-                        ? "Aguardando estabilidade do sensor e da temperatura."
-                        : "Aguardando estabilidade do sensor.");
-            }
+            hint.textContent = ready
+                ? "Sessao pronta para confirmar a calibracao."
+                : (shouldRequireTemperatureStability()
+                    ? "Aguardando estabilidade do sensor e da temperatura."
+                    : "Aguardando estabilidade do sensor.");
         });
     }
 
@@ -118,31 +105,52 @@
         } else {
             const digits = sensor === "turbidez" ? 3 : 2;
             const unit = sensor === "turbidez" ? " NTU" : (sensor === "tds" ? " ppm" : (sensor === "ph" ? " pH" : ""));
-            refs.lastValue.textContent = ultima && ultima.valor_calibrado !== null && ultima.valor_calibrado !== undefined
-                ? formatNumber(ultima.valor_calibrado, digits) + unit
-                : "--";
-            if (sensor === "tds") {
+            if (sensor === "ph") {
+                refs.lastValue.textContent = ultima && ultima.tensao !== null && ultima.tensao !== undefined
+                    ? formatNumber(ultima.tensao, 3) + " V"
+                    : "--";
                 refs.lastMeta.textContent = ultima
                     ? "ADC " + (ultima.adc ?? "--")
-                        + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensao " + formatNumber(ultima.tensao, 3) + " V" : "")
-                        + (ultima.temperatura !== null && ultima.temperatura !== undefined ? " | Temp " + formatNumber(ultima.temperatura, 2) + " C" : "")
+                        + (ultima.valor_calibrado !== null && ultima.valor_calibrado !== undefined
+                            ? " | pH traduzido " + formatNumber(ultima.valor_calibrado, 2)
+                            : "")
                     : "Sem amostras recentes";
-            } else {
-                refs.lastMeta.textContent = ultima
-                    ? "ADC " + (ultima.adc ?? "--") + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensao " + formatNumber(ultima.tensao, 3) + " V" : "")
-                    : "Sem amostras recentes";
-            }
-            refs.avgValue.textContent = data.medias && data.medias.valor_calibrado !== undefined
-                ? formatNumber(data.medias.valor_calibrado, digits) + unit
-                : "--";
-            if (sensor === "tds") {
+                refs.avgValue.textContent = data.medias && data.medias.tensao !== undefined
+                    ? formatNumber(data.medias.tensao, 3) + " V"
+                    : "--";
                 refs.avgMeta.textContent = data.medias
-                    ? "Media nas ultimas amostras | Temp " + formatNumber(data.medias.temperatura_calibrada, 2) + " C"
+                    ? "ADC medio " + formatNumber(data.medias.adc, 0)
+                        + (data.medias.valor_calibrado !== null && data.medias.valor_calibrado !== undefined
+                            ? " | pH medio " + formatNumber(data.medias.valor_calibrado, 2)
+                            : "")
                     : "Sem dados suficientes";
             } else {
-                refs.avgMeta.textContent = data.medias
-                    ? "Media do valor convertido nas ultimas amostras"
-                    : "Sem dados suficientes";
+                refs.lastValue.textContent = ultima && ultima.valor_calibrado !== null && ultima.valor_calibrado !== undefined
+                    ? formatNumber(ultima.valor_calibrado, digits) + unit
+                    : "--";
+                if (sensor === "tds") {
+                    refs.lastMeta.textContent = ultima
+                        ? "ADC " + (ultima.adc ?? "--")
+                            + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensao " + formatNumber(ultima.tensao, 3) + " V" : "")
+                            + (ultima.temperatura_calibrada !== null && ultima.temperatura_calibrada !== undefined ? " | Temp " + formatNumber(ultima.temperatura_calibrada, 2) + " C" : "")
+                        : "Sem amostras recentes";
+                } else {
+                    refs.lastMeta.textContent = ultima
+                        ? "ADC " + (ultima.adc ?? "--") + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensao " + formatNumber(ultima.tensao, 3) + " V" : "")
+                        : "Sem amostras recentes";
+                }
+                refs.avgValue.textContent = data.medias && data.medias.valor_calibrado !== undefined
+                    ? formatNumber(data.medias.valor_calibrado, digits) + unit
+                    : "--";
+                if (sensor === "tds") {
+                    refs.avgMeta.textContent = data.medias
+                        ? "Media nas ultimas amostras | Temp " + formatNumber(data.medias.temperatura_calibrada, 2) + " C"
+                        : "Sem dados suficientes";
+                } else {
+                    refs.avgMeta.textContent = data.medias
+                        ? "Media do valor convertido nas ultimas amostras"
+                        : "Sem dados suficientes";
+                }
             }
         }
 
@@ -151,6 +159,7 @@
             if (
                 sensor === "temperatura" ||
                 sensor === "turbidez" ||
+                sensor === "ph" ||
                 !data.estabilidade_temperatura ||
                 !data.estabilidade_temperatura.limite
             ) {

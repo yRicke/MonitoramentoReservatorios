@@ -1076,13 +1076,34 @@
     color: #2c4239;
 }
 
-.ph-auto-card input {
+.ph-auto-card input,
+.ph-manual-card input {
     width: 100%;
     border: 1px solid #cad8d3;
     border-radius: 10px;
     padding: 8px 10px;
     background: #ffffff;
     color: var(--color-text);
+}
+
+.ph-manual-card label {
+    font-size: 12px;
+    font-weight: 800;
+    color: #244238;
+}
+
+.ph-paper-form {
+    gap: 12px;
+    background:
+        radial-gradient(circle at top right, rgba(110, 181, 152, 0.12), transparent 36%),
+        linear-gradient(180deg, #ffffff 0%, #f5faf8 100%);
+}
+
+.ph-paper-entry-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+    gap: 10px 12px;
+    align-items: end;
 }
 
 .ph-calibration-form {
@@ -1224,6 +1245,10 @@
     }
 
     .water-target-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ph-paper-entry-grid {
         grid-template-columns: 1fr;
     }
 }

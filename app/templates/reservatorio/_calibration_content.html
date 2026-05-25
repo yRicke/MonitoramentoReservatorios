@@ -3,7 +3,11 @@
 <div class="calibration-step-kicker">Passo 3</div>
 <h3>{{ titulo_calibracao_ativa }}</h3>
 <p class="status-meta calibration-page-intro">
+    {% if sensor_selecionado == "ph" %}
+    Sensor atual: <strong>{{ sensor_selecionado_nome }}</strong>. Use a sessao apenas para observar a tensao estabilizada, anotar dois pares pH/voltagem e depois salvar a calibracao manual.
+    {% else %}
     Sensor atual: <strong>{{ sensor_selecionado_nome }}</strong>. O sistema usa a media estavel das amostras da sessao para calcular a calibracao.
+    {% endif %}
 </p>
 
 {% if sensor_selecionado == "temperatura" %}
@@ -114,13 +118,12 @@
 </section>
 {% elif sensor_selecionado == "ph" %}
 <section class="ph-calibration-section">
-    <h5>pH em 2 pontos</h5>
+    <h5>pH em 2 pontos - papel e caneta</h5>
     <p class="status-meta">
-        O pH usa duas solucoes conhecidas para recalcular automaticamente a inclinacao e a referencia do sensor. Recomendado usar 7 e 4, ou 7 e 10.
+        Use a sessao apenas para observar a tensao estabilizada em cada solucao conhecida. Depois, preencha abaixo os dois pares pH/voltagem e salve. Recomendado usar 7 e 4, ou 7 e 10.
     </p>
-    <div class="ph-auto-grid calibration-single-grid">
-        <form class="ph-auto-card" method="post" data-calibration-form data-sensor-form="ph"
-            action="{% url 'reservatorio_calibracao_ph_capturar_ponto1' reservatorio.id %}">
+    <div class="ph-manual-grid calibration-single-grid">
+        <form class="ph-manual-card ph-paper-form" method="post" action="{% url 'reservatorio_calibracao_ph_auto' reservatorio.id %}">
             {% csrf_token %}
             <input type="hidden" name="ponto_tipo" value="{{ ponto_calibracao.tipo }}">
             <p class="ph-calibration-status {% if ph_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
@@ -130,34 +133,23 @@
                 Ultima calibracao: nunca calibrado
                 {% endif %}
             </p>
-            <h6>Ponto 1</h6>
-            <label for="ph_solucao_ponto_1">A media do pH da solucao 1 deveria estar em</label>
-            <input id="ph_solucao_ponto_1" name="ph_solucao_ponto_1" type="number" min="0" max="14" step="0.01" value="7.00" required>
-            {% with ponto_1=sessao_calibracao_ativa.dados_fluxo.ph_ponto_1 %}
-            {% if ponto_1 %}
             <p class="ph-voltage-hint">
-                Ponto 1 capturado: pH {{ ponto_1.ph|floatformat:2 }} | tensao {{ ponto_1.tensao|floatformat:3 }} V
+                Fluxo sugerido: medir a solucao 1, anotar a tensao estabilizada, limpar o sensor, medir a solucao 2, anotar novamente e so entao preencher os quatro campos.
             </p>
-            {% else %}
-            <p class="ph-voltage-hint">Capture o ponto 1 com a sessao estavel e depois troque a solucao para o ponto 2.</p>
-            {% endif %}
-            {% endwith %}
-            <button class="btn-main" type="submit" data-capture-point1-button disabled>Capturar ponto 1</button>
-            <p class="status-meta" data-capture-point1-hint>Aguardando estabilidade do sensor e da temperatura.</p>
-        </form>
-
-        <form class="ph-auto-card" method="post" data-calibration-form data-sensor-form="ph-final"
-            action="{% url 'reservatorio_calibracao_ph_auto' reservatorio.id %}">
-            {% csrf_token %}
-            <input type="hidden" name="ponto_tipo" value="{{ ponto_calibracao.tipo }}">
-            <h6>Ponto 2</h6>
-            <label for="ph_solucao_ponto_2">A media do pH da solucao 2 deveria estar em</label>
-            <input id="ph_solucao_ponto_2" name="ph_solucao_ponto_2" type="number" min="0" max="14" step="0.01" value="4.00" required>
-            <p class="ph-voltage-hint">
-                Depois de capturar o ponto 1, troque a solucao, aguarde a estabilidade novamente e confirme a calibracao.
+            <div class="ph-paper-entry-grid">
+                <label for="ph_solucao_ponto_1">pH da solucao 1 conhecida</label>
+                <label for="ph_tensao_ponto_1">Tensao da solucao 1 (V)</label>
+                <input id="ph_solucao_ponto_1" name="ph_solucao_ponto_1" type="number" min="0" max="14" step="0.01" value="7.00" required>
+                <input id="ph_tensao_ponto_1" name="ph_tensao_ponto_1" type="number" min="0" max="3.3" step="0.001" required>
+                <label for="ph_solucao_ponto_2">pH da solucao 2 conhecida</label>
+                <label for="ph_tensao_ponto_2">Tensao da solucao 2 (V)</label>
+                <input id="ph_solucao_ponto_2" name="ph_solucao_ponto_2" type="number" min="0" max="14" step="0.01" value="4.00" required>
+                <input id="ph_tensao_ponto_2" name="ph_tensao_ponto_2" type="number" min="0" max="3.3" step="0.001" required>
+            </div>
+            <p class="status-meta">
+                O sistema ajusta a reta do eletrodo a partir dos dois pontos informados e preserva a temperatura de calibracao atual deste ponto.
             </p>
-            <button class="btn-main" type="submit" data-confirm-button disabled>Salvar calibracao</button>
-            <p class="status-meta" data-confirm-hint>Aguardando ponto 1 capturado e estabilidade do ponto 2.</p>
+            <button class="btn-main" type="submit">Salvar calibracao</button>
         </form>
     </div>
 </section>

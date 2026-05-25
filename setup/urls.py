@@ -80,11 +80,6 @@ urlpatterns = [
         name="reservatorio_calibracao_ph_auto",
     ),
     path(
-        'reservatorios/<int:reservatorio_id>/calibracao-ph/ponto-1/',
-        views.reservatorio_calibracao_ph_capturar_ponto1,
-        name="reservatorio_calibracao_ph_capturar_ponto1",
-    ),
-    path(
         'reservatorios/<int:reservatorio_id>/resetar-leituras/',
         views.reservatorio_resetar_leituras,
         name="reservatorio_resetar_leituras",

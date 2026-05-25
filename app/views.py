@@ -645,74 +645,6 @@ def reservatorio_calibracao_turbidez_auto(request, reservatorio_id):
 
 @login_required(login_url="entrar")
 @require_http_methods(["POST"])
-def reservatorio_calibracao_ph_capturar_ponto1(request, reservatorio_id):
-    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
-    if reservatorio is None:
-        messages.error(request, "Reservatorio nao encontrado.")
-        return redirect("index")
-
-    ponto_tipo = request.POST.get("ponto_tipo")
-    try:
-        ponto_tipo_normalizado = PontoMonitoramento.normalizar_tipo(ponto_tipo)
-    except ValueError:
-        messages.error(request, "Ponto de calibracao invalido.")
-        return redirect(_url_calibracao_raiz(reservatorio))
-
-    try:
-        ph_solucao = _normalizar_valor_referencia_generico(
-            request.POST.get("ph_solucao_ponto_1"),
-            campo="pH da solucao 1",
-            minimo=0.0,
-            maximo=14.0,
-        )
-    except (TypeError, ValueError):
-        messages.error(request, "pH da solucao 1 invalido.")
-        return redirect(_url_calibracao_sensor(reservatorio, ponto_tipo_normalizado, "ph"))
-
-    reservatorio.garantir_pontos_monitoramento()
-    ponto = reservatorio.obter_ponto_monitoramento(ponto_tipo_normalizado)
-    if ponto is None:
-        messages.error(request, "Ponto de calibracao nao encontrado.")
-        return redirect(_url_calibracao_raiz(reservatorio))
-
-    sessao, resumo, erro_sessao = _obter_sessao_calibracao_pronta(
-        ponto=ponto,
-        sensor=SessaoCalibracao.SENSOR_PH,
-    )
-    if erro_sessao:
-        messages.error(request, erro_sessao)
-        return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
-
-    tensao_ponto_1 = resumo["medianas"].get("tensao")
-    temperatura_ponto_1 = resumo["medianas"].get("temperatura_calibrada")
-    if tensao_ponto_1 is None:
-        messages.error(request, "Nao ha tensao media estavel para capturar o ponto 1.")
-        return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
-
-    sessao.dados_fluxo = {
-        "ph_ponto_1": {
-            "ph": ph_solucao,
-            "tensao": tensao_ponto_1,
-            "temperatura": temperatura_ponto_1,
-            "capturado_em": timezone.localtime(timezone.now()).isoformat(),
-        }
-    }
-    sessao.ultima_amostra_em = None
-    sessao.save(update_fields=["dados_fluxo", "ultima_amostra_em", "updated_at"])
-    sessao.amostras.all().delete()
-
-    messages.success(
-        request,
-        (
-            f"Ponto 1 do pH capturado em {_nome_curto_ponto(ponto)}: "
-            f"solucao {ph_solucao:.2f}, tensao media {tensao_ponto_1:.3f}V."
-        ),
-    )
-    return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
-
-
-@login_required(login_url="entrar")
-@require_http_methods(["POST"])
 def reservatorio_calibracao_ph_auto(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
@@ -727,14 +659,32 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
         return redirect(_url_calibracao_raiz(reservatorio))
 
     try:
+        ph_solucao_ponto_1 = _normalizar_valor_referencia_generico(
+            request.POST.get("ph_solucao_ponto_1"),
+            campo="pH da solucao 1",
+            minimo=0.0,
+            maximo=14.0,
+        )
+        tensao_ponto_1 = _normalizar_valor_referencia_generico(
+            request.POST.get("ph_tensao_ponto_1"),
+            campo="tensao da solucao 1",
+            minimo=0.0,
+            maximo=ADC_TENSAO_REFERENCIA,
+        )
         ph_solucao_ponto_2 = _normalizar_valor_referencia_generico(
             request.POST.get("ph_solucao_ponto_2"),
             campo="pH da solucao 2",
             minimo=0.0,
             maximo=14.0,
         )
+        tensao_ponto_2 = _normalizar_valor_referencia_generico(
+            request.POST.get("ph_tensao_ponto_2"),
+            campo="tensao da solucao 2",
+            minimo=0.0,
+            maximo=ADC_TENSAO_REFERENCIA,
+        )
     except (TypeError, ValueError):
-        messages.error(request, "pH da solucao 2 invalido.")
+        messages.error(request, "Preencha os dois pares de pH e tensao com valores validos.")
         return redirect(_url_calibracao_sensor(reservatorio, ponto_tipo_normalizado, "ph"))
 
     reservatorio.garantir_pontos_monitoramento()
@@ -743,75 +693,31 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
         messages.error(request, "Ponto de calibracao nao encontrado.")
         return redirect(_url_calibracao_raiz(reservatorio))
 
-    sessao, resumo, erro_sessao = _obter_sessao_calibracao_pronta(
-        ponto=ponto,
-        sensor=SessaoCalibracao.SENSOR_PH,
-    )
-    if erro_sessao:
-        messages.error(request, erro_sessao)
-        return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
-
-    dados_fluxo = sessao.dados_fluxo if isinstance(sessao.dados_fluxo, dict) else {}
-    ponto_1 = dados_fluxo.get("ph_ponto_1")
-    if not isinstance(ponto_1, dict):
-        messages.error(request, "Capture primeiro o ponto 1 do pH antes de confirmar a calibracao.")
-        return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
-
-    tensao_ponto_1 = ponto_1.get("tensao")
-    ph_ponto_1 = ponto_1.get("ph")
-    temperatura_ponto_1 = ponto_1.get("temperatura")
-    tensao_ponto_2 = resumo["medianas"].get("tensao")
-    temperatura_ponto_2 = resumo["medianas"].get("temperatura_calibrada")
-    if tensao_ponto_2 is None:
-        messages.error(request, "Nao ha tensao media estavel para fechar o ponto 2.")
-        return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
-
-    try:
-        ph_ponto_1 = _normalizar_valor_referencia_generico(
-            ph_ponto_1,
-            campo="pH da solucao 1",
-            minimo=0.0,
-            maximo=14.0,
-        )
-        tensao_ponto_1 = _normalizar_valor_referencia_generico(
-            tensao_ponto_1,
-            campo="tensao do ponto 1",
-            minimo=0.0,
-            maximo=ADC_TENSAO_REFERENCIA,
-        )
-    except ValueError as exc:
-        messages.error(request, str(exc))
-        return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
-
-    if math.isclose(ph_ponto_1, ph_solucao_ponto_2, rel_tol=0.0, abs_tol=1e-9):
+    if math.isclose(ph_solucao_ponto_1, ph_solucao_ponto_2, rel_tol=0.0, abs_tol=1e-9):
         messages.error(request, "As solucoes de pH devem ter valores diferentes para recalcular a inclinacao.")
         return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
 
-    ph_inclinacao = (tensao_ponto_2 - tensao_ponto_1) / (ph_ponto_1 - ph_solucao_ponto_2)
+    ph_inclinacao = (tensao_ponto_2 - tensao_ponto_1) / (ph_solucao_ponto_1 - ph_solucao_ponto_2)
     if not math.isfinite(ph_inclinacao) or ph_inclinacao <= 0:
         messages.error(request, "Nao foi possivel calcular uma inclinacao valida com os dois pontos informados.")
         return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
 
-    ph7_equivalente = tensao_ponto_1 + (ph_inclinacao * (ph_ponto_1 - 7.0))
-    temperatura_calibracao = _media_valores([temperatura_ponto_1, temperatura_ponto_2])
+    ph7_equivalente = tensao_ponto_1 + (ph_inclinacao * (ph_solucao_ponto_1 - 7.0))
 
     try:
         ponto.atualizar_calibracao_ph(
             ph_voltagem_referencia_7=ph7_equivalente,
             ph_inclinacao=ph_inclinacao,
-            temperatura_calibracao_c=temperatura_calibracao,
         )
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
 
-    sessao.dados_fluxo = {}
-    sessao.save(update_fields=["dados_fluxo", "updated_at"])
     messages.success(
         request,
         (
             f"Calibracao de pH aplicada no ponto {_nome_curto_ponto(ponto)}: "
-            f"ponto 1 {ph_ponto_1:.2f}/{tensao_ponto_1:.3f}V, "
+            f"ponto 1 {ph_solucao_ponto_1:.2f}/{tensao_ponto_1:.3f}V, "
             f"ponto 2 {ph_solucao_ponto_2:.2f}/{tensao_ponto_2:.3f}V."
         ),
     )

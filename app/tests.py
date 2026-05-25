@@ -437,6 +437,9 @@ class IndexReservatorioTests(TestCase):
         self.assertEqual(data["sensor"], "ph")
         self.assertEqual(data["amostras"], 1)
         self.assertIsNotNone(data["ultima_amostra"])
+        self.assertIsNotNone(data["ultima_amostra"]["tensao"])
+        self.assertIsNotNone(data["ultima_amostra"]["valor_calibrado"])
+        self.assertIsNotNone(data["medias"]["tensao"])
 
     def test_atualizar_view_altera_objeto(self):
         self._logar()
@@ -511,46 +514,30 @@ class IndexReservatorioTests(TestCase):
             status=Reservatorio.STATUS_BOM,
         )
         ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
-        sessao = SessaoCalibracao.iniciar(
-            ponto=ponto_antes,
-            sensor=SessaoCalibracao.SENSOR_PH,
-            iniciada_por=self.usuario,
-        )
-        for adc in (2966, 2968, 2967, 2965):
-            AmostraCalibracao.objects.create(
-                sessao=sessao,
-                temperatura=24.0,
-                adc_ph=adc,
-                sinais_brutos={"adc_ph": adc},
-            )
-
-        captura = self.client.post(
-            reverse("reservatorio_calibracao_ph_capturar_ponto1", args=[reservatorio.id]),
-            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES, "ph_solucao_ponto_1": "7.00"},
-        )
-        self.assertEqual(captura.status_code, 302)
-
-        for adc in (3820, 3822, 3821, 3819):
-            AmostraCalibracao.objects.create(
-                sessao=sessao,
-                temperatura=24.0,
-                adc_ph=adc,
-                sinais_brutos={"adc_ph": adc},
-            )
 
         response = self.client.post(
             reverse("reservatorio_calibracao_ph_auto", args=[reservatorio.id]),
-            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES, "ph_solucao_ponto_2": "4.00"},
+            {
+                "ponto_tipo": PontoMonitoramento.TIPO_ANTES,
+                "ph_solucao_ponto_1": "6.00",
+                "ph_tensao_ponto_1": "2.100",
+                "ph_solucao_ponto_2": "8.00",
+                "ph_tensao_ponto_2": "1.400",
+            },
         )
 
         self.assertEqual(response.status_code, 302)
         ponto_antes.refresh_from_db()
-        self.assertAlmostEqual(ponto_antes.ph_voltagem_referencia_7, 2.39, places=1)
-        self.assertAlmostEqual(ponto_antes.ph_inclinacao, 0.23, places=2)
-        self.assertAlmostEqual(ponto_antes.ph_temperatura_calibracao_c, 24.0, places=2)
+        self.assertAlmostEqual(ponto_antes.ph_voltagem_referencia_7, 1.75, places=2)
+        self.assertAlmostEqual(ponto_antes.ph_inclinacao, 0.35, places=2)
+        self.assertAlmostEqual(
+            ponto_antes.ph_temperatura_calibracao_c,
+            PontoMonitoramento.PH_TEMPERATURA_CALIBRACAO_PADRAO,
+            places=2,
+        )
         self.assertIsNotNone(ponto_antes.ph_calibrado_em)
 
-    def test_calibracao_ph_auto_nao_altera_sem_ponto_1_capturado(self):
+    def test_calibracao_ph_auto_nao_altera_com_campos_incompletos(self):
         self._logar()
         reservatorio = Reservatorio.criar_reservatorio(
             usuario=self.usuario,
@@ -558,24 +545,18 @@ class IndexReservatorioTests(TestCase):
             status=Reservatorio.STATUS_BOM,
         )
         ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
-        sessao = SessaoCalibracao.iniciar(
-            ponto=ponto_antes,
-            sensor=SessaoCalibracao.SENSOR_PH,
-            iniciada_por=self.usuario,
-        )
-        for adc in (3051, 3052, 3050, 3051):
-            AmostraCalibracao.objects.create(
-                sessao=sessao,
-                temperatura=24.0,
-                adc_ph=adc,
-                sinais_brutos={"adc_ph": adc},
-            )
         voltagem_original = ponto_antes.ph_voltagem_referencia_7
         inclinacao_original = ponto_antes.ph_inclinacao
 
         response = self.client.post(
             reverse("reservatorio_calibracao_ph_auto", args=[reservatorio.id]),
-            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES, "ph_solucao_ponto_2": "4.00"},
+            {
+                "ponto_tipo": PontoMonitoramento.TIPO_ANTES,
+                "ph_solucao_ponto_1": "7.00",
+                "ph_tensao_ponto_1": "",
+                "ph_solucao_ponto_2": "4.00",
+                "ph_tensao_ponto_2": "2.100",
+            },
         )
 
         self.assertEqual(response.status_code, 302)
@@ -591,33 +572,16 @@ class IndexReservatorioTests(TestCase):
             status=Reservatorio.STATUS_BOM,
         )
         ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
-        sessao = SessaoCalibracao.iniciar(
-            ponto=ponto_antes,
-            sensor=SessaoCalibracao.SENSOR_PH,
-            iniciada_por=self.usuario,
-        )
-        for adc in (2966, 2968, 2967, 2965):
-            AmostraCalibracao.objects.create(
-                sessao=sessao,
-                temperatura=24.0,
-                adc_ph=adc,
-                sinais_brutos={"adc_ph": adc},
-            )
-        self.client.post(
-            reverse("reservatorio_calibracao_ph_capturar_ponto1", args=[reservatorio.id]),
-            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES, "ph_solucao_ponto_1": "7.00"},
-        )
-        for adc in (2966, 2968, 2967, 2965):
-            AmostraCalibracao.objects.create(
-                sessao=sessao,
-                temperatura=24.0,
-                adc_ph=adc,
-                sinais_brutos={"adc_ph": adc},
-            )
 
         response = self.client.post(
             reverse("reservatorio_calibracao_ph_auto", args=[reservatorio.id]),
-            {"ponto_tipo": PontoMonitoramento.TIPO_ANTES, "ph_solucao_ponto_2": "7.00"},
+            {
+                "ponto_tipo": PontoMonitoramento.TIPO_ANTES,
+                "ph_solucao_ponto_1": "7.00",
+                "ph_tensao_ponto_1": "2.390",
+                "ph_solucao_ponto_2": "7.00",
+                "ph_tensao_ponto_2": "2.100",
+            },
         )
 
         self.assertEqual(response.status_code, 302)
@@ -627,6 +591,26 @@ class IndexReservatorioTests(TestCase):
             PontoMonitoramento.PH_VOLTAGEM_REFERENCIA_7_PADRAO,
             places=2,
         )
+
+    def test_calibracao_sensor_ph_exibe_formulario_papel_e_caneta(self):
+        self._logar()
+        reservatorio = Reservatorio.objects.create(
+            usuario=self.usuario,
+            nome="Reservatorio calibracao ph manual",
+            status=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.get(
+            reverse(
+                "reservatorio_calibracao_sensor",
+                args=[reservatorio.id, PontoMonitoramento.TIPO_ANTES, "ph"],
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "papel e caneta")
+        self.assertContains(response, "Tensao da solucao 1 (V)")
+        self.assertContains(response, "Tensao da solucao 2 (V)")
 
     def test_calibracao_tds_auto_define_offset_e_inclinacao_por_ponto(self):
         self._logar()
