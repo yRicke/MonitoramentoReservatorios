@@ -494,6 +494,7 @@ class PontoMonitoramento(models.Model):
     TEMPERATURA_INCLINACAO_PADRAO = 1.0
     PH_VOLTAGEM_REFERENCIA_7_PADRAO = 2.39
     PH_INCLINACAO_PADRAO = 0.23
+    PH_TEMPERATURA_CALIBRACAO_PADRAO = 25.0
     TDS_INCLINACAO_PADRAO = 1.0
     TURBIDEZ_INCLINACAO_PADRAO = 1.0
     TDS_ALVO_CALIBRACAO_PADRAO = 40.0
@@ -527,7 +528,7 @@ class PontoMonitoramento(models.Model):
     temperatura_calibrado_em = models.DateTimeField(null=True, blank=True)
     ph_voltagem_referencia_7 = models.FloatField(default=PH_VOLTAGEM_REFERENCIA_7_PADRAO)
     ph_inclinacao = models.FloatField(default=PH_INCLINACAO_PADRAO)
-    ph_temperatura_calibracao_c = models.FloatField(default=25.0)
+    ph_temperatura_calibracao_c = models.FloatField(default=PH_TEMPERATURA_CALIBRACAO_PADRAO)
     ph_calibrado_em = models.DateTimeField(null=True, blank=True)
     tds_inclinacao = models.FloatField(default=TDS_INCLINACAO_PADRAO)
     tds_offset_ppm = models.FloatField(default=0.0)
@@ -778,6 +779,88 @@ class PontoMonitoramento(models.Model):
             temperatura_corrigida,
             campo="temperatura",
         )
+
+    def resetar_calibracao_sensor(self, *, sensor):
+        sensor_final = (sensor or "").strip().lower()
+        if sensor_final == "temperatura":
+            self.temperatura_inclinacao = self.TEMPERATURA_INCLINACAO_PADRAO
+            self.temperatura_offset_c = 0.0
+            self.temperatura_valor_referencia_c = None
+            self.temperatura_bruta_referencia_c = None
+            self.temperatura_calibrado_em = None
+            self.save(
+                update_fields=[
+                    "temperatura_inclinacao",
+                    "temperatura_offset_c",
+                    "temperatura_valor_referencia_c",
+                    "temperatura_bruta_referencia_c",
+                    "temperatura_calibrado_em",
+                    "updated_at",
+                ]
+            )
+            return self
+
+        if sensor_final == "tds":
+            self.tds_inclinacao = self.TDS_INCLINACAO_PADRAO
+            self.tds_offset_ppm = 0.0
+            self.tds_alvo_calibracao_ppm = self.TDS_ALVO_CALIBRACAO_PADRAO
+            self.tds_adc_calibracao = None
+            self.tds_calibrado_em = None
+            self._sincronizar_data_calibracao_agua()
+            self.save(
+                update_fields=[
+                    "tds_inclinacao",
+                    "tds_offset_ppm",
+                    "tds_alvo_calibracao_ppm",
+                    "tds_adc_calibracao",
+                    "tds_calibrado_em",
+                    "agua_calibrado_em",
+                    "updated_at",
+                ]
+            )
+            return self
+
+        if sensor_final == "turbidez":
+            self.turbidez_inclinacao = self.TURBIDEZ_INCLINACAO_PADRAO
+            self.turbidez_offset_ntu = 0.0
+            self.turbidez_alvo_calibracao_ntu = self.TURBIDEZ_ALVO_CALIBRACAO_PADRAO
+            self.turbidez_adc_calibracao = None
+            self.turbidez_calibrado_em = None
+            self._sincronizar_data_calibracao_agua()
+            self.save(
+                update_fields=[
+                    "turbidez_inclinacao",
+                    "turbidez_offset_ntu",
+                    "turbidez_alvo_calibracao_ntu",
+                    "turbidez_adc_calibracao",
+                    "turbidez_calibrado_em",
+                    "agua_calibrado_em",
+                    "updated_at",
+                ]
+            )
+            return self
+
+        if sensor_final == "ph":
+            self.ph_voltagem_referencia_7 = self.PH_VOLTAGEM_REFERENCIA_7_PADRAO
+            self.ph_inclinacao = self.PH_INCLINACAO_PADRAO
+            self.ph_temperatura_calibracao_c = self.PH_TEMPERATURA_CALIBRACAO_PADRAO
+            self.ph_calibrado_em = None
+            self.save(
+                update_fields=[
+                    "ph_voltagem_referencia_7",
+                    "ph_inclinacao",
+                    "ph_temperatura_calibracao_c",
+                    "ph_calibrado_em",
+                    "updated_at",
+                ]
+            )
+            return self
+
+        raise ValueError("sensor invalido")
+
+    def _sincronizar_data_calibracao_agua(self):
+        datas = [data for data in (self.tds_calibrado_em, self.turbidez_calibrado_em) if data is not None]
+        self.agua_calibrado_em = max(datas) if datas else None
 
     def registrar_leitura(
         self,

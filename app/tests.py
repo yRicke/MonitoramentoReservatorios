@@ -333,6 +333,55 @@ class IndexReservatorioTests(TestCase):
         self.assertContains(response, "A media da temperatura deveria estar em")
         self.assertContains(response, "Salvar calibracao")
         self.assertContains(response, "Iniciar calibracao")
+        self.assertContains(response, "Resetar dados de calibracao do sensor")
+
+    def test_resetar_calibracao_sensor_limpa_apenas_sensor_selecionado(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio reset calibracao sensor",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_antes.atualizar_calibracao_temperatura(
+            temperatura_bruta_c=20.0,
+            temperatura_referencia_c=25.0,
+            temperatura_inclinacao=1.100,
+        )
+        ponto_antes.atualizar_calibracao_ph(
+            ph_voltagem_referencia_7=2.50,
+            ph_inclinacao=0.20,
+            temperatura_calibracao_c=24.0,
+        )
+
+        response = self.client.post(
+            reverse(
+                "reservatorio_calibracao_sensor_resetar",
+                args=[reservatorio.id, ponto_antes.tipo, "temperatura"],
+            )
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.url,
+            reverse(
+                "reservatorio_calibracao_sensor",
+                args=[reservatorio.id, ponto_antes.tipo, "temperatura"],
+            ),
+        )
+        ponto_antes.refresh_from_db()
+        self.assertEqual(
+            ponto_antes.temperatura_inclinacao,
+            PontoMonitoramento.TEMPERATURA_INCLINACAO_PADRAO,
+        )
+        self.assertEqual(ponto_antes.temperatura_offset_c, 0.0)
+        self.assertIsNone(ponto_antes.temperatura_valor_referencia_c)
+        self.assertIsNone(ponto_antes.temperatura_bruta_referencia_c)
+        self.assertIsNone(ponto_antes.temperatura_calibrado_em)
+        self.assertAlmostEqual(ponto_antes.ph_voltagem_referencia_7, 2.50, places=2)
+        self.assertAlmostEqual(ponto_antes.ph_inclinacao, 0.20, places=2)
+        self.assertAlmostEqual(ponto_antes.ph_temperatura_calibracao_c, 24.0, places=2)
+        self.assertIsNotNone(ponto_antes.ph_calibrado_em)
 
     def test_calibracao_sessao_iniciar_cria_sessao_ativa(self):
         self._logar()

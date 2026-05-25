@@ -49,6 +49,11 @@ urlpatterns = [
         name="reservatorio_calibracao_sessao_encerrar",
     ),
     path(
+        'reservatorios/<int:reservatorio_id>/calibracao/<str:ponto_tipo>/<str:sensor_id>/resetar/',
+        views.reservatorio_calibracao_sensor_resetar,
+        name="reservatorio_calibracao_sensor_resetar",
+    ),
+    path(
         'reservatorios/<int:reservatorio_id>/calibracao/<str:ponto_tipo>/<str:sensor_id>/sessao/status/',
         views.reservatorio_calibracao_sessao_status,
         name="reservatorio_calibracao_sessao_status",

@@ -407,6 +407,38 @@ def reservatorio_calibracao_sessao_encerrar(request, reservatorio_id, ponto_tipo
 
 
 @login_required(login_url="entrar")
+@require_http_methods(["POST"])
+def reservatorio_calibracao_sensor_resetar(request, reservatorio_id, ponto_tipo, sensor_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "Reservatorio nao encontrado.")
+        return redirect("index")
+
+    ponto = _obter_ponto_calibracao_por_url(
+        reservatorio=reservatorio,
+        ponto_tipo=ponto_tipo,
+        fallback_url=_url_calibracao_raiz(reservatorio),
+    )
+    if ponto is None:
+        return redirect(_url_calibracao_raiz(reservatorio))
+
+    sensor = _normalizar_sensor_calibracao(sensor_id, padrao="")
+    if not sensor:
+        messages.error(request, "Sensor de calibracao invalido.")
+        return redirect(_url_calibracao_ponto(reservatorio, ponto.tipo))
+
+    ponto.resetar_calibracao_sensor(sensor=sensor)
+    messages.success(
+        request,
+        (
+            f"Dados de calibracao de {_rotulo_sensor_calibracao(sensor)} resetados "
+            f"em {_nome_curto_ponto(ponto)}."
+        ),
+    )
+    return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, sensor))
+
+
+@login_required(login_url="entrar")
 @require_http_methods(["GET"])
 def reservatorio_calibracao_sessao_status(request, reservatorio_id, ponto_tipo, sensor_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)

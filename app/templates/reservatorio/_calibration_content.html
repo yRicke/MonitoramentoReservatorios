@@ -162,3 +162,21 @@
     </div>
 </section>
 {% endif %}
+
+<section class="water-calibration-section">
+    <h5>Reset de calibracao</h5>
+    <p class="status-meta">
+        Use apenas quando precisar voltar os parametros deste sensor para o padrao inicial.
+    </p>
+    <form
+        class="water-auto-card"
+        method="post"
+        action="{% url 'reservatorio_calibracao_sensor_resetar' reservatorio.id ponto_calibracao.tipo sensor_selecionado %}"
+        data-confirm-reset-calibracao-sensor
+        data-sensor-nome="{{ sensor_selecionado_nome }}"
+        data-ponto-nome="{{ ponto_calibracao.get_tipo_display }}"
+    >
+        {% csrf_token %}
+        <button class="btn-main" type="submit">Resetar dados de calibracao do sensor</button>
+    </form>
+</section>
