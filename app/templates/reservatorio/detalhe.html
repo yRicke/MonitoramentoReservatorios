@@ -149,6 +149,18 @@
 
             <button class="btn-main" type="submit">Salvar alteracoes</button>
         </form>
+
+        <form
+            class="edit-form"
+            method="post"
+            action="{% url 'reservatorio_resetar_leituras' reservatorio.id %}"
+            data-confirm-reset-leituras
+            data-reservatorio-nome="{{ reservatorio.nome }}"
+        >
+            {% csrf_token %}
+            <p class="edit-help">Essa acao remove todas as leituras deste reservatorio (antes e depois do tratamento).</p>
+            <button class="btn-main" type="submit">Resetar leitura</button>
+        </form>
     </div>
 </section>
 
@@ -203,4 +215,5 @@
 {% block extra_scripts %}
 <script src="{% static 'js/vendor/apexcharts.min.js' %}?v=3.54.1"></script>
 <script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260325-apex11"></script>
+<script src="{% static 'js/confirmar-reset-leituras.js' %}?v=20260525-reset-leituras-1"></script>
 {% endblock %}

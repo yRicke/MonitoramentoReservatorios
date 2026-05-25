@@ -339,6 +339,12 @@ class Reservatorio(models.Model):
         self.delete()
         return True
 
+    def resetar_leituras(self):
+        total_removido, _ = LeituraQualidade.objects.filter(
+            ponto__reservatorio=self,
+        ).delete()
+        return total_removido
+
     def garantir_pontos_monitoramento(self):
         for tipo in PontoMonitoramento.TIPOS:
             PontoMonitoramento.objects.get_or_create(

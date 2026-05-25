@@ -170,6 +170,63 @@ class IndexReservatorioTests(TestCase):
         self.assertContains(response, "Salvar alteracoes")
         self.assertContains(response, reverse("reservatorio_calibracao", args=[reservatorio.id]))
         self.assertContains(response, "Calibrar")
+        self.assertContains(response, "Resetar leitura")
+
+    def test_resetar_leituras_remove_apenas_registros_do_reservatorio(self):
+        self._logar()
+        reservatorio_alvo = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio reset alvo",
+            status=Reservatorio.STATUS_BOM,
+        )
+        reservatorio_controle = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio reset controle",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_alvo_antes = reservatorio_alvo.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_alvo_depois = reservatorio_alvo.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+        ponto_controle_antes = reservatorio_controle.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+
+        ponto_alvo_antes.registrar_leitura(
+            temperatura=25.0,
+            tds=300.0,
+            turbidez=0.7,
+            ph=7.1,
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+        ponto_alvo_depois.registrar_leitura(
+            temperatura=24.0,
+            tds=250.0,
+            turbidez=0.6,
+            ph=7.0,
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+        ponto_controle_antes.registrar_leitura(
+            temperatura=28.0,
+            tds=500.0,
+            turbidez=1.2,
+            ph=7.8,
+            status_leitura=Reservatorio.STATUS_ATENCAO,
+        )
+
+        response = self.client.post(
+            reverse("reservatorio_resetar_leituras", args=[reservatorio_alvo.id]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.url,
+            reverse("reservatorio_detalhe", args=[reservatorio_alvo.id]),
+        )
+        self.assertEqual(
+            LeituraQualidade.objects.filter(ponto__reservatorio=reservatorio_alvo).count(),
+            0,
+        )
+        self.assertEqual(
+            LeituraQualidade.objects.filter(ponto__reservatorio=reservatorio_controle).count(),
+            1,
+        )
 
     def test_detalhe_expoe_metricas_recentes_dos_dois_pontos(self):
         self._logar()

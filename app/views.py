@@ -799,6 +799,22 @@ def reservatorio_excluir(request, reservatorio_id):
     return redirect("index")
 
 
+@login_required(login_url="entrar")
+@require_http_methods(["POST"])
+def reservatorio_resetar_leituras(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "Reservatorio nao encontrado.")
+        return redirect("index")
+
+    total_removido = reservatorio.resetar_leituras()
+    messages.success(
+        request,
+        f"Leituras resetadas com sucesso. Registros removidos: {total_removido}.",
+    )
+    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+
 @require_http_methods(["GET", "POST"])
 def entrar(request):
     if request.user.is_authenticated:
