@@ -17,7 +17,7 @@
     <div class="detail-hero-copy">
         <h2>{{ sensor_selecionado_nome|upper }} {{ reservatorio.nome|upper }}</h2>
         <p class="index-hero-subtitle">
-            Ponto atual: <strong>{{ ponto_calibracao.get_tipo_display }}</strong>. Ajuste os parametros abaixo para este sensor.
+            Ponto atual: <strong>{{ ponto_calibracao.get_tipo_display }}</strong>. Ajuste os parâmetros abaixo para este sensor.
         </p>
     </div>
     <div class="detail-hero-actions">
@@ -25,7 +25,7 @@
     </div>
 </section>
 
-<nav class="calibration-breadcrumbs" aria-label="Etapas da calibracao">
+<nav class="calibration-breadcrumbs" aria-label="Etapas da calibração">
     <a href="{% url 'reservatorio_calibracao' reservatorio.id %}">Pontos</a>
     <a href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo %}">{{ ponto_calibracao.get_tipo_display }}</a>
     <span>{{ sensor_selecionado_nome }}</span>
@@ -34,13 +34,13 @@
 <section class="panel calibration-page-panel">
     <div class="calibration-session-toolbar">
         <div>
-            <div class="calibration-step-kicker">Sessao</div>
+            <div class="calibration-step-kicker">Sessão</div>
             <h3>Coleta em tempo real</h3>
             <p class="status-meta calibration-page-intro">
                 {% if sensor_selecionado == "ph" %}
-                Inicie a sessao para acompanhar a tensao do sensor em tempo real, esperar estabilizar e anotar os valores antes de preencher a calibracao manual.
+                Inicie a sessão para acompanhar a tensão do sensor em tempo real, esperar estabilizar e anotar os valores antes de preencher a calibração manual.
                 {% else %}
-                Inicie a sessao para o ESP32 enviar amostras deste sensor a cada 5 segundos sem misturar com o historico normal.
+                Inicie a sessão para o ESP32 enviar amostras deste sensor a cada 5 segundos sem misturar com o histórico normal.
                 {% endif %}
             </p>
         </div>
@@ -48,7 +48,7 @@
             {% if sessao_calibracao_ativa.ativa %}
             <form method="post" action="{% url 'reservatorio_calibracao_sessao_encerrar' reservatorio.id ponto_calibracao.tipo sensor_selecionado %}">
                 {% csrf_token %}
-                <button class="btn-main" type="submit">Encerrar sessao</button>
+                <button class="btn-main" type="submit">Encerrar sessão</button>
             </form>
             {% else %}
             <form method="post" action="{% url 'reservatorio_calibracao_sessao_iniciar' reservatorio.id ponto_calibracao.tipo sensor_selecionado %}">
@@ -63,21 +63,21 @@
         data-status-url="{% url 'reservatorio_calibracao_sessao_status' reservatorio.id ponto_calibracao.tipo sensor_selecionado %}"
         data-sensor="{{ sensor_selecionado }}">
         <article class="calibration-live-card">
-            <h4>Status da sessao</h4>
+            <h4>Status da sessão</h4>
             <p class="calibration-live-value" data-live-status>
                 {% if sessao_calibracao_ativa.ativa %}Ativa{% else %}Inativa{% endif %}
             </p>
             <p class="status-meta" data-live-count>
-                {% if sessao_calibracao_ativa.ativa %}{{ sessao_calibracao_ativa.amostras }} amostras recebidas{% else %}Aguardando inicio da sessao{% endif %}
+                {% if sessao_calibracao_ativa.ativa %}{{ sessao_calibracao_ativa.amostras }} amostras recebidas{% else %}Aguardando início da sessão{% endif %}
             </p>
         </article>
         <article class="calibration-live-card">
-            <h4>Ultima amostra</h4>
+            <h4>Última amostra</h4>
             <p class="calibration-live-value" data-live-last-value>--</p>
             <p class="status-meta" data-live-last-meta>Sem amostras recentes</p>
         </article>
         <article class="calibration-live-card">
-            <h4>Media ultimas 30</h4>
+            <h4>Média últimas 30</h4>
             <p class="calibration-live-value" data-live-avg-value>--</p>
             <p class="status-meta" data-live-avg-meta>Sem dados suficientes</p>
         </article>

@@ -12,7 +12,7 @@
             {% if busca %}
             <input type="hidden" name="busca" value="{{ busca }}">
             {% endif %}
-            <label for="periodo-{{ card.reservatorio.id }}">Periodo:</label>
+            <label for="periodo-{{ card.reservatorio.id }}">Período:</label>
             <select id="periodo-{{ card.reservatorio.id }}" name="dias" onchange="this.form.submit()">
                 {% for periodo_valor_item, periodo_label_item in periodos_disponiveis %}
                 <option value="{{ periodo_valor_item }}" {% if periodo_valor_item == periodo_selecionado %}selected{% endif %}>
@@ -23,7 +23,7 @@
         </form>
         {% else %}
         <p class="dashboard-period-static">
-            <span>Periodo:</span>
+            <span>Período:</span>
             <strong>{{ periodo_label }}</strong>
         </p>
         {% endif %}
@@ -38,19 +38,19 @@
                 data-reservatorio-nome="{{ card.reservatorio.nome }}"
             >
                 {% csrf_token %}
-                <button class="btn-delete" type="submit" aria-label="Excluir reservatorio">X</button>
+                <button class="btn-delete" type="submit" aria-label="Excluir reservatório">X</button>
             </form>
         </div>
         {% endif %}
     </section>
 
     <section class="dashboard-card-right">
-        <p class="dashboard-period-caption">Medias dos ultimos {{ periodo_label }}</p>
+        <p class="dashboard-period-caption">Médias dos últimos {{ periodo_label }}</p>
 
         <table class="dashboard-metrics-table">
             <thead>
                 <tr>
-                    <th scope="col">Metrica</th>
+                    <th scope="col">Métrica</th>
                     <th scope="col">PRE</th>
                     <th scope="col">POS</th>
                 </tr>

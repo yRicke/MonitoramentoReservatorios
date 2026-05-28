@@ -1,7 +1,7 @@
 ﻿{% extends "blocos/base.html" %}
 {% load static l10n %}
 
-{% block title %}Reservatorio {{ reservatorio.nome }}{% endblock %}
+{% block title %}Reservatório {{ reservatorio.nome }}{% endblock %}
 
 {% block content %}
 <section class="message-wrap">
@@ -22,7 +22,7 @@
         </p>
     </div>
     <div class="detail-hero-actions">
-        <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatorio</a>
+        <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatório</a>
         <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Calibrar</a>
     </div>
 </section>
@@ -32,9 +32,9 @@
 <section class="panel detail-top-toggle">
     <div class="top-toggle-menu">
         <button class="top-toggle-btn" type="button" data-toggle-target="editReservatorioPanel"
-            data-label-closed="Editar reservatorio" data-label-open="Fechar edicao do reservatorio"
+            data-label-closed="Editar reservatório" data-label-open="Fechar edição do reservatório"
             aria-expanded="false">
-            Editar reservatorio
+            Editar reservatório
         </button>
     </div>
 
@@ -78,10 +78,10 @@
                 value="{{ reservatorio.faixa_ph_max|unlocalize }}" required>
 
             <p class="edit-help">
-                O status e calculado automaticamente com base nas faixas deste reservatorio.
+                O status é calculado automaticamente com base nas faixas deste reservatório.
             </p>
 
-            <button class="btn-main" type="submit">Salvar alteracoes</button>
+            <button class="btn-main" type="submit">Salvar alterações</button>
         </form>
 
         <form
@@ -92,7 +92,7 @@
             data-reservatorio-nome="{{ reservatorio.nome }}"
         >
             {% csrf_token %}
-            <p class="edit-help">Essa acao remove todas as leituras deste reservatorio (antes e depois do tratamento).</p>
+            <p class="edit-help">Essa ação remove todas as leituras deste reservatório (antes e depois do tratamento).</p>
             <button class="btn-main" type="submit">Resetar leitura</button>
         </form>
     </div>

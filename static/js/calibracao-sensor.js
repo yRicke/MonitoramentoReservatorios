@@ -42,7 +42,7 @@
             return;
         }
 
-        target.textContent = payload.estavel ? "Estavel" : "Instavel";
+        target.textContent = payload.estavel ? "Estável" : "Instável";
         const desvio = payload.desvio_exibicao !== null && payload.desvio_exibicao !== undefined
             ? payload.desvio_exibicao
             : payload.desvio;
@@ -62,7 +62,7 @@
         if (refs.captureButton && refs.captureHint) {
             refs.captureButton.disabled = !ready;
             refs.captureHint.textContent = ready
-                ? "Sessao pronta para capturar o ponto 1."
+                ? "Sessão pronta para capturar o ponto 1."
                 : "Aguardando estabilidade do sensor e da temperatura.";
         }
 
@@ -75,7 +75,7 @@
 
         refs.confirmHints.forEach((hint) => {
             hint.textContent = ready
-                ? "Sessao pronta para confirmar a calibracao."
+                ? "Sessão pronta para confirmar a calibração."
                 : (shouldRequireTemperatureStability()
                     ? "Aguardando estabilidade do sensor e da temperatura."
                     : "Aguardando estabilidade do sensor.");
@@ -86,7 +86,7 @@
         refs.status.textContent = data.ativa ? "Ativa" : "Inativa";
         refs.count.textContent = data.ativa
             ? data.amostras + " amostras recebidas"
-            : "Aguardando inicio da sessao";
+            : "Aguardando início da sessão";
 
         const ultima = data.ultima_amostra || null;
         if (sensor === "temperatura") {
@@ -100,8 +100,8 @@
                 ? formatNumber(data.medias.temperatura_calibrada, 2) + " C"
                 : "--";
             refs.avgMeta.textContent = data.medias
-                ? "Media da temperatura bruta " + formatNumber(data.medias.temperatura_bruta, 2) + " C"
-                : "Sem dados suficientes";
+                    ? "Média da temperatura bruta " + formatNumber(data.medias.temperatura_bruta, 2) + " C"
+                    : "Sem dados suficientes";
         } else {
             const digits = sensor === "turbidez" ? 3 : 2;
             const unit = sensor === "turbidez" ? " NTU" : (sensor === "tds" ? " ppm" : (sensor === "ph" ? " pH" : ""));
@@ -119,9 +119,9 @@
                     ? formatNumber(data.medias.tensao, 3) + " V"
                     : "--";
                 refs.avgMeta.textContent = data.medias
-                    ? "ADC medio " + formatNumber(data.medias.adc, 0)
+                    ? "ADC médio " + formatNumber(data.medias.adc, 0)
                         + (data.medias.valor_calibrado !== null && data.medias.valor_calibrado !== undefined
-                            ? " | pH medio " + formatNumber(data.medias.valor_calibrado, 2)
+                            ? " | pH médio " + formatNumber(data.medias.valor_calibrado, 2)
                             : "")
                     : "Sem dados suficientes";
             } else {
@@ -131,12 +131,12 @@
                 if (sensor === "tds") {
                     refs.lastMeta.textContent = ultima
                         ? "ADC " + (ultima.adc ?? "--")
-                            + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensao " + formatNumber(ultima.tensao, 3) + " V" : "")
+                            + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensão " + formatNumber(ultima.tensao, 3) + " V" : "")
                             + (ultima.temperatura_calibrada !== null && ultima.temperatura_calibrada !== undefined ? " | Temp " + formatNumber(ultima.temperatura_calibrada, 2) + " C" : "")
                         : "Sem amostras recentes";
                 } else {
                     refs.lastMeta.textContent = ultima
-                        ? "ADC " + (ultima.adc ?? "--") + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensao " + formatNumber(ultima.tensao, 3) + " V" : "")
+                        ? "ADC " + (ultima.adc ?? "--") + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensão " + formatNumber(ultima.tensao, 3) + " V" : "")
                         : "Sem amostras recentes";
                 }
                 refs.avgValue.textContent = data.medias && data.medias.valor_calibrado !== undefined
@@ -144,11 +144,11 @@
                     : "--";
                 if (sensor === "tds") {
                     refs.avgMeta.textContent = data.medias
-                        ? "Media nas ultimas amostras | Temp " + formatNumber(data.medias.temperatura_calibrada, 2) + " C"
+                        ? "Média nas últimas amostras | Temp " + formatNumber(data.medias.temperatura_calibrada, 2) + " C"
                         : "Sem dados suficientes";
                 } else {
                     refs.avgMeta.textContent = data.medias
-                        ? "Media do valor convertido nas ultimas amostras"
+                        ? "Média do valor convertido nas últimas amostras"
                         : "Sem dados suficientes";
                 }
             }
@@ -182,7 +182,7 @@
             const data = await response.json();
             render(data);
         } catch (error) {
-            // Mantem ultimo estado visivel se o polling falhar.
+            // Mantém o último estado visível se o polling falhar.
         }
     }
 

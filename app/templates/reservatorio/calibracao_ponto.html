@@ -16,7 +16,7 @@
     <div class="detail-hero-copy">
         <h2>SENSORES {{ reservatorio.nome|upper }}</h2>
         <p class="index-hero-subtitle">
-            Ponto selecionado: <strong>{{ ponto_calibracao.get_tipo_display }}</strong>. Agora escolha qual sensor voce quer calibrar.
+            Ponto selecionado: <strong>{{ ponto_calibracao.get_tipo_display }}</strong>. Agora escolha qual sensor você quer calibrar.
         </p>
     </div>
     <div class="detail-hero-actions">
@@ -24,7 +24,7 @@
     </div>
 </section>
 
-<nav class="calibration-breadcrumbs" aria-label="Etapas da calibracao">
+<nav class="calibration-breadcrumbs" aria-label="Etapas da calibração">
     <a href="{% url 'reservatorio_calibracao' reservatorio.id %}">Pontos</a>
     <span>{{ ponto_calibracao.get_tipo_display }}</span>
 </nav>
@@ -38,7 +38,7 @@
             href="{% url 'reservatorio_calibracao_sensor' reservatorio.id ponto_calibracao.tipo sensor.id %}">
             <strong>{{ sensor.nome }}</strong>
             <span>{{ sensor.descricao }}</span>
-            <span>Entrar na calibracao deste sensor.</span>
+            <span>Entrar na calibração deste sensor.</span>
         </a>
         {% endfor %}
     </div>

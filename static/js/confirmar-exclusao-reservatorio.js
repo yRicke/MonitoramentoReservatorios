@@ -1,7 +1,7 @@
 function confirmarExclusaoReservatorio(event) {
     const form = event.currentTarget;
-    const nomeReservatorio = form.dataset.reservatorioNome || "este reservatorio";
-    const mensagem = `Para excluir, digite exatamente o nome do reservatorio: ${nomeReservatorio}`;
+    const nomeReservatorio = form.dataset.reservatorioNome || "este reservatório";
+    const mensagem = `Para excluir, digite exatamente o nome do reservatório: ${nomeReservatorio}`;
     const entradaUsuario = window.prompt(mensagem, "");
 
     if (entradaUsuario === null) {
@@ -10,7 +10,7 @@ function confirmarExclusaoReservatorio(event) {
     }
 
     if (entradaUsuario.trim() !== nomeReservatorio) {
-        window.alert("Nome diferente. Exclusao cancelada.");
+        window.alert("Nome diferente. Exclusão cancelada.");
         event.preventDefault();
     }
 }

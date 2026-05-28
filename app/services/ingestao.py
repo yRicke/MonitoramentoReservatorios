@@ -29,7 +29,7 @@ def processar_leitura_esp32(request_body):
 
     reservatorio = Reservatorio.obter_por_id(reservatorio_id)
     if reservatorio is None:
-        raise IngestaoLeituraErro("reservatorio invalido")
+        raise IngestaoLeituraErro("reservatório inválido")
 
     reservatorio.garantir_pontos_monitoramento()
     ponto = reservatorio.obter_ponto_monitoramento(ponto_tipo)
@@ -395,22 +395,22 @@ def _calcular_ph_por_tensao(
     ph_temperatura_calibracao_c=25.0,
 ):
     if not math.isfinite(ph_voltagem_referencia_7) or ph_voltagem_referencia_7 <= 0:
-        raise IngestaoLeituraErro("calibracao invalida: ph_voltagem_referencia_7")
+        raise IngestaoLeituraErro("calibração inválida: ph_voltagem_referencia_7")
     if not math.isfinite(ph_inclinacao) or ph_inclinacao <= 0:
-        raise IngestaoLeituraErro("calibracao invalida: ph_inclinacao")
+        raise IngestaoLeituraErro("calibração inválida: ph_inclinacao")
     if not math.isfinite(temperatura) or temperatura <= -273.15:
         raise IngestaoLeituraErro("campo invalido: temperatura")
     if (
         not math.isfinite(ph_temperatura_calibracao_c)
         or ph_temperatura_calibracao_c <= -273.15
     ):
-        raise IngestaoLeituraErro("calibracao invalida: ph_temperatura_calibracao_c")
+        raise IngestaoLeituraErro("calibração inválida: ph_temperatura_calibracao_c")
 
     inclinacao_ajustada = ph_inclinacao * (
         (temperatura + 273.15) / (ph_temperatura_calibracao_c + 273.15)
     )
     if not math.isfinite(inclinacao_ajustada) or inclinacao_ajustada <= 0:
-        raise IngestaoLeituraErro("calibracao invalida: ph_inclinacao")
+        raise IngestaoLeituraErro("calibração inválida: ph_inclinacao")
 
     ph = 7.0 + (ph_voltagem_referencia_7 - ph_tensao) / inclinacao_ajustada
     return _normalizar_ph(ph)

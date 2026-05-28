@@ -5,9 +5,9 @@
 {% block content %}
 <section class="detail-hero index-hero">
     <div>
-        <h2>Dashboard de reservatorios</h2>
+        <h2>Dashboard de reservatórios</h2>
         <p class="index-hero-subtitle">
-            Compare as medias pre e pos tratamento no periodo escolhido para avaliar o efeito do filtro.
+            Compare as médias pré e pós-tratamento no período escolhido para avaliar o efeito do filtro.
         </p>
     </div>
     <p class="detail-status index-total-pill">
@@ -19,7 +19,7 @@
 <section class="toolbar">
     <form method="post" action="{% url 'reservatorio_adicionar' %}">
         {% csrf_token %}
-        <button class="btn-main" type="submit">Adicionar Reservatorio</button>
+        <button class="btn-main" type="submit">Adicionar Reservatório</button>
     </form>
 
     <form class="search" method="get" action="{% url 'index' %}">
@@ -48,7 +48,7 @@
     {% include "blocos/_dashboard_card.html" with card=card periodo_label=periodo_rotulo card_mode="index" %}
     {% empty %}
     <article class="empty-state">
-        <p>Nenhum reservatorio encontrado.</p>
+        <p>Nenhum reservatório encontrado.</p>
     </article>
     {% endfor %}
 </section>

@@ -2,7 +2,7 @@ function confirmarResetCalibracaoSensor(event) {
     const form = event.currentTarget;
     const sensorNome = form.dataset.sensorNome || "sensor";
     const pontoNome = form.dataset.pontoNome || "ponto";
-    const mensagem = `Tem certeza que deseja resetar os dados de calibracao de ${sensorNome} em ${pontoNome}?`;
+    const mensagem = `Tem certeza que deseja resetar os dados de calibração de ${sensorNome} em ${pontoNome}?`;
     const confirmou = window.confirm(mensagem);
 
     if (!confirmou) {

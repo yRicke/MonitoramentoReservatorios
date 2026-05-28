@@ -1,6 +1,6 @@
 function confirmarResetLeituras(event) {
     const form = event.currentTarget;
-    const nomeReservatorio = form.dataset.reservatorioNome || "este reservatorio";
+    const nomeReservatorio = form.dataset.reservatorioNome || "este reservatório";
     const mensagem = `Tem certeza que deseja resetar todas as leituras de ${nomeReservatorio}?`;
     const confirmou = window.confirm(mensagem);
 

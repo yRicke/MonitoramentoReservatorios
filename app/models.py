@@ -25,7 +25,7 @@ class Reservatorio(models.Model):
     META_PADRAO_PH = 7.0
     STATUS_CHOICES = (
         (STATUS_BOM, "Bom"),
-        (STATUS_ATENCAO, "Atencao"),
+        (STATUS_ATENCAO, "Atenção"),
         (STATUS_PERIGO, "Perigo"),
     )
 
@@ -101,7 +101,7 @@ class Reservatorio(models.Model):
         faixa_ph_max=None,
     ):
         if usuario is None:
-            raise ValueError("Usuario obrigatorio para criar reservatorio.")
+            raise ValueError("Usuário obrigatório para criar reservatório.")
 
         nome_final = cls._normalizar_nome(nome) if nome is not None else cls._proximo_nome()
         status_final = cls._normalizar_status(status)
@@ -211,7 +211,7 @@ class Reservatorio(models.Model):
         faixa_ph_max=None,
     ):
         if status is not None:
-            raise ValueError("Status do reservatorio e automatico e nao pode ser editado manualmente.")
+            raise ValueError("O status do reservatório é automático e não pode ser editado manualmente.")
 
         campos_para_salvar = []
         if nome is not None:
@@ -380,7 +380,7 @@ class Reservatorio(models.Model):
         status_final = (status or cls.STATUS_BOM).strip().lower()
         validos = {opcao[0] for opcao in cls.STATUS_CHOICES}
         if status_final not in validos:
-            raise ValueError("Status invalido para reservatorio.")
+            raise ValueError("Status inválido para reservatório.")
         return status_final
 
     @staticmethod
@@ -391,7 +391,7 @@ class Reservatorio(models.Model):
         try:
             numero = float(meta)
         except (TypeError, ValueError) as exc:
-            raise ValueError(f"{campo} invalida para reservatorio.") from exc
+            raise ValueError(f"{campo} inválida para reservatório.") from exc
 
         if not math.isfinite(numero) or numero <= 0:
             raise ValueError(f"{campo} deve ser maior que zero.")
@@ -456,10 +456,10 @@ class Reservatorio(models.Model):
             try:
                 numero = float(valor)
             except (TypeError, ValueError) as exc:
-                raise ValueError(f"{campo} invalida para reservatorio.") from exc
+                raise ValueError(f"{campo} inválida para reservatório.") from exc
 
         if not math.isfinite(numero):
-            raise ValueError(f"{campo} invalida para reservatorio.")
+            raise ValueError(f"{campo} inválida para reservatório.")
         if permitir_zero and numero == 0:
             return numero
         if numero <= 0:
@@ -469,11 +469,11 @@ class Reservatorio(models.Model):
     @staticmethod
     def _normalizar_nome(nome):
         if not isinstance(nome, str):
-            raise ValueError("Nome invalido para reservatorio.")
+            raise ValueError("Nome inválido para reservatório.")
 
         nome_final = nome.strip()
         if not nome_final:
-            raise ValueError("Nome do reservatorio e obrigatorio.")
+            raise ValueError("O nome do reservatório é obrigatório.")
 
         return nome_final
 
@@ -856,7 +856,7 @@ class PontoMonitoramento(models.Model):
             )
             return self
 
-        raise ValueError("sensor invalido")
+        raise ValueError("sensor inválido")
 
     def _sincronizar_data_calibracao_agua(self):
         datas = [data for data in (self.tds_calibrado_em, self.turbidez_calibrado_em) if data is not None]
@@ -909,10 +909,10 @@ class PontoMonitoramento(models.Model):
         try:
             numero = float(valor)
         except (TypeError, ValueError) as exc:
-            raise ValueError("Calibracao pH7 invalida para o ponto.") from exc
+            raise ValueError("Calibração pH7 inválida para o ponto.") from exc
 
         if not math.isfinite(numero) or numero <= 0 or numero > 3.3:
-            raise ValueError("Calibracao pH7 deve estar entre 0 e 3.3V.")
+            raise ValueError("A calibração pH7 deve estar entre 0 e 3.3V.")
         return numero
 
     @staticmethod
@@ -920,10 +920,10 @@ class PontoMonitoramento(models.Model):
         try:
             numero = float(valor)
         except (TypeError, ValueError) as exc:
-            raise ValueError("Inclinacao de pH invalida para o ponto.") from exc
+            raise ValueError("Inclinação de pH inválida para o ponto.") from exc
 
         if not math.isfinite(numero) or numero <= 0:
-            raise ValueError("Inclinacao de pH deve ser maior que zero.")
+            raise ValueError("A inclinação de pH deve ser maior que zero.")
         return numero
 
     @staticmethod
@@ -931,10 +931,10 @@ class PontoMonitoramento(models.Model):
         try:
             numero = float(valor)
         except (TypeError, ValueError) as exc:
-            raise ValueError("Inclinacao de temperatura invalida para o ponto.") from exc
+            raise ValueError("Inclinação de temperatura inválida para o ponto.") from exc
 
         if not math.isfinite(numero) or numero <= 0:
-            raise ValueError("Inclinacao de temperatura deve ser maior que zero.")
+            raise ValueError("A inclinação de temperatura deve ser maior que zero.")
         return numero
 
     @staticmethod
@@ -942,7 +942,7 @@ class PontoMonitoramento(models.Model):
         try:
             numero = float(valor)
         except (TypeError, ValueError) as exc:
-            raise ValueError(f"{campo} invalida para calibracao.") from exc
+            raise ValueError(f"{campo} inválida para calibração.") from exc
 
         if not math.isfinite(numero) or numero < -50 or numero > 150:
             raise ValueError(f"{campo} deve estar entre -50C e 150C.")
@@ -953,10 +953,10 @@ class PontoMonitoramento(models.Model):
         try:
             numero = float(valor)
         except (TypeError, ValueError) as exc:
-            raise ValueError("Alvo de TDS invalido para calibracao.") from exc
+            raise ValueError("Alvo de TDS inválido para calibração.") from exc
 
         if not math.isfinite(numero) or numero < 0 or numero >= 50:
-            raise ValueError("Alvo de TDS da calibracao deve estar entre 0 e menor que 50 ppm.")
+            raise ValueError("O alvo de TDS da calibração deve estar entre 0 e ser menor que 50 ppm.")
         return numero
 
     @staticmethod
@@ -964,10 +964,10 @@ class PontoMonitoramento(models.Model):
         try:
             numero = float(valor)
         except (TypeError, ValueError) as exc:
-            raise ValueError("Alvo de turbidez invalido para calibracao.") from exc
+            raise ValueError("Alvo de turbidez inválido para calibração.") from exc
 
         if not math.isfinite(numero) or numero < 0 or numero >= 0.5:
-            raise ValueError("Alvo de turbidez da calibracao deve estar entre 0 e menor que 0.5 NTU.")
+            raise ValueError("O alvo de turbidez da calibração deve estar entre 0 e ser menor que 0.5 NTU.")
         return numero
 
     @staticmethod
@@ -975,7 +975,7 @@ class PontoMonitoramento(models.Model):
         try:
             numero = float(valor)
         except (TypeError, ValueError) as exc:
-            raise ValueError(f"{campo} invalida.") from exc
+            raise ValueError(f"{campo} inválida.") from exc
         if not math.isfinite(numero) or numero <= 0:
             raise ValueError(f"{campo} deve ser maior que zero.")
         return numero
@@ -987,7 +987,7 @@ class PontoMonitoramento(models.Model):
         try:
             numero = int(valor)
         except (TypeError, ValueError) as exc:
-            raise ValueError(f"{campo} invalido.") from exc
+            raise ValueError(f"{campo} inválido.") from exc
         if numero < 0:
             raise ValueError(f"{campo} deve ser maior ou igual a zero.")
         return numero
@@ -1156,11 +1156,11 @@ class SessaoCalibracao(models.Model):
     @classmethod
     def normalizar_sensor(cls, sensor):
         if not isinstance(sensor, str):
-            raise ValueError("sensor invalido")
+            raise ValueError("sensor inválido")
         sensor_normalizado = sensor.strip().lower()
         validos = {item[0] for item in cls.SENSOR_CHOICES}
         if sensor_normalizado not in validos:
-            raise ValueError("sensor invalido")
+            raise ValueError("sensor inválido")
         return sensor_normalizado
 
     def encerrar(self, *, status=STATUS_ENCERRADA):

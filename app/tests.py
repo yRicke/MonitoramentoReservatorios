@@ -168,11 +168,11 @@ class IndexReservatorioTests(TestCase):
         response = self.client.get(reverse("reservatorio_detalhe", args=[reservatorio.id]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Salvar alteracoes")
+        self.assertContains(response, "Salvar alterações")
         self.assertContains(response, reverse("reservatorio_calibracao", args=[reservatorio.id]))
         self.assertContains(response, "Calibrar")
         self.assertContains(response, reverse("reservatorio_relatorio", args=[reservatorio.id]))
-        self.assertContains(response, "Baixar relatorio")
+        self.assertContains(response, "Baixar relatório")
         self.assertContains(response, "Resetar leitura")
 
     def test_relatorio_retorna_cards_de_todos_os_periodos(self):
@@ -222,7 +222,7 @@ class IndexReservatorioTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Salvar em PDF")
-        self.assertContains(response, "Resumo historico")
+        self.assertContains(response, "Resumo histórico")
         cards = response.context["relatorio_periodos_cards"]
         self.assertEqual(len(cards), len(PERIODOS_DISPONIVEIS))
 
@@ -335,7 +335,7 @@ class IndexReservatorioTests(TestCase):
         self.assertAlmostEqual(tds["depois"]["valor"], 120.0, places=2)
         self.assertEqual(tds["depois"]["status"], Reservatorio.STATUS_BOM)
 
-        self.assertContains(response, "Ultima medicao")
+        self.assertContains(response, "Última medição")
         self.assertContains(response, "Antes")
         self.assertContains(response, "Depois")
 
@@ -1111,7 +1111,7 @@ class ReservatorioModelCrudTests(TestCase):
             status=Reservatorio.STATUS_BOM,
         )
 
-        with self.assertRaisesMessage(ValueError, "Status do reservatorio e automatico"):
+        with self.assertRaisesMessage(ValueError, "status do reservatório é automático"):
             reservatorio.atualizar_reservatorio(status=Reservatorio.STATUS_PERIGO)
 
     def test_update_atualiza_metas(self):
@@ -1325,7 +1325,7 @@ class Esp32IngestaoTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["erro"], "reservatorio invalido")
+        self.assertEqual(response.json()["erro"], "reservatório inválido")
 
     def test_esp32_leitura_retorna_400_quando_falta_campo(self):
         response = self._post_json(

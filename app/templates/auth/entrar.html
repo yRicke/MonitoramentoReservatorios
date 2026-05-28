@@ -24,7 +24,7 @@
         <form class="auth-form" method="post" action="{% url 'entrar' %}">
             {% csrf_token %}
 
-            <label for="nome">Nome de usuario</label>
+            <label for="nome">Nome de usuário</label>
             <input id="nome" name="nome" type="text" value="{{ nome|default:'' }}" autocomplete="username" required>
 
             <label for="senha">Senha</label>

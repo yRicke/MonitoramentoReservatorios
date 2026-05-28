@@ -1,7 +1,7 @@
 {% extends "blocos/base.html" %}
 {% load static %}
 
-{% block title %}Relatorio {{ reservatorio.nome }}{% endblock %}
+{% block title %}Relatório {{ reservatorio.nome }}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/relatorio-reservatorio.css' %}?v=20260528-relatorio-1">
@@ -13,13 +13,13 @@
         <a class="btn-main" href="{% url 'reservatorio_detalhe' reservatorio.id %}">Voltar aos detalhes</a>
         <button class="btn-main" type="button" data-print-report>Salvar em PDF</button>
     </p>
-    <p class="report-toolbar-help">Ao abrir a impressao, escolha a opcao de salvar como PDF.</p>
+    <p class="report-toolbar-help">Ao abrir a impressão, escolha a opção de salvar como PDF.</p>
 </section>
 
 <article class="report-root" data-auto-print-report="{% if auto_imprimir_relatorio %}true{% else %}false{% endif %}">
     <section class="detail-hero report-hero">
         <div class="detail-hero-copy">
-            <p class="detail-metric-kicker report-kicker">Relatorio do reservatorio</p>
+            <p class="detail-metric-kicker report-kicker">Relatório do reservatório</p>
             <h2>{{ reservatorio.nome|upper }}</h2>
             <p class="detail-status">
                 <span>Status geral:</span>
@@ -28,7 +28,7 @@
         </div>
         <div class="detail-hero-actions report-meta">
             <p><strong>Gerado em:</strong> {{ gerado_em }}</p>
-            <p><strong>Usuario:</strong> {{ request.user.username }}</p>
+            <p><strong>Usuário:</strong> {{ request.user.username }}</p>
         </div>
     </section>
 
@@ -38,11 +38,11 @@
     <section class="report-summary">
         <div class="report-summary-head">
             <div>
-                <p class="detail-metric-kicker report-kicker">Resumo historico</p>
-                <h3>Medias por periodo</h3>
+                <p class="detail-metric-kicker report-kicker">Resumo histórico</p>
+                <h3>Médias por período</h3>
             </div>
             <p class="report-summary-copy">
-                Cards finais com a mesma estrutura do dashboard inicial para comparar o reservatorio ao longo de todos os periodos disponiveis.
+                Cards finais com a mesma estrutura do dashboard inicial para comparar o reservatório ao longo de todos os períodos disponíveis.
             </p>
         </div>
 
