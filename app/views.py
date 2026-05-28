@@ -150,36 +150,29 @@ def reservatorio_detalhe(request, reservatorio_id):
         messages.error(request, "Reservatorio nao encontrado.")
         return redirect("index")
 
-    reservatorio.garantir_pontos_monitoramento()
-
-    ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
-    ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
-
-    series_antes = _series_leituras_por_ponto(ponto_antes)
-    series_depois = _series_leituras_por_ponto(ponto_depois)
-
     return render(
         request,
         "reservatorio/detalhe.html",
+        _contexto_detalhe_reservatorio(reservatorio),
+    )
+
+
+@login_required(login_url="entrar")
+@require_http_methods(["GET"])
+def reservatorio_relatorio(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "Reservatorio nao encontrado.")
+        return redirect("index")
+
+    return render(
+        request,
+        "reservatorio/relatorio.html",
         {
-            **_contexto_calibracao_reservatorio(
-                reservatorio,
-                ponto_antes=ponto_antes,
-                ponto_depois=ponto_depois,
-            ),
-            "tds_series_antes": series_antes["tds"],
-            "tds_series_depois": series_depois["tds"],
-            "temperatura_series_antes": series_antes["temperatura"],
-            "temperatura_series_depois": series_depois["temperatura"],
-            "turbidez_series_antes": series_antes["turbidez"],
-            "turbidez_series_depois": series_depois["turbidez"],
-            "ph_series_antes": series_antes["ph"],
-            "ph_series_depois": series_depois["ph"],
-            "metricas_recentes": _metricas_recentes_reservatorio(
-                reservatorio,
-                ponto_antes=ponto_antes,
-                ponto_depois=ponto_depois,
-            ),
+            **_contexto_detalhe_reservatorio(reservatorio),
+            "gerado_em": timezone.localtime().strftime("%d/%m/%Y %H:%M:%S"),
+            "relatorio_periodos_cards": _montar_relatorio_periodos_reservatorio(reservatorio),
+            "auto_imprimir_relatorio": request.GET.get("download") == "1",
         },
     )
 
@@ -1426,14 +1419,75 @@ def _contexto_calibracao_reservatorio(reservatorio, *, ponto_antes, ponto_depois
     }
 
 
+def _contexto_detalhe_reservatorio(reservatorio):
+    reservatorio.garantir_pontos_monitoramento()
+
+    ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+    ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+    series_antes = _series_leituras_por_ponto(ponto_antes)
+    series_depois = _series_leituras_por_ponto(ponto_depois)
+
+    return {
+        **_contexto_calibracao_reservatorio(
+            reservatorio,
+            ponto_antes=ponto_antes,
+            ponto_depois=ponto_depois,
+        ),
+        "tds_series_antes": series_antes["tds"],
+        "tds_series_depois": series_depois["tds"],
+        "temperatura_series_antes": series_antes["temperatura"],
+        "temperatura_series_depois": series_depois["temperatura"],
+        "turbidez_series_antes": series_antes["turbidez"],
+        "turbidez_series_depois": series_depois["turbidez"],
+        "ph_series_antes": series_antes["ph"],
+        "ph_series_depois": series_depois["ph"],
+        "metricas_recentes": _metricas_recentes_reservatorio(
+            reservatorio,
+            ponto_antes=ponto_antes,
+            ponto_depois=ponto_depois,
+        ),
+    }
+
+
 def _montar_dashboard_cards(reservatorios, periodo_delta):
     if not reservatorios:
         return []
 
-    reservatorio_ids = [item.id for item in reservatorios]
-    inicio_periodo = timezone.now() - periodo_delta
-    medias_por_chave = {}
+    medias_por_chave = _mapear_medias_por_reservatorio(
+        reservatorio_ids=[item.id for item in reservatorios],
+        inicio_periodo=timezone.now() - periodo_delta,
+    )
+    return [
+        _montar_dashboard_card_reservatorio(
+            reservatorio,
+            medias_por_chave=medias_por_chave,
+        )
+        for reservatorio in reservatorios
+    ]
 
+
+def _montar_relatorio_periodos_reservatorio(reservatorio):
+    cards = []
+    for periodo_valor, periodo_rotulo in PERIODOS_DISPONIVEIS:
+        medias_por_chave = _mapear_medias_por_reservatorio(
+            reservatorio_ids=[reservatorio.id],
+            inicio_periodo=timezone.now() - _delta_por_periodo(periodo_valor),
+        )
+        cards.append(
+            {
+                **_montar_dashboard_card_reservatorio(
+                    reservatorio,
+                    medias_por_chave=medias_por_chave,
+                ),
+                "periodo_valor": periodo_valor,
+                "periodo_rotulo": periodo_rotulo,
+            }
+        )
+    return cards
+
+
+def _mapear_medias_por_reservatorio(*, reservatorio_ids, inicio_periodo):
+    medias_por_chave = {}
     agregados = (
         LeituraQualidade.objects.filter(
             ponto__reservatorio_id__in=reservatorio_ids,
@@ -1461,34 +1515,32 @@ def _montar_dashboard_cards(reservatorios, periodo_delta):
             "ph": item["media_ph"],
         }
 
-    cards = []
-    for reservatorio in reservatorios:
-        medias_antes = medias_por_chave.get(
-            (reservatorio.id, PontoMonitoramento.TIPO_ANTES),
-            _medias_vazias(),
-        )
-        medias_depois = medias_por_chave.get(
-            (reservatorio.id, PontoMonitoramento.TIPO_DEPOIS),
-            _medias_vazias(),
-        )
+    return medias_por_chave
 
-        cards.append(
-            {
-                "reservatorio": reservatorio,
-                "antes": medias_antes,
-                "depois": medias_depois,
-                "status_antes": _status_metricas_por_faixa(
-                    medias_antes,
-                    reservatorio=reservatorio,
-                ),
-                "status_depois": _status_metricas_por_faixa(
-                    medias_depois,
-                    reservatorio=reservatorio,
-                ),
-            }
-        )
 
-    return cards
+def _montar_dashboard_card_reservatorio(reservatorio, *, medias_por_chave):
+    medias_antes = medias_por_chave.get(
+        (reservatorio.id, PontoMonitoramento.TIPO_ANTES),
+        _medias_vazias(),
+    )
+    medias_depois = medias_por_chave.get(
+        (reservatorio.id, PontoMonitoramento.TIPO_DEPOIS),
+        _medias_vazias(),
+    )
+
+    return {
+        "reservatorio": reservatorio,
+        "antes": medias_antes,
+        "depois": medias_depois,
+        "status_antes": _status_metricas_por_faixa(
+            medias_antes,
+            reservatorio=reservatorio,
+        ),
+        "status_depois": _status_metricas_por_faixa(
+            medias_depois,
+            reservatorio=reservatorio,
+        ),
+    }
 
 
 def _status_metricas_por_faixa(medias, *, reservatorio):

@@ -1,0 +1,71 @@
+{% extends "blocos/base.html" %}
+{% load static %}
+
+{% block title %}Relatorio {{ reservatorio.nome }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/relatorio-reservatorio.css' %}?v=20260528-relatorio-1">
+{% endblock %}
+
+{% block content %}
+<section class="message-wrap report-toolbar no-print">
+    <p>
+        <a class="btn-main" href="{% url 'reservatorio_detalhe' reservatorio.id %}">Voltar aos detalhes</a>
+        <button class="btn-main" type="button" data-print-report>Salvar em PDF</button>
+    </p>
+    <p class="report-toolbar-help">Ao abrir a impressao, escolha a opcao de salvar como PDF.</p>
+</section>
+
+<article class="report-root" data-auto-print-report="{% if auto_imprimir_relatorio %}true{% else %}false{% endif %}">
+    <section class="detail-hero report-hero">
+        <div class="detail-hero-copy">
+            <p class="detail-metric-kicker report-kicker">Relatorio do reservatorio</p>
+            <h2>{{ reservatorio.nome|upper }}</h2>
+            <p class="detail-status">
+                <span>Status geral:</span>
+                <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
+            </p>
+        </div>
+        <div class="detail-hero-actions report-meta">
+            <p><strong>Gerado em:</strong> {{ gerado_em }}</p>
+            <p><strong>Usuario:</strong> {{ request.user.username }}</p>
+        </div>
+    </section>
+
+    {% include "reservatorio/_detalhe_status_metricas.html" %}
+    {% include "reservatorio/_detalhe_charts.html" %}
+
+    <section class="report-summary">
+        <div class="report-summary-head">
+            <div>
+                <p class="detail-metric-kicker report-kicker">Resumo historico</p>
+                <h3>Medias por periodo</h3>
+            </div>
+            <p class="report-summary-copy">
+                Cards finais com a mesma estrutura do dashboard inicial para comparar o reservatorio ao longo de todos os periodos disponiveis.
+            </p>
+        </div>
+
+        <div class="dashboard-grid report-period-grid">
+            {% for card in relatorio_periodos_cards %}
+            {% include "blocos/_dashboard_card.html" with card=card periodo_label=card.periodo_rotulo card_mode="report" %}
+            {% endfor %}
+        </div>
+    </section>
+</article>
+
+{{ tds_series_antes|json_script:"tds-series-antes-data" }}
+{{ tds_series_depois|json_script:"tds-series-depois-data" }}
+{{ temperatura_series_antes|json_script:"temperatura-series-antes-data" }}
+{{ temperatura_series_depois|json_script:"temperatura-series-depois-data" }}
+{{ turbidez_series_antes|json_script:"turbidez-series-antes-data" }}
+{{ turbidez_series_depois|json_script:"turbidez-series-depois-data" }}
+{{ ph_series_antes|json_script:"ph-series-antes-data" }}
+{{ ph_series_depois|json_script:"ph-series-depois-data" }}
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/vendor/apexcharts.min.js' %}?v=3.54.1"></script>
+<script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260528-report-1"></script>
+<script src="{% static 'js/reservatorio-relatorio.js' %}?v=20260528-report-1"></script>
+{% endblock %}

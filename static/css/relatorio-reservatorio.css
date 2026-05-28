@@ -1,0 +1,144 @@
+.report-toolbar p {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.report-toolbar-help {
+    margin-top: 10px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.report-root {
+    display: grid;
+    gap: 16px;
+}
+
+.report-hero {
+    margin-bottom: 0;
+}
+
+.report-meta {
+    display: grid;
+    gap: 8px;
+    justify-items: end;
+    text-align: right;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.report-meta p {
+    margin: 0;
+}
+
+.report-summary {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 8px;
+}
+
+.report-summary-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+.report-summary-head h3 {
+    margin: 0;
+    color: #17342a;
+    font-size: 24px;
+}
+
+.report-summary-copy {
+    max-width: 58ch;
+    color: #5a7168;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.report-period-grid .dashboard-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+.report-kicker {
+    margin-bottom: 6px;
+}
+
+@media (max-width: 720px) {
+    .report-meta {
+        justify-items: start;
+        text-align: left;
+    }
+
+    .report-toolbar p {
+        align-items: stretch;
+    }
+}
+
+@page {
+    size: A4 portrait;
+    margin: 12mm;
+}
+
+@media print {
+    body {
+        background: #ffffff;
+    }
+
+    .top-nav,
+    .site-footer,
+    .no-print {
+        display: none !important;
+    }
+
+    .app-shell,
+    .page-content,
+    .report-root {
+        display: block;
+    }
+
+    .page-content {
+        padding: 0;
+    }
+
+    .detail-hero,
+    .panel,
+    .dashboard-card,
+    .dashboard-metrics-table,
+    .detail-metric-point {
+        box-shadow: none !important;
+    }
+
+    .detail-hero,
+    .dashboard-card,
+    .panel,
+    .detail-metric-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .chart-stack {
+        break-before: page;
+        page-break-before: always;
+    }
+
+    .report-summary {
+        break-before: page;
+        page-break-before: always;
+    }
+
+    .apex-chart,
+    .chart-wrap,
+    .dashboard-card-right,
+    .dashboard-card-left {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}

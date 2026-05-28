@@ -22,78 +22,12 @@
         </p>
     </div>
     <div class="detail-hero-actions">
+        <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatorio</a>
         <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Calibrar</a>
     </div>
 </section>
 
-<section class="detail-layout detail-status-grid">
-    <article class="panel">
-        <h4>Status antes do tratamento</h4>
-        <p class="detail-status">
-            <strong class="status-text status-{{ ponto_antes.status_atual }}">{{ ponto_antes.get_status_atual_display }}</strong>
-        </p>
-        {% if ponto_antes.modelo_versao %}
-        <p class="status-meta">
-            Modelo: {{ ponto_antes.modelo_versao }}{% if ponto_antes.confianca_status is not None %} ({{ ponto_antes.confianca_status|floatformat:2 }}){% endif %}
-        </p>
-        {% endif %}
-    </article>
-
-    <article class="panel">
-        <h4>Status depois do tratamento</h4>
-        <p class="detail-status">
-            <strong class="status-text status-{{ ponto_depois.status_atual }}">{{ ponto_depois.get_status_atual_display }}</strong>
-        </p>
-        {% if ponto_depois.modelo_versao %}
-        <p class="status-meta">
-            Modelo: {{ ponto_depois.modelo_versao }}{% if ponto_depois.confianca_status is not None %} ({{ ponto_depois.confianca_status|floatformat:2 }}){% endif %}
-        </p>
-        {% endif %}
-    </article>
-</section>
-
-<section class="detail-metrics-grid" aria-label="Medicoes mais recentes por sensor">
-    {% for metrica in metricas_recentes %}
-    <article class="panel detail-metric-card">
-        <div class="detail-metric-card-head">
-            <span class="detail-metric-kicker">Ultima medicao</span>
-            <h4>{{ metrica.nome }}</h4>
-        </div>
-
-        <div class="detail-metric-points">
-            <div class="detail-metric-point">
-                <span class="detail-metric-point-name">Antes</span>
-                <strong class="detail-metric-value">
-                    {% if metrica.antes.valor is not None %}
-                    {{ metrica.antes.valor|floatformat:metrica.casas }}{% if metrica.unidade %} {{ metrica.unidade }}{% endif %}
-                    {% else %}
-                    --
-                    {% endif %}
-                </strong>
-                <span class="detail-metric-status status-text status-{{ metrica.antes.status }}">{{ metrica.antes.status_label }}</span>
-                {% if metrica.antes.data_hora %}
-                <small>{{ metrica.antes.data_hora }}</small>
-                {% endif %}
-            </div>
-
-            <div class="detail-metric-point">
-                <span class="detail-metric-point-name">Depois</span>
-                <strong class="detail-metric-value">
-                    {% if metrica.depois.valor is not None %}
-                    {{ metrica.depois.valor|floatformat:metrica.casas }}{% if metrica.unidade %} {{ metrica.unidade }}{% endif %}
-                    {% else %}
-                    --
-                    {% endif %}
-                </strong>
-                <span class="detail-metric-status status-text status-{{ metrica.depois.status }}">{{ metrica.depois.status_label }}</span>
-                {% if metrica.depois.data_hora %}
-                <small>{{ metrica.depois.data_hora }}</small>
-                {% endif %}
-            </div>
-        </div>
-    </article>
-    {% endfor %}
-</section>
+{% include "reservatorio/_detalhe_status_metricas.html" %}
 
 <section class="panel detail-top-toggle">
     <div class="top-toggle-menu">
@@ -164,43 +98,7 @@
     </div>
 </section>
 
-<section class="chart-stack">
-    <article class="panel">
-        <h4>Temperatura (celsius / data_hora)</h4>
-        <p id="lastReadingTemperatura" class="chart-last-reading">Ultima leitura: --</p>
-        <div class="chart-wrap">
-            <div id="chartTemperatura" class="apex-chart"></div>
-            <div class="chart-empty" id="emptyTemperatura" hidden>Sem leituras de temperatura</div>
-        </div>
-    </article>
-
-    <article class="panel">
-        <h4>TDS (ppm / data_hora)</h4>
-        <p id="lastReadingTDS" class="chart-last-reading">Ultima leitura: --</p>
-        <div class="chart-wrap">
-            <div id="chartTDS" class="apex-chart"></div>
-            <div class="chart-empty" id="emptyTDS" hidden>Sem leituras de TDS</div>
-        </div>
-    </article>
-
-    <article class="panel">
-        <h4>Turbidez (ntu / data_hora)</h4>
-        <p id="lastReadingTurbidez" class="chart-last-reading">Ultima leitura: --</p>
-        <div class="chart-wrap">
-            <div id="chartTurbidez" class="apex-chart"></div>
-            <div class="chart-empty" id="emptyTurbidez" hidden>Sem leituras de turbidez</div>
-        </div>
-    </article>
-
-    <article class="panel">
-        <h4>pH (data_hora)</h4>
-        <p id="lastReadingPH" class="chart-last-reading">Ultima leitura: --</p>
-        <div class="chart-wrap">
-            <div id="chartPH" class="apex-chart"></div>
-            <div class="chart-empty" id="emptyPH" hidden>Sem leituras de pH</div>
-        </div>
-    </article>
-</section>
+{% include "reservatorio/_detalhe_charts.html" %}
 
 {{ tds_series_antes|json_script:"tds-series-antes-data" }}
 {{ tds_series_depois|json_script:"tds-series-depois-data" }}

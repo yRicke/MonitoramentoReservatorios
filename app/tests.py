@@ -13,6 +13,7 @@ from app.models import (
     Reservatorio,
     SessaoCalibracao,
 )
+from app.views import PERIODOS_DISPONIVEIS
 
 
 class LoginFlowTests(TestCase):
@@ -170,7 +171,70 @@ class IndexReservatorioTests(TestCase):
         self.assertContains(response, "Salvar alteracoes")
         self.assertContains(response, reverse("reservatorio_calibracao", args=[reservatorio.id]))
         self.assertContains(response, "Calibrar")
+        self.assertContains(response, reverse("reservatorio_relatorio", args=[reservatorio.id]))
+        self.assertContains(response, "Baixar relatorio")
         self.assertContains(response, "Resetar leitura")
+
+    def test_relatorio_retorna_cards_de_todos_os_periodos(self):
+        self._logar()
+        reservatorio = Reservatorio.criar_reservatorio(
+            usuario=self.usuario,
+            nome="Reservatorio relatorio",
+            status=Reservatorio.STATUS_BOM,
+        )
+        ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
+        ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+        agora = timezone.now()
+
+        leitura_recente_antes = ponto_antes.registrar_leitura(
+            temperatura=20.0,
+            tds=100.0,
+            turbidez=0.4,
+            ph=7.0,
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+        leitura_antiga_antes = ponto_antes.registrar_leitura(
+            temperatura=30.0,
+            tds=200.0,
+            turbidez=0.8,
+            ph=8.0,
+            status_leitura=Reservatorio.STATUS_ATENCAO,
+        )
+        leitura_recente_depois = ponto_depois.registrar_leitura(
+            temperatura=21.0,
+            tds=90.0,
+            turbidez=0.3,
+            ph=7.1,
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        LeituraQualidade.objects.filter(id=leitura_recente_antes.id).update(
+            data_hora=agora - timedelta(minutes=10),
+        )
+        LeituraQualidade.objects.filter(id=leitura_antiga_antes.id).update(
+            data_hora=agora - timedelta(hours=2),
+        )
+        LeituraQualidade.objects.filter(id=leitura_recente_depois.id).update(
+            data_hora=agora - timedelta(minutes=10),
+        )
+
+        response = self.client.get(reverse("reservatorio_relatorio", args=[reservatorio.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Salvar em PDF")
+        self.assertContains(response, "Resumo historico")
+        cards = response.context["relatorio_periodos_cards"]
+        self.assertEqual(len(cards), len(PERIODOS_DISPONIVEIS))
+
+        card_15m = next(card for card in cards if card["periodo_valor"] == "15m")
+        self.assertEqual(card_15m["periodo_rotulo"], "15 min")
+        self.assertAlmostEqual(card_15m["antes"]["temperatura"], 20.0, places=2)
+        self.assertAlmostEqual(card_15m["depois"]["temperatura"], 21.0, places=2)
+
+        card_3h = next(card for card in cards if card["periodo_valor"] == "3h")
+        self.assertEqual(card_3h["periodo_rotulo"], "3 horas")
+        self.assertAlmostEqual(card_3h["antes"]["temperatura"], 25.0, places=2)
+        self.assertAlmostEqual(card_3h["antes"]["tds"], 150.0, places=2)
 
     def test_resetar_leituras_remove_apenas_registros_do_reservatorio(self):
         self._logar()

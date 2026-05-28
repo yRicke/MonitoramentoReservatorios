@@ -429,7 +429,7 @@ function renderChart(config) {
     const chartElement = document.getElementById(config.chartId);
     const emptyElement = document.getElementById(config.emptyId);
     if (!chartElement || !emptyElement) {
-        return;
+        return Promise.resolve();
     }
 
     const { antes, depois } = prepareSeries(config);
@@ -439,7 +439,7 @@ function renderChart(config) {
         destroyChartIfExists(config.chartId);
         chartElement.hidden = true;
         emptyElement.hidden = false;
-        return;
+        return Promise.resolve();
     }
 
     if (typeof window.ApexCharts !== "function") {
@@ -447,7 +447,7 @@ function renderChart(config) {
         chartElement.hidden = true;
         emptyElement.hidden = false;
         emptyElement.textContent = "ApexCharts nao carregado.";
-        return;
+        return Promise.resolve();
     }
 
     chartElement.hidden = false;
@@ -459,12 +459,16 @@ function renderChart(config) {
 
     const options = createApexOptions(config, antes, depois);
     const chart = new window.ApexCharts(chartElement, options);
-    chart.render();
     chartInstances.set(config.chartId, chart);
+    return Promise.resolve(chart.render()).catch((error) => {
+        console.error(`Falha ao renderizar ${config.chartId}`, error);
+    });
 }
 
 function renderAllCharts() {
-    CHARTS_CONFIG.forEach(renderChart);
+    return Promise.all(CHARTS_CONFIG.map((config) => renderChart(config))).then(() => {
+        document.dispatchEvent(new CustomEvent("reservatorio:charts-rendered"));
+    });
 }
 
 function formatPointDateLabel(point) {

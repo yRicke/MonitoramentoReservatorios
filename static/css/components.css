@@ -402,6 +402,20 @@
     color: var(--color-text);
 }
 
+.dashboard-period-static {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding: 10px 14px;
+    border: 1px solid #d8e6e1;
+    border-radius: 999px;
+    background: #f7fbf9;
+    color: #24453a;
+    font-size: 14px;
+    font-weight: 800;
+}
+
 .dashboard-actions {
     display: flex;
     align-items: center;
