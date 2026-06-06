@@ -1,10 +1,9 @@
 {% extends "blocos/base.html" %}
 
-{% block title %}Sensores {{ reservatorio.nome }}{% endblock %}
+{% block title %}Calibração {{ reservatorio.nome }}{% endblock %}
 
 {% block content %}
 <section class="message-wrap">
-    <p><a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Voltar ao ponto</a></p>
     {% if messages %}
     {% for message in messages %}
     <p class="message {{ message.tags }}">{{ message }}</p>
@@ -14,23 +13,18 @@
 
 <section class="detail-hero calibration-hero">
     <div class="detail-hero-copy">
-        <h2>SENSORES {{ reservatorio.nome|upper }}</h2>
+        <h2>CALIBRAÇÃO {{ reservatorio.nome|upper }}</h2>
         <p class="index-hero-subtitle">
-            Ponto selecionado: <strong>{{ ponto_calibracao.nome_exibicao }}</strong>. Agora escolha qual sensor deseja calibrar.
+            Ponto monitorado: <strong>{{ ponto_calibracao.nome_exibicao }}</strong>. Escolha abaixo o sensor que deseja calibrar.
         </p>
     </div>
     <div class="detail-hero-actions">
-        <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Voltar</a>
+        <a class="btn-main" href="{% url 'reservatorio_detalhe' reservatorio.id %}">Voltar ao reservatório</a>
     </div>
 </section>
 
-<nav class="calibration-breadcrumbs" aria-label="Etapas da calibração">
-    <a href="{% url 'reservatorio_calibracao' reservatorio.id %}">{{ ponto_calibracao.nome_exibicao }}</a>
-    <span>{{ ponto_calibracao.nome_exibicao }}</span>
-</nav>
-
 <section class="panel calibration-page-panel">
-    <div class="calibration-step-kicker">Passo 2</div>
+    <div class="calibration-step-kicker">Sensores</div>
     <h3>Escolha o sensor</h3>
     <div class="calibration-choice-grid calibration-choice-grid-sensors">
         {% for sensor in sensores_calibracao %}
@@ -38,7 +32,7 @@
             href="{% url 'reservatorio_calibracao_sensor' reservatorio.id ponto_calibracao.tipo_canonico sensor.id %}">
             <strong>{{ sensor.nome }}</strong>
             <span>{{ sensor.descricao }}</span>
-            <span>Entrar na calibração deste sensor.</span>
+            <span>Acessar configuração de calibração.</span>
         </a>
         {% endfor %}
     </div>

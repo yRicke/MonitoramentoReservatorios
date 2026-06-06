@@ -2,22 +2,22 @@
     --font-sans: "Manrope", "Plus Jakarta Sans", "Segoe UI", sans-serif;
     --font-display: "Sora", "Manrope", "Segoe UI", sans-serif;
 
-    --color-canvas: #eaf1ef;
-    --color-canvas-strong: #dde7e4;
+    --color-canvas: #eef3f8;
+    --color-canvas-strong: #e5ebf3;
     --color-surface: #ffffff;
-    --color-surface-muted: #f5f8f7;
-    --color-surface-dark: #202833;
+    --color-surface-muted: #f4f7fb;
+    --color-surface-dark: #172233;
 
-    --color-text: #16221e;
-    --color-text-muted: #5a6a65;
-    --color-text-inverse: #f4fbf8;
+    --color-text: #182434;
+    --color-text-muted: #5d6b7d;
+    --color-text-inverse: #f4f7fb;
 
-    --color-border: #d8e3df;
-    --color-border-strong: #bccbc5;
+    --color-border: #d6deea;
+    --color-border-strong: #bcc8d8;
 
-    --color-accent: #0a9f71;
-    --color-accent-dark: #06704f;
-    --color-accent-soft: #def4eb;
+    --color-accent: #3d6ea8;
+    --color-accent-dark: #294f7c;
+    --color-accent-soft: #e8eff8;
 
     --color-danger: #dc3f3f;
 
@@ -25,15 +25,15 @@
     --color-status-atencao: #dd7a00;
     --color-status-perigo: #cf3434;
 
-    --radius-xs: 8px;
-    --radius-sm: 12px;
-    --radius-md: 18px;
-    --radius-lg: 24px;
+    --radius-xs: 6px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
     --radius-pill: 999px;
 
-    --shadow-sm: 0 6px 16px rgba(18, 41, 33, 0.08);
-    --shadow-md: 0 12px 28px rgba(15, 33, 27, 0.14);
-    --shadow-dark: 0 14px 28px rgba(5, 14, 21, 0.36);
+    --shadow-sm: 0 4px 12px rgba(17, 34, 58, 0.06);
+    --shadow-md: 0 8px 20px rgba(14, 31, 53, 0.1);
+    --shadow-dark: 0 10px 24px rgba(5, 14, 21, 0.22);
 
     --ease-standard: 180ms ease;
 }

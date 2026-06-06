@@ -51,13 +51,13 @@
 
 .report-summary-head h3 {
     margin: 0;
-    color: #17342a;
+    color: #1a2d42;
     font-size: 24px;
 }
 
 .report-summary-copy {
     max-width: 58ch;
-    color: #5a7168;
+    color: #627489;
     font-size: 14px;
     font-weight: 600;
 }

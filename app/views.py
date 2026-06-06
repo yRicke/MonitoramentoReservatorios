@@ -247,6 +247,9 @@ def reservatorio_calibracao(request, reservatorio_id):
                 reservatorio,
                 ponto_unico=ponto_unico,
             ),
+            "ponto_calibracao": ponto_unico,
+            "ponto_selecionado": PontoMonitoramento.TIPO_UNICO,
+            "sensores_calibracao": _sensores_calibracao(),
         },
     )
 
@@ -254,32 +257,7 @@ def reservatorio_calibracao(request, reservatorio_id):
 @login_required(login_url="entrar")
 @require_http_methods(["GET"])
 def reservatorio_calibracao_ponto(request, reservatorio_id, ponto_tipo):
-    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
-    if reservatorio is None:
-        messages.error(request, "Reservatório não encontrado.")
-        return redirect("index")
-
-    reservatorio.garantir_pontos_monitoramento()
-    ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
-    ponto_selecionado = _normalizar_ponto_calibracao(
-        ponto_tipo,
-        padrao=PontoMonitoramento.TIPO_UNICO,
-    )
-    ponto_calibracao = ponto_unico
-
-    return render(
-        request,
-        "reservatorio/calibracao_ponto.html",
-        {
-            **_contexto_calibracao_reservatorio(
-                reservatorio,
-                ponto_unico=ponto_unico,
-            ),
-            "ponto_selecionado": ponto_selecionado,
-            "ponto_calibracao": ponto_calibracao,
-            "sensores_calibracao": _sensores_calibracao(),
-        },
-    )
+    return redirect("reservatorio_calibracao", reservatorio_id=reservatorio_id)
 
 
 @login_required(login_url="entrar")

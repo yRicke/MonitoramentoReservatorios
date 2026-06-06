@@ -5,7 +5,6 @@
 
 {% block content %}
 <section class="message-wrap">
-    <p><a class="btn-main" href="{% url 'index' %}">Voltar</a></p>
     {% if messages %}
     {% for message in messages %}
     <p class="message {{ message.tags }}">{{ message }}</p>
@@ -25,6 +24,7 @@
         </p>
     </div>
     <div class="detail-hero-actions">
+        <a class="btn-secondary" href="{% url 'index' %}">Voltar</a>
         <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatório</a>
         <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Calibrar</a>
     </div>

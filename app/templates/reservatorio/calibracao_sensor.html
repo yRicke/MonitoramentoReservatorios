@@ -5,7 +5,6 @@
 
 {% block content %}
 <section class="message-wrap">
-    <p><a class="btn-main" href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo_canonico %}">Voltar aos sensores</a></p>
     {% if messages %}
     {% for message in messages %}
     <p class="message {{ message.tags }}">{{ message }}</p>
@@ -17,19 +16,13 @@
     <div class="detail-hero-copy">
         <h2>{{ sensor_selecionado_nome|upper }} {{ reservatorio.nome|upper }}</h2>
         <p class="index-hero-subtitle">
-            Ponto atual: <strong>{{ ponto_calibracao.nome_exibicao }}</strong>. Ajuste os parâmetros abaixo para este sensor.
+            Ponto monitorado: <strong>{{ ponto_calibracao.nome_exibicao }}</strong>. Ajuste os parâmetros abaixo para este sensor.
         </p>
     </div>
     <div class="detail-hero-actions">
-        <a class="btn-main" href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo_canonico %}">Trocar sensor</a>
+        <a class="btn-secondary" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Trocar sensor</a>
     </div>
 </section>
-
-<nav class="calibration-breadcrumbs" aria-label="Etapas da calibração">
-    <a href="{% url 'reservatorio_calibracao' reservatorio.id %}">{{ ponto_calibracao.nome_exibicao }}</a>
-    <a href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo_canonico %}">{{ ponto_calibracao.nome_exibicao }}</a>
-    <span>{{ sensor_selecionado_nome }}</span>
-</nav>
 
 <section class="panel calibration-page-panel">
     <div class="calibration-session-toolbar">
