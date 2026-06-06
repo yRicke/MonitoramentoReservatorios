@@ -25,7 +25,7 @@ class Reservatorio(models.Model):
     META_PADRAO_PH = 7.0
     STATUS_CHOICES = (
         (STATUS_BOM, "Bom"),
-        (STATUS_ATENCAO, "Atenção"),
+        (STATUS_ATENCAO, "Ateno"),
         (STATUS_PERIGO, "Perigo"),
     )
 
@@ -346,27 +346,41 @@ class Reservatorio(models.Model):
         return total_removido
 
     def garantir_pontos_monitoramento(self):
-        for tipo in PontoMonitoramento.TIPOS:
-            PontoMonitoramento.objects.get_or_create(
-                reservatorio=self,
-                tipo=tipo,
-            )
+        possui_ponto = self.pontos_monitoramento.filter(
+            tipo__in=PontoMonitoramento.TIPOS_COMPATIVEIS,
+        ).exists()
+        if possui_ponto:
+            return
+
+        PontoMonitoramento.objects.get_or_create(
+            reservatorio=self,
+            tipo=PontoMonitoramento.TIPO_UNICO,
+        )
 
     def obter_ponto_monitoramento(self, tipo):
         tipo_normalizado = PontoMonitoramento.normalizar_tipo(tipo)
-        return self.pontos_monitoramento.filter(tipo=tipo_normalizado).first()
+        queryset = self.pontos_monitoramento.all()
+        if tipo_normalizado == PontoMonitoramento.TIPO_UNICO:
+            for tipo_compativel in PontoMonitoramento.TIPOS_COMPATIVEIS:
+                ponto = queryset.filter(tipo=tipo_compativel).first()
+                if ponto is not None:
+                    return ponto
+        return queryset.filter(tipo=tipo_normalizado).first()
 
-    def sincronizar_status_pelo_ponto_depois(self):
-        ponto_depois = self.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+    def sincronizar_status_pelo_ponto(self):
+        ponto = self.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
         status_final = self.STATUS_BOM
-        if ponto_depois is not None and ponto_depois.status_atual:
-            status_final = ponto_depois.status_atual
+        if ponto is not None and ponto.status_atual:
+            status_final = ponto.status_atual
 
         if self.status != status_final:
             self.status = status_final
             self.save(update_fields=["status", "updated_at"])
 
         return self
+
+    def sincronizar_status_pelo_ponto_depois(self):
+        return self.sincronizar_status_pelo_ponto()
 
     @classmethod
     def _proximo_nome(cls):
@@ -489,6 +503,7 @@ class Reservatorio(models.Model):
 
 
 class PontoMonitoramento(models.Model):
+    TIPO_UNICO = "ponto_unico"
     TIPO_ANTES = "antes_tratamento"
     TIPO_DEPOIS = "depois_tratamento"
     TEMPERATURA_INCLINACAO_PADRAO = 1.0
@@ -499,14 +514,28 @@ class PontoMonitoramento(models.Model):
     TURBIDEZ_INCLINACAO_PADRAO = 1.0
     TDS_ALVO_CALIBRACAO_PADRAO = 40.0
     TURBIDEZ_ALVO_CALIBRACAO_PADRAO = 0.4
-    TIPOS = (
+    TIPOS_LEGADOS = (
+        TIPO_ANTES,
+        TIPO_DEPOIS,
+    )
+    TIPOS = (TIPO_UNICO,)
+    TIPOS_COMPATIVEIS = (
+        TIPO_UNICO,
         TIPO_ANTES,
         TIPO_DEPOIS,
     )
     TIPO_CHOICES = (
-        (TIPO_ANTES, "Antes do tratamento"),
-        (TIPO_DEPOIS, "Depois do tratamento"),
+        (TIPO_UNICO, "Ponto único"),
     )
+    TIPO_ALIASES = {
+        TIPO_UNICO: TIPO_UNICO,
+        TIPO_ANTES: TIPO_UNICO,
+        TIPO_DEPOIS: TIPO_UNICO,
+        "pre": TIPO_UNICO,
+        "pos": TIPO_UNICO,
+        "ponto_unico": TIPO_UNICO,
+        "ponto unico": TIPO_UNICO,
+    }
 
     reservatorio = models.ForeignKey(
         Reservatorio,
@@ -554,7 +583,15 @@ class PontoMonitoramento(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.reservatorio.nome} - {self.get_tipo_display()}"
+        return f"{self.reservatorio.nome} - {self.nome_exibicao}"
+
+    @property
+    def tipo_canonico(self):
+        return self.TIPO_UNICO
+
+    @property
+    def nome_exibicao(self):
+        return "Ponto único"
 
     @classmethod
     def normalizar_tipo(cls, tipo):
@@ -562,10 +599,10 @@ class PontoMonitoramento(models.Model):
             raise ValueError("ponto_tipo invalido")
 
         tipo_normalizado = tipo.strip().lower()
-        validos = {item[0] for item in cls.TIPO_CHOICES}
-        if tipo_normalizado not in validos:
+        tipo_resolvido = cls.TIPO_ALIASES.get(tipo_normalizado)
+        if tipo_resolvido is None:
             raise ValueError("ponto_tipo invalido")
-        return tipo_normalizado
+        return tipo_resolvido
 
     def atualizar_status(self, *, status, confianca=None, modelo_versao=""):
         self.status_atual = status
@@ -923,7 +960,7 @@ class PontoMonitoramento(models.Model):
             raise ValueError("Inclinação de pH inválida para o ponto.") from exc
 
         if not math.isfinite(numero) or numero <= 0:
-            raise ValueError("A inclinação de pH deve ser maior que zero.")
+            raise ValueError("A inclina??o de pH deve ser maior que zero.")
         return numero
 
     @staticmethod
@@ -934,7 +971,7 @@ class PontoMonitoramento(models.Model):
             raise ValueError("Inclinação de temperatura inválida para o ponto.") from exc
 
         if not math.isfinite(numero) or numero <= 0:
-            raise ValueError("A inclinação de temperatura deve ser maior que zero.")
+            raise ValueError("A inclina??o de temperatura deve ser maior que zero.")
         return numero
 
     @staticmethod

@@ -5,45 +5,37 @@ const CHARTS_CONFIG = [
     {
         chartId: "chartTemperatura",
         emptyId: "emptyTemperatura",
-        seriesAntesId: "temperatura-series-antes-data",
-        seriesDepoisId: "temperatura-series-depois-data",
+        seriesId: "temperatura-series-data",
         lastReadingId: "lastReadingTemperatura",
         yLabel: "celsius",
-        colorAntes: "#ff7a00",
-        colorDepois: "#16a34a",
+        color: "#ff7a00",
         decimals: 2,
     },
     {
         chartId: "chartTDS",
         emptyId: "emptyTDS",
-        seriesAntesId: "tds-series-antes-data",
-        seriesDepoisId: "tds-series-depois-data",
+        seriesId: "tds-series-data",
         lastReadingId: "lastReadingTDS",
         yLabel: "ppm",
-        colorAntes: "#7f4df5",
-        colorDepois: "#00be6f",
+        color: "#7f4df5",
         decimals: 2,
     },
     {
         chartId: "chartTurbidez",
         emptyId: "emptyTurbidez",
-        seriesAntesId: "turbidez-series-antes-data",
-        seriesDepoisId: "turbidez-series-depois-data",
+        seriesId: "turbidez-series-data",
         lastReadingId: "lastReadingTurbidez",
         yLabel: "ntu",
-        colorAntes: "#3b82f6",
-        colorDepois: "#9333ea",
+        color: "#3b82f6",
         decimals: 3,
     },
     {
         chartId: "chartPH",
         emptyId: "emptyPH",
-        seriesAntesId: "ph-series-antes-data",
-        seriesDepoisId: "ph-series-depois-data",
+        seriesId: "ph-series-data",
         lastReadingId: "lastReadingPH",
         yLabel: "pH",
-        colorAntes: "#0ea5e9",
-        colorDepois: "#10b981",
+        color: "#0ea5e9",
         decimals: 2,
     },
 ];
@@ -162,10 +154,7 @@ function downsampleEvenly(series, maxPoints = MAX_POINTS_RENDER) {
     let lastPushedIndex = 0;
 
     for (let i = 1; i <= middleTarget; i += 1) {
-        const idx = Math.min(
-            lastIndex - 1,
-            Math.max(1, Math.round(i * step)),
-        );
+        const idx = Math.min(lastIndex - 1, Math.max(1, Math.round(i * step)));
         if (idx === lastPushedIndex) {
             continue;
         }
@@ -183,37 +172,22 @@ function optimizeSeries(series) {
 }
 
 function prepareSeries(config) {
-    const antes = optimizeSeries(
-        normalizePoints(getJsonScriptData(config.seriesAntesId)),
-    );
-    const depois = optimizeSeries(
-        normalizePoints(getJsonScriptData(config.seriesDepoisId)),
-    );
-
-    return { antes, depois };
+    return optimizeSeries(normalizePoints(getJsonScriptData(config.seriesId)));
 }
 
-function updateLastReadingText(config, seriesAntes, seriesDepois) {
+function updateLastReadingText(config, series) {
     const target = document.getElementById(config.lastReadingId);
     if (!target) {
         return;
     }
 
-    if (!seriesAntes.length && !seriesDepois.length) {
-        target.textContent = "Ultima leitura: --";
+    if (!series.length) {
+        target.textContent = "Última leitura: --";
         return;
     }
 
-    const pontoAntes = seriesAntes.length ? seriesAntes[seriesAntes.length - 1] : null;
-    const pontoDepois = seriesDepois.length ? seriesDepois[seriesDepois.length - 1] : null;
-    const leituraAntes = pontoAntes
-        ? `${pontoAntes.y.toFixed(config.decimals)} ${config.yLabel} em ${formatPointDateLabel(pontoAntes)}`
-        : "--";
-    const leituraDepois = pontoDepois
-        ? `${pontoDepois.y.toFixed(config.decimals)} ${config.yLabel} em ${formatPointDateLabel(pontoDepois)}`
-        : "--";
-
-    target.textContent = `Ultima leitura | Antes: ${leituraAntes} | Depois: ${leituraDepois}`;
+    const point = series[series.length - 1];
+    target.textContent = `Última leitura: ${point.y.toFixed(config.decimals)} ${config.yLabel} em ${formatPointDateLabel(point)}`;
 }
 
 function formatDateLabel(timestampMs) {
@@ -231,9 +205,8 @@ function formatDateLabel(timestampMs) {
     return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
 }
 
-function getXAxisConfig(seriesAntes, seriesDepois) {
-    const allPoints = [...seriesAntes, ...seriesDepois];
-    const isDatetime = allPoints.length > 0 && allPoints.every((point) => typeof point.x === "number");
+function getXAxisConfig(series) {
+    const isDatetime = series.length > 0 && series.every((point) => typeof point.x === "number");
 
     if (!isDatetime) {
         return {
@@ -256,7 +229,7 @@ function getXAxisConfig(seriesAntes, seriesDepois) {
         };
     }
 
-    const sortedX = allPoints
+    const sortedX = series
         .map((point) => point.x)
         .sort((a, b) => a - b);
     const oldest = sortedX[0];
@@ -287,13 +260,12 @@ function getXAxisConfig(seriesAntes, seriesDepois) {
     };
 }
 
-function createApexOptions(config, seriesAntes, seriesDepois) {
-    const xAxisMeta = getXAxisConfig(seriesAntes, seriesDepois);
-    const isDatetime = xAxisMeta.isDatetime;
+function createApexOptions(config, series) {
+    const xAxisMeta = getXAxisConfig(series);
     const xAxis = xAxisMeta.config;
     const chartEvents = {};
 
-    if (isDatetime) {
+    if (xAxisMeta.isDatetime) {
         const oldest = xAxisMeta.oldest;
         const newest = xAxisMeta.newest;
         const zoomStart = xAxisMeta.zoomStart;
@@ -347,10 +319,9 @@ function createApexOptions(config, seriesAntes, seriesDepois) {
             fontFamily: "Manrope, sans-serif",
         },
         series: [
-            { name: "Antes", data: seriesAntes },
-            { name: "Depois", data: seriesDepois },
+            { name: "Valor", data: series },
         ],
-        colors: [config.colorAntes, config.colorDepois],
+        colors: [config.color],
         stroke: {
             curve: "smooth",
             width: 2.6,
@@ -432,10 +403,10 @@ function renderChart(config) {
         return Promise.resolve();
     }
 
-    const { antes, depois } = prepareSeries(config);
-    updateLastReadingText(config, antes, depois);
+    const series = prepareSeries(config);
+    updateLastReadingText(config, series);
 
-    if (!antes.length && !depois.length) {
+    if (!series.length) {
         destroyChartIfExists(config.chartId);
         chartElement.hidden = true;
         emptyElement.hidden = false;
@@ -446,7 +417,7 @@ function renderChart(config) {
         destroyChartIfExists(config.chartId);
         chartElement.hidden = true;
         emptyElement.hidden = false;
-        emptyElement.textContent = "ApexCharts nao carregado.";
+        emptyElement.textContent = "ApexCharts não carregado.";
         return Promise.resolve();
     }
 
@@ -457,7 +428,7 @@ function renderChart(config) {
     destroyChartIfExists(config.chartId);
     chartElement.innerHTML = "";
 
-    const options = createApexOptions(config, antes, depois);
+    const options = createApexOptions(config, series);
     const chart = new window.ApexCharts(chartElement, options);
     chartInstances.set(config.chartId, chart);
     return Promise.resolve(chart.render()).catch((error) => {

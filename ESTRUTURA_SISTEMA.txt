@@ -12,7 +12,7 @@ O sistema possui 3 camadas principais:
 Fluxo principal:
 ESP32 -> POST /api/esp32/leituras/ -> processar_leitura_esp32 ->
 calcular_status -> salva LeituraQualidade -> atualiza status do ponto ->
-sincroniza status do reservatorio pelo ponto depois do tratamento.
+sincroniza status do reservatorio pelo ponto unico.
 
 
 2) ESTRUTURA DE PASTAS
@@ -30,13 +30,13 @@ app/
 - templates/
   - index.html: listagem de reservatorios
   - reservatorio/detalhe.html: painel detalhado com graficos
+  - reservatorio/calibracao*.html: fluxo de calibracao do ponto unico
   - auth/entrar.html: tela de login
   - blocos/: layout base, navbar e footer
 - static/
-  - css/base.css: estilos globais e componentes compartilhados
-  - css/auth.css: estilos da tela de login
-  - js/reservatorio-detalhe.js: logica dos graficos do detalhe
-- tests.py: testes de login, CRUD e ingestao
+  - css/: estilos da aplicacao
+  - js/reservatorio-detalhe.js: logica dos graficos do detalhe/relatorio
+- tests.py: testes de login, CRUD, calibracao e ingestao
 
 
 3) MODELO DE DADOS
@@ -45,30 +45,35 @@ Reservatorio
 - dono (usuario)
 - nome
 - status (status geral)
-- regra: status geral = status do ponto "depois_tratamento"
+- regra: status geral = status do ponto unico
 
 PontoMonitoramento
 - pertence a um reservatorio
-- tipo: antes_tratamento | depois_tratamento
+- tipo canonico: ponto_unico
+- compatibilidade de entrada: antes_tratamento | depois_tratamento | pre | pos
 - status_atual: status da ultima leitura do ponto
 
 LeituraQualidade
 - pertence a um ponto
-- dados brutos: temperatura, tds, turbidez
+- dados finais: temperatura, tds, turbidez, ph
+- sinais_brutos: ADCs, timestamps de firmware, device_id
 - status_leitura: status calculado na criacao da leitura
 
 
-4) REGRAS DE STATUS ATUAIS
---------------------------
+4) REGRAS DE STATUS
+-------------------
 Arquivo: app/services/regras.py
 
-- perigo: tds >= 900 ou turbidez >= 2.5
-- atencao: tds >= 600 ou turbidez >= 1.5
-- bom: demais casos
+- perigo: desvio critico em qualquer metrica
+- atencao: desvio moderado em qualquer metrica
+- bom: todas metricas dentro da faixa
+
+Observacao:
+- o frontend e o dashboard agora exibem apenas o ponto unico.
 
 
-5) RESPONSABILIDADES (CLEAN CODE)
----------------------------------
+5) RESPONSABILIDADES
+--------------------
 Views:
 - validam request HTTP
 - delegam regra para services/models
@@ -80,13 +85,20 @@ Services:
 
 Models:
 - concentram regra de dominio e estado
-- metodos de negocio:
-  - Reservatorio.sincronizar_status_pelo_ponto_depois
+- metodos principais:
+  - Reservatorio.sincronizar_status_pelo_ponto
   - PontoMonitoramento.registrar_leitura
 
 
-6) PONTOS DE ATENCAO PARA EVOLUCAO
+6) COMPATIBILIDADE LEGADA
+-------------------------
+- A aplicacao web trabalha apenas com ponto unico.
+- A API ainda aceita ponto_tipo legado para nao quebrar a biblioteca Arduino atual.
+- O repositorio MonitoramentoAgua nao foi alterado nesta etapa.
+
+
+7) PONTOS DE ATENCAO PARA EVOLUCAO
 ----------------------------------
-- Se for reintroduzir TinyML, manter leitura bruta e trocar apenas a origem do status.
+- Se a biblioteca Arduino migrar depois para ponto_unico, a compatibilidade legada pode ser simplificada.
 - Para API externa, considerar endpoint dedicado em modulo separado (app/api/).
 - Para producao, sempre configurar DJANGO_SECRET_KEY e ESP32_API_TOKEN via variavel de ambiente.

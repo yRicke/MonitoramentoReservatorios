@@ -237,8 +237,7 @@ def reservatorio_calibracao(request, reservatorio_id):
         return redirect("index")
 
     reservatorio.garantir_pontos_monitoramento()
-    ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
-    ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+    ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
 
     return render(
         request,
@@ -246,8 +245,7 @@ def reservatorio_calibracao(request, reservatorio_id):
         {
             **_contexto_calibracao_reservatorio(
                 reservatorio,
-                ponto_antes=ponto_antes,
-                ponto_depois=ponto_depois,
+                ponto_unico=ponto_unico,
             ),
         },
     )
@@ -262,15 +260,12 @@ def reservatorio_calibracao_ponto(request, reservatorio_id, ponto_tipo):
         return redirect("index")
 
     reservatorio.garantir_pontos_monitoramento()
-    ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
-    ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+    ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
     ponto_selecionado = _normalizar_ponto_calibracao(
         ponto_tipo,
-        padrao=PontoMonitoramento.TIPO_ANTES,
+        padrao=PontoMonitoramento.TIPO_UNICO,
     )
-    ponto_calibracao = (
-        ponto_antes if ponto_selecionado == PontoMonitoramento.TIPO_ANTES else ponto_depois
-    )
+    ponto_calibracao = ponto_unico
 
     return render(
         request,
@@ -278,8 +273,7 @@ def reservatorio_calibracao_ponto(request, reservatorio_id, ponto_tipo):
         {
             **_contexto_calibracao_reservatorio(
                 reservatorio,
-                ponto_antes=ponto_antes,
-                ponto_depois=ponto_depois,
+                ponto_unico=ponto_unico,
             ),
             "ponto_selecionado": ponto_selecionado,
             "ponto_calibracao": ponto_calibracao,
@@ -297,19 +291,16 @@ def reservatorio_calibracao_sensor(request, reservatorio_id, ponto_tipo, sensor_
         return redirect("index")
 
     reservatorio.garantir_pontos_monitoramento()
-    ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
-    ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
+    ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
     ponto_selecionado = _normalizar_ponto_calibracao(
         ponto_tipo,
-        padrao=PontoMonitoramento.TIPO_ANTES,
+        padrao=PontoMonitoramento.TIPO_UNICO,
     )
     sensor_selecionado = _normalizar_sensor_calibracao(
         sensor_id,
         padrao="temperatura",
     )
-    ponto_calibracao = (
-        ponto_antes if ponto_selecionado == PontoMonitoramento.TIPO_ANTES else ponto_depois
-    )
+    ponto_calibracao = ponto_unico
 
     return render(
         request,
@@ -317,8 +308,7 @@ def reservatorio_calibracao_sensor(request, reservatorio_id, ponto_tipo, sensor_
         {
             **_contexto_calibracao_reservatorio(
                 reservatorio,
-                ponto_antes=ponto_antes,
-                ponto_depois=ponto_depois,
+                ponto_unico=ponto_unico,
             ),
             "ponto_selecionado": ponto_selecionado,
             "sensor_selecionado": sensor_selecionado,
@@ -351,7 +341,6 @@ def reservatorio_calibracao_sessao_iniciar(request, reservatorio_id, ponto_tipo,
     ponto = _obter_ponto_calibracao_por_url(
         reservatorio=reservatorio,
         ponto_tipo=ponto_tipo,
-        fallback_url=_url_calibracao_raiz(reservatorio),
     )
     if ponto is None:
         return redirect(_url_calibracao_raiz(reservatorio))
@@ -365,9 +354,9 @@ def reservatorio_calibracao_sessao_iniciar(request, reservatorio_id, ponto_tipo,
     )
     messages.success(
         request,
-        f"Sessão de calibração iniciada para {_rotulo_sensor_calibracao(sensor)} em {_nome_curto_ponto(ponto)}.",
+        f"Sess?o de calibração iniciada para {_rotulo_sensor_calibracao(sensor)} em {_nome_curto_ponto(ponto)}.",
     )
-    return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, sensor))
+    return _redirect_calibracao_sensor(reservatorio, ponto, sensor)
 
 
 @login_required(login_url="entrar")
@@ -381,7 +370,6 @@ def reservatorio_calibracao_sessao_encerrar(request, reservatorio_id, ponto_tipo
     ponto = _obter_ponto_calibracao_por_url(
         reservatorio=reservatorio,
         ponto_tipo=ponto_tipo,
-        fallback_url=_url_calibracao_raiz(reservatorio),
     )
     if ponto is None:
         return redirect(_url_calibracao_raiz(reservatorio))
@@ -392,11 +380,11 @@ def reservatorio_calibracao_sessao_encerrar(request, reservatorio_id, ponto_tipo
         sessao.encerrar()
         messages.success(
             request,
-            f"Sessão de calibração encerrada para {_rotulo_sensor_calibracao(sensor)}.",
+            f"Sess?o de calibração encerrada para {_rotulo_sensor_calibracao(sensor)}.",
         )
     else:
-        messages.info(request, "Não havia sessão ativa para este sensor.")
-    return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, sensor))
+        messages.info(request, "N?o havia sessão ativa para este sensor.")
+    return _redirect_calibracao_sensor(reservatorio, ponto, sensor)
 
 
 @login_required(login_url="entrar")
@@ -410,7 +398,6 @@ def reservatorio_calibracao_sensor_resetar(request, reservatorio_id, ponto_tipo,
     ponto = _obter_ponto_calibracao_por_url(
         reservatorio=reservatorio,
         ponto_tipo=ponto_tipo,
-        fallback_url=_url_calibracao_raiz(reservatorio),
     )
     if ponto is None:
         return redirect(_url_calibracao_raiz(reservatorio))
@@ -428,7 +415,7 @@ def reservatorio_calibracao_sensor_resetar(request, reservatorio_id, ponto_tipo,
             f"em {_nome_curto_ponto(ponto)}."
         ),
     )
-    return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, sensor))
+    return _redirect_calibracao_sensor(reservatorio, ponto, sensor)
 
 
 @login_required(login_url="entrar")
@@ -441,7 +428,6 @@ def reservatorio_calibracao_sessao_status(request, reservatorio_id, ponto_tipo, 
     ponto = _obter_ponto_calibracao_por_url(
         reservatorio=reservatorio,
         ponto_tipo=ponto_tipo,
-        fallback_url=None,
     )
     if ponto is None:
         return JsonResponse({"erro": "ponto inválido"}, status=404)
@@ -498,7 +484,7 @@ def reservatorio_calibracao_temperatura_auto(request, reservatorio_id):
 
     temperatura_bruta = _temperatura_bruta_para_calibracao(ponto)
     if temperatura_bruta is None:
-        messages.error(request, "Não há temperatura média estável na sessão deste ponto.")
+        messages.error(request, "N?o há temperatura média estável na sessão deste ponto.")
         return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "temperatura"))
 
     try:
@@ -514,7 +500,7 @@ def reservatorio_calibracao_temperatura_auto(request, reservatorio_id):
     messages.success(
         request,
         (
-            f"Calibração de temperatura aplicada no ponto {_nome_curto_ponto(ponto)}: "
+            f"Calibração de temperatura aplicada não ponto {_nome_curto_ponto(ponto)}: "
             f"média {temperatura_bruta:.2f}C -> referência {temperatura_referencia:.2f}C."
         ),
     )
@@ -554,7 +540,7 @@ def reservatorio_calibracao_tds_auto(request, reservatorio_id):
     adc_tds = referencia_tds["adc_tds"]
     temperatura = referencia_tds["temperatura"]
     if adc_tds is None or temperatura is None:
-        messages.error(request, "Não há leitura bruta completa (adc_tds/temperatura) para este ponto.")
+        messages.error(request, "N?o há leitura bruta completa (adc_tds/temperatura) para este ponto.")
         return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "tds"))
 
     try:
@@ -572,7 +558,7 @@ def reservatorio_calibracao_tds_auto(request, reservatorio_id):
     messages.success(
         request,
         (
-            f"Calibração de TDS aplicada no ponto {_nome_curto_ponto(ponto)}: "
+            f"Calibração de TDS aplicada não ponto {_nome_curto_ponto(ponto)}: "
             f"média base {tds_base_ppm:.2f} ppm, alvo {tds_alvo:.2f} ppm."
         ),
     )
@@ -611,7 +597,7 @@ def reservatorio_calibracao_turbidez_auto(request, reservatorio_id):
     referencia_turbidez = _referencia_turbidez_para_calibracao(ponto)
     adc_turb = referencia_turbidez["adc_turb"]
     if adc_turb is None:
-        messages.error(request, "Não há leitura bruta completa (adc_turb) para este ponto.")
+        messages.error(request, "N?o há leitura bruta completa (adc_turb) para este ponto.")
         return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "turbidez"))
 
     try:
@@ -629,7 +615,7 @@ def reservatorio_calibracao_turbidez_auto(request, reservatorio_id):
     messages.success(
         request,
         (
-            f"Calibração de turbidez aplicada no ponto {_nome_curto_ponto(ponto)}: "
+            f"Calibração de turbidez aplicada não ponto {_nome_curto_ponto(ponto)}: "
             f"média base {turbidez_base_ntu:.3f} NTU, alvo {turbidez_alvo:.3f} NTU."
         ),
     )
@@ -692,7 +678,7 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
 
     ph_inclinacao = (tensao_ponto_2 - tensao_ponto_1) / (ph_solucao_ponto_1 - ph_solucao_ponto_2)
     if not math.isfinite(ph_inclinacao) or ph_inclinacao <= 0:
-        messages.error(request, "Não foi possível calcular uma inclinação válida com os dois pontos informados.")
+        messages.error(request, "N?o foi possível calcular uma inclinação v?lida com os dois pontos informados.")
         return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, "ph"))
 
     ph7_equivalente = tensao_ponto_1 + (ph_inclinacao * (ph_solucao_ponto_1 - 7.0))
@@ -709,7 +695,7 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
     messages.success(
         request,
         (
-            f"Calibração de pH aplicada no ponto {_nome_curto_ponto(ponto)}: "
+            f"Calibração de pH aplicada não ponto {_nome_curto_ponto(ponto)}: "
             f"ponto 1 {ph_solucao_ponto_1:.2f}/{tensao_ponto_1:.3f}V, "
             f"ponto 2 {ph_solucao_ponto_2:.2f}/{tensao_ponto_2:.3f}V."
         ),
@@ -782,7 +768,7 @@ def sair(request):
 def esp32_leitura(request):
     token = request.headers.get("X-API-Token", "")
     if token != settings.ESP32_API_TOKEN:
-        return JsonResponse({"erro": "não autorizado"}, status=401)
+        return JsonResponse({"erro": "no autorizado"}, status=401)
 
     try:
         processar_leitura_esp32(request.body)
@@ -797,7 +783,7 @@ def esp32_leitura(request):
 def esp32_sync(request):
     token = request.headers.get("X-API-Token", "")
     if token != settings.ESP32_API_TOKEN:
-        return JsonResponse({"erro": "não autorizado"}, status=401)
+        return JsonResponse({"erro": "no autorizado"}, status=401)
 
     agora_ms = int(timezone.now().timestamp() * 1000)
     proxima_leitura_ms = (
@@ -821,7 +807,7 @@ def esp32_sync(request):
 def esp32_calibracao_comando(request):
     token = request.headers.get("X-API-Token", "")
     if token != settings.ESP32_API_TOKEN:
-        return JsonResponse({"erro": "não autorizado"}, status=401)
+        return JsonResponse({"erro": "no autorizado"}, status=401)
 
     reservatorio_id = request.GET.get("reservatorio_id")
     ponto_tipo = request.GET.get("ponto_tipo")
@@ -862,7 +848,7 @@ def esp32_calibracao_comando(request):
 def esp32_calibracao_amostra(request):
     token = request.headers.get("X-API-Token", "")
     if token != settings.ESP32_API_TOKEN:
-        return JsonResponse({"erro": "não autorizado"}, status=401)
+        return JsonResponse({"erro": "no autorizado"}, status=401)
 
     try:
         payload = _carregar_payload_json(request.body)
@@ -876,7 +862,7 @@ def esp32_calibracao_amostra(request):
     try:
         ponto_tipo = PontoMonitoramento.normalizar_tipo(payload.get("ponto_tipo"))
     except ValueError:
-        return JsonResponse({"erro": "campo invalido: ponto_tipo"}, status=400)
+        return JsonResponse({"erro": "campo inválido: ponto_tipo"}, status=400)
 
     try:
         sensor = SessaoCalibracao.normalizar_sensor(payload.get("sensor"))
@@ -890,7 +876,7 @@ def esp32_calibracao_amostra(request):
 
     sessao = SessaoCalibracao.obter_ativa(ponto=ponto, sensor=sensor)
     if sessao is None:
-        return JsonResponse({"erro": "sessao de calibracao inativa"}, status=409)
+        return JsonResponse({"erro": "sessão de calibração inativa"}, status=409)
 
     sinais_brutos = payload.get("raw")
     if sinais_brutos is None:
@@ -959,10 +945,10 @@ def _carregar_payload_json(request_body):
     try:
         payload = json.loads(request_body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise IngestaoLeituraErro("payload invalido") from exc
+        raise IngestaoLeituraErro("payload inválido") from exc
 
     if not isinstance(payload, dict):
-        raise IngestaoLeituraErro("payload invalido")
+        raise IngestaoLeituraErro("payload inválido")
     return payload
 
 
@@ -990,8 +976,8 @@ def _rotulo_sensor_calibracao(sensor):
 
 def _titulo_calibracao_ativa(*, ponto, sensor):
     if ponto is None:
-        return "Calibracao"
-    return f"Calibrar {_rotulo_sensor_calibracao(sensor)} - {ponto.get_tipo_display()}"
+        return "Calibra??o"
+    return f"Calibrar {_rotulo_sensor_calibracao(sensor)} - {ponto.nome_exibicao}"
 
 
 def _sensores_calibracao():
@@ -1001,9 +987,7 @@ def _sensores_calibracao():
 def _nome_curto_ponto(ponto):
     if ponto is None:
         return "desconhecido"
-    if ponto.tipo == PontoMonitoramento.TIPO_ANTES:
-        return "antes do tratamento"
-    return "depois do tratamento"
+    return "ponto único"
 
 
 def _obter_ponto_calibracao_por_post(request, reservatorio):
@@ -1022,7 +1006,7 @@ def _obter_ponto_calibracao_por_post(request, reservatorio):
     return ponto
 
 
-def _obter_ponto_calibracao_por_url(*, reservatorio, ponto_tipo, fallback_url):
+def _obter_ponto_calibracao_por_url(*, reservatorio, ponto_tipo):
     try:
         ponto_tipo_normalizado = PontoMonitoramento.normalizar_tipo(ponto_tipo)
     except ValueError:
@@ -1037,17 +1021,29 @@ def _url_calibracao_raiz(reservatorio):
 
 
 def _url_calibracao_ponto(reservatorio, ponto_tipo):
+    ponto_tipo_final = _normalizar_ponto_calibracao(
+        ponto_tipo,
+        padrao=PontoMonitoramento.TIPO_UNICO,
+    )
     return reverse(
         "reservatorio_calibracao_ponto",
-        args=[reservatorio.id, ponto_tipo],
+        args=[reservatorio.id, ponto_tipo_final],
     )
 
 
 def _url_calibracao_sensor(reservatorio, ponto_tipo, sensor):
+    ponto_tipo_final = _normalizar_ponto_calibracao(
+        ponto_tipo,
+        padrao=PontoMonitoramento.TIPO_UNICO,
+    )
     return reverse(
         "reservatorio_calibracao_sensor",
-        args=[reservatorio.id, ponto_tipo, sensor],
+        args=[reservatorio.id, ponto_tipo_final, sensor],
     )
+
+
+def _redirect_calibracao_sensor(reservatorio, ponto, sensor):
+    return redirect(_url_calibracao_sensor(reservatorio, ponto.tipo, sensor))
 
 
 def _coletar_amostras_sessao(sessao, *, limite=LIMITE_AMOSTRAS_STATUS_CALIBRACAO):
@@ -1183,7 +1179,7 @@ def _resumo_sessao_calibracao(*, ponto, sensor):
     temperaturas_brutas = [item["temperatura_bruta"] for item in snapshots]
     temperaturas_calibradas = [item["temperatura_calibrada"] for item in snapshots]
     valores_calibrados = [item["valor_calibrado"] for item in snapshots]
-    tensoes = [item["tensao"] for item in snapshots]
+    tensãoes = [item["tensao"] for item in snapshots]
 
     desvio_sensor = _desvio_valores(adcs if sensor != SessaoCalibracao.SENSOR_TEMPERATURA else temperaturas_brutas)
     limite_sensor = _limite_estabilidade_sensor(sensor)
@@ -1207,14 +1203,14 @@ def _resumo_sessao_calibracao(*, ponto, sensor):
         "ultima_amostra": snapshots[-1] if snapshots else None,
         "medias": {
             "adc": _media_valores(adcs),
-            "tensao": _media_valores(tensoes),
+            "tensao": _media_valores(tensãoes),
             "temperatura_bruta": _media_valores(temperaturas_brutas),
             "temperatura_calibrada": _media_valores(temperaturas_calibradas),
             "valor_calibrado": _media_valores(valores_calibrados),
         },
         "medianas": {
             "adc": _mediana_valores(adcs),
-            "tensao": _mediana_valores(tensoes),
+            "tensao": _mediana_valores(tensãoes),
             "temperatura_bruta": _mediana_valores(temperaturas_brutas),
             "temperatura_calibrada": _mediana_valores(temperaturas_calibradas),
             "valor_calibrado": _mediana_valores(valores_calibrados),
@@ -1303,14 +1299,14 @@ def _sensor_exige_estabilidade_temperatura(sensor):
 def _obter_sessao_calibracao_pronta(*, ponto, sensor):
     sessao = SessaoCalibracao.obter_ativa(ponto=ponto, sensor=sensor)
     if sessao is None:
-        return None, None, "Inicie a sessao de calibracao e aguarde amostras suficientes."
+        return None, None, "Inicie a sessão de calibração e aguarde amostras suficientes."
 
     resumo = _resumo_sessao_calibracao(ponto=ponto, sensor=sensor)
     if not resumo["estabilidade_sensor"]["estavel"]:
-        return sessao, resumo, "A estabilidade do sensor ainda nao esta pronta para confirmar a calibracao."
+        return sessao, resumo, "A estabilidade do sensor ainda não est? pronta para confirmar a calibração."
 
     if _sensor_exige_estabilidade_temperatura(sensor) and not resumo["estabilidade_temperatura"]["estavel"]:
-        return sessao, resumo, "A temperatura ainda nao esta estavel para confirmar a calibracao."
+        return sessao, resumo, "A temperatura ainda não est? estável para confirmar a calibração."
 
     return sessao, resumo, None
 
@@ -1403,48 +1399,35 @@ def _medias_vazias():
     }
 
 
-def _contexto_calibracao_reservatorio(reservatorio, *, ponto_antes, ponto_depois):
+def _contexto_calibracao_reservatorio(reservatorio, *, ponto_unico):
     return {
         "reservatorio": reservatorio,
-        "ponto_antes": ponto_antes,
-        "ponto_depois": ponto_depois,
-        "temperatura_calibracao_antes": _resumo_calibracao_temperatura(ponto_antes),
-        "temperatura_calibracao_depois": _resumo_calibracao_temperatura(ponto_depois),
-        "tds_calibracao_antes": _resumo_calibracao_tds(ponto_antes),
-        "tds_calibracao_depois": _resumo_calibracao_tds(ponto_depois),
-        "turbidez_calibracao_antes": _resumo_calibracao_turbidez(ponto_antes),
-        "turbidez_calibracao_depois": _resumo_calibracao_turbidez(ponto_depois),
-        "ph_calibracao_antes": _resumo_calibracao_ph(ponto_antes),
-        "ph_calibracao_depois": _resumo_calibracao_ph(ponto_depois),
+        "ponto_unico": ponto_unico,
+        "temperatura_calibracao": _resumo_calibracao_temperatura(ponto_unico),
+        "tds_calibracao": _resumo_calibracao_tds(ponto_unico),
+        "turbidez_calibracao": _resumo_calibracao_turbidez(ponto_unico),
+        "ph_calibracao": _resumo_calibracao_ph(ponto_unico),
     }
 
 
 def _contexto_detalhe_reservatorio(reservatorio):
     reservatorio.garantir_pontos_monitoramento()
 
-    ponto_antes = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
-    ponto_depois = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_DEPOIS)
-    series_antes = _series_leituras_por_ponto(ponto_antes)
-    series_depois = _series_leituras_por_ponto(ponto_depois)
+    ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+    series = _series_leituras_por_ponto(ponto_unico)
 
     return {
         **_contexto_calibracao_reservatorio(
             reservatorio,
-            ponto_antes=ponto_antes,
-            ponto_depois=ponto_depois,
+            ponto_unico=ponto_unico,
         ),
-        "tds_series_antes": series_antes["tds"],
-        "tds_series_depois": series_depois["tds"],
-        "temperatura_series_antes": series_antes["temperatura"],
-        "temperatura_series_depois": series_depois["temperatura"],
-        "turbidez_series_antes": series_antes["turbidez"],
-        "turbidez_series_depois": series_depois["turbidez"],
-        "ph_series_antes": series_antes["ph"],
-        "ph_series_depois": series_depois["ph"],
+        "tds_series": series["tds"],
+        "temperatura_series": series["temperatura"],
+        "turbidez_series": series["turbidez"],
+        "ph_series": series["ph"],
         "metricas_recentes": _metricas_recentes_reservatorio(
             reservatorio,
-            ponto_antes=ponto_antes,
-            ponto_depois=ponto_depois,
+            ponto_unico=ponto_unico,
         ),
     }
 
@@ -1493,7 +1476,7 @@ def _mapear_medias_por_reservatorio(*, reservatorio_ids, inicio_periodo):
             ponto__reservatorio_id__in=reservatorio_ids,
             data_hora__gte=inicio_periodo,
         )
-        .values("ponto__reservatorio_id", "ponto__tipo")
+        .values("ponto__reservatorio_id")
         .annotate(
             media_temperatura=Avg("temperatura"),
             media_tds=Avg("tds"),
@@ -1503,12 +1486,7 @@ def _mapear_medias_por_reservatorio(*, reservatorio_ids, inicio_periodo):
     )
 
     for item in agregados:
-        medias_por_chave[
-            (
-                item["ponto__reservatorio_id"],
-                item["ponto__tipo"],
-            )
-        ] = {
+        medias_por_chave[item["ponto__reservatorio_id"]] = {
             "temperatura": item["media_temperatura"],
             "tds": item["media_tds"],
             "turbidez": item["media_turbidez"],
@@ -1519,25 +1497,13 @@ def _mapear_medias_por_reservatorio(*, reservatorio_ids, inicio_periodo):
 
 
 def _montar_dashboard_card_reservatorio(reservatorio, *, medias_por_chave):
-    medias_antes = medias_por_chave.get(
-        (reservatorio.id, PontoMonitoramento.TIPO_ANTES),
-        _medias_vazias(),
-    )
-    medias_depois = medias_por_chave.get(
-        (reservatorio.id, PontoMonitoramento.TIPO_DEPOIS),
-        _medias_vazias(),
-    )
+    medias_ponto = medias_por_chave.get(reservatorio.id, _medias_vazias())
 
     return {
         "reservatorio": reservatorio,
-        "antes": medias_antes,
-        "depois": medias_depois,
-        "status_antes": _status_metricas_por_faixa(
-            medias_antes,
-            reservatorio=reservatorio,
-        ),
-        "status_depois": _status_metricas_por_faixa(
-            medias_depois,
+        "ponto_unico": medias_ponto,
+        "status_ponto_unico": _status_metricas_por_faixa(
+            medias_ponto,
             reservatorio=reservatorio,
         ),
     }
@@ -1624,7 +1590,7 @@ def _series_leituras_por_ponto(ponto):
     if ponto is None:
         return {"tds": [], "temperatura": [], "turbidez": [], "ph": []}
 
-    # Limita a janela para evitar payload/render excessivo no frontend.
+    # Limita a janela para evitar payload/render excessivo não frontend.
     leituras = list(
         LeituraQualidade.objects.filter(ponto=ponto)
         .order_by("-data_hora")[:MAX_PONTOS_GRAFICO]
@@ -1652,9 +1618,8 @@ def _series_leituras_por_ponto(ponto):
     }
 
 
-def _metricas_recentes_reservatorio(reservatorio, *, ponto_antes, ponto_depois):
-    ultima_antes = _ultima_leitura_qualidade_por_ponto(ponto_antes)
-    ultima_depois = _ultima_leitura_qualidade_por_ponto(ponto_depois)
+def _metricas_recentes_reservatorio(reservatorio, *, ponto_unico):
+    ultima_leitura = _ultima_leitura_qualidade_por_ponto(ponto_unico)
 
     return [
         {
@@ -1662,13 +1627,8 @@ def _metricas_recentes_reservatorio(reservatorio, *, ponto_antes, ponto_depois):
             "nome": nome,
             "unidade": unidade,
             "casas": casas,
-            "antes": _snapshot_metrica_recente(
-                ultima_antes,
-                metrica_id=metrica_id,
-                reservatorio=reservatorio,
-            ),
-            "depois": _snapshot_metrica_recente(
-                ultima_depois,
+            "ponto_unico": _snapshot_metrica_recente(
+                ultima_leitura,
                 metrica_id=metrica_id,
                 reservatorio=reservatorio,
             ),

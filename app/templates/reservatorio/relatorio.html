@@ -21,8 +21,11 @@
         <div class="detail-hero-copy">
             <p class="detail-metric-kicker report-kicker">Relatório do reservatório</p>
             <h2>{{ reservatorio.nome|upper }}</h2>
+            <p class="index-hero-subtitle">
+                Consulte o panorama consolidado deste reservatório, com leituras históricas e médias por período.
+            </p>
             <p class="detail-status">
-                <span>Status geral:</span>
+                <span>Status:</span>
                 <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
             </p>
         </div>
@@ -54,14 +57,10 @@
     </section>
 </article>
 
-{{ tds_series_antes|json_script:"tds-series-antes-data" }}
-{{ tds_series_depois|json_script:"tds-series-depois-data" }}
-{{ temperatura_series_antes|json_script:"temperatura-series-antes-data" }}
-{{ temperatura_series_depois|json_script:"temperatura-series-depois-data" }}
-{{ turbidez_series_antes|json_script:"turbidez-series-antes-data" }}
-{{ turbidez_series_depois|json_script:"turbidez-series-depois-data" }}
-{{ ph_series_antes|json_script:"ph-series-antes-data" }}
-{{ ph_series_depois|json_script:"ph-series-depois-data" }}
+{{ tds_series|json_script:"tds-series-data" }}
+{{ temperatura_series|json_script:"temperatura-series-data" }}
+{{ turbidez_series|json_script:"turbidez-series-data" }}
+{{ ph_series|json_script:"ph-series-data" }}
 {% endblock %}
 
 {% block extra_scripts %}

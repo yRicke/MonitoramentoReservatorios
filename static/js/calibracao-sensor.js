@@ -59,6 +59,7 @@
         const tempStable = !shouldRequireTemperatureStability()
             || !!(data.estabilidade_temperatura && data.estabilidade_temperatura.estavel);
         const ready = data.ativa && sensorStable && tempStable;
+
         if (refs.captureButton && refs.captureHint) {
             refs.captureButton.disabled = !ready;
             refs.captureHint.textContent = ready
@@ -100,11 +101,12 @@
                 ? formatNumber(data.medias.temperatura_calibrada, 2) + " C"
                 : "--";
             refs.avgMeta.textContent = data.medias
-                    ? "Média da temperatura bruta " + formatNumber(data.medias.temperatura_bruta, 2) + " C"
-                    : "Sem dados suficientes";
+                ? "Média da temperatura bruta " + formatNumber(data.medias.temperatura_bruta, 2) + " C"
+                : "Sem dados suficientes";
         } else {
             const digits = sensor === "turbidez" ? 3 : 2;
             const unit = sensor === "turbidez" ? " NTU" : (sensor === "tds" ? " ppm" : (sensor === "ph" ? " pH" : ""));
+
             if (sensor === "ph") {
                 refs.lastValue.textContent = ultima && ultima.tensao !== null && ultima.tensao !== undefined
                     ? formatNumber(ultima.tensao, 3) + " V"
@@ -128,6 +130,7 @@
                 refs.lastValue.textContent = ultima && ultima.valor_calibrado !== null && ultima.valor_calibrado !== undefined
                     ? formatNumber(ultima.valor_calibrado, digits) + unit
                     : "--";
+
                 if (sensor === "tds") {
                     refs.lastMeta.textContent = ultima
                         ? "ADC " + (ultima.adc ?? "--")
@@ -139,9 +142,11 @@
                         ? "ADC " + (ultima.adc ?? "--") + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensão " + formatNumber(ultima.tensao, 3) + " V" : "")
                         : "Sem amostras recentes";
                 }
+
                 refs.avgValue.textContent = data.medias && data.medias.valor_calibrado !== undefined
                     ? formatNumber(data.medias.valor_calibrado, digits) + unit
                     : "--";
+
                 if (sensor === "tds") {
                     refs.avgMeta.textContent = data.medias
                         ? "Média nas últimas amostras | Temp " + formatNumber(data.medias.temperatura_calibrada, 2) + " C"
@@ -179,6 +184,7 @@
             if (!response.ok) {
                 return;
             }
+
             const data = await response.json();
             render(data);
         } catch (error) {

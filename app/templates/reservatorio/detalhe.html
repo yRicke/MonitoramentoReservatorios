@@ -1,4 +1,4 @@
-﻿{% extends "blocos/base.html" %}
+{% extends "blocos/base.html" %}
 {% load static l10n %}
 
 {% block title %}Reservatório {{ reservatorio.nome }}{% endblock %}
@@ -16,8 +16,11 @@
 <section class="detail-hero">
     <div class="detail-hero-copy">
         <h2>{{ reservatorio.nome|upper }}</h2>
+        <p class="index-hero-subtitle">
+            Visualize o status atual, as últimas medições e o histórico completo deste reservatório.
+        </p>
         <p class="detail-status">
-            <span>Status geral:</span>
+            <span>Status:</span>
             <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
         </p>
     </div>
@@ -92,7 +95,7 @@
             data-reservatorio-nome="{{ reservatorio.nome }}"
         >
             {% csrf_token %}
-            <p class="edit-help">Essa ação remove todas as leituras deste reservatório (antes e depois do tratamento).</p>
+            <p class="edit-help">Essa ação remove todas as leituras deste reservatório.</p>
             <button class="btn-main" type="submit">Resetar leitura</button>
         </form>
     </div>
@@ -100,14 +103,10 @@
 
 {% include "reservatorio/_detalhe_charts.html" %}
 
-{{ tds_series_antes|json_script:"tds-series-antes-data" }}
-{{ tds_series_depois|json_script:"tds-series-depois-data" }}
-{{ temperatura_series_antes|json_script:"temperatura-series-antes-data" }}
-{{ temperatura_series_depois|json_script:"temperatura-series-depois-data" }}
-{{ turbidez_series_antes|json_script:"turbidez-series-antes-data" }}
-{{ turbidez_series_depois|json_script:"turbidez-series-depois-data" }}
-{{ ph_series_antes|json_script:"ph-series-antes-data" }}
-{{ ph_series_depois|json_script:"ph-series-depois-data" }}
+{{ tds_series|json_script:"tds-series-data" }}
+{{ temperatura_series|json_script:"temperatura-series-data" }}
+{{ turbidez_series|json_script:"turbidez-series-data" }}
+{{ ph_series|json_script:"ph-series-data" }}
 {% endblock %}
 
 {% block extra_scripts %}

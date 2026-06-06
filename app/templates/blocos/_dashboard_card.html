@@ -51,45 +51,32 @@
             <thead>
                 <tr>
                     <th scope="col">Métrica</th>
-                    <th scope="col">PRE</th>
-                    <th scope="col">POS</th>
+                    <th scope="col">VALOR</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <th scope="row">Temperatura (celsius)</th>
-                    <td class="dashboard-value status-{{ card.status_antes.temperatura }}">
-                        {% if card.antes.temperatura is not None %}{{ card.antes.temperatura|floatformat:2 }}{% else %}--{% endif %}
-                    </td>
-                    <td class="dashboard-value status-{{ card.status_depois.temperatura }}">
-                        {% if card.depois.temperatura is not None %}{{ card.depois.temperatura|floatformat:2 }}{% else %}--{% endif %}
+                    <td class="dashboard-value status-{{ card.status_ponto_unico.temperatura }}">
+                        {% if card.ponto_unico.temperatura is not None %}{{ card.ponto_unico.temperatura|floatformat:2 }}{% else %}--{% endif %}
                     </td>
                 </tr>
                 <tr>
                     <th scope="row">TDS (ppm)</th>
-                    <td class="dashboard-value status-{{ card.status_antes.tds }}">
-                        {% if card.antes.tds is not None %}{{ card.antes.tds|floatformat:2 }}{% else %}--{% endif %}
-                    </td>
-                    <td class="dashboard-value status-{{ card.status_depois.tds }}">
-                        {% if card.depois.tds is not None %}{{ card.depois.tds|floatformat:2 }}{% else %}--{% endif %}
+                    <td class="dashboard-value status-{{ card.status_ponto_unico.tds }}">
+                        {% if card.ponto_unico.tds is not None %}{{ card.ponto_unico.tds|floatformat:2 }}{% else %}--{% endif %}
                     </td>
                 </tr>
                 <tr>
                     <th scope="row">Turbidez (ntu)</th>
-                    <td class="dashboard-value status-{{ card.status_antes.turbidez }}">
-                        {% if card.antes.turbidez is not None %}{{ card.antes.turbidez|floatformat:2 }}{% else %}--{% endif %}
-                    </td>
-                    <td class="dashboard-value status-{{ card.status_depois.turbidez }}">
-                        {% if card.depois.turbidez is not None %}{{ card.depois.turbidez|floatformat:2 }}{% else %}--{% endif %}
+                    <td class="dashboard-value status-{{ card.status_ponto_unico.turbidez }}">
+                        {% if card.ponto_unico.turbidez is not None %}{{ card.ponto_unico.turbidez|floatformat:2 }}{% else %}--{% endif %}
                     </td>
                 </tr>
                 <tr>
                     <th scope="row">pH</th>
-                    <td class="dashboard-value status-{{ card.status_antes.ph }}">
-                        {% if card.antes.ph is not None %}{{ card.antes.ph|floatformat:2 }}{% else %}--{% endif %}
-                    </td>
-                    <td class="dashboard-value status-{{ card.status_depois.ph }}">
-                        {% if card.depois.ph is not None %}{{ card.depois.ph|floatformat:2 }}{% else %}--{% endif %}
+                    <td class="dashboard-value status-{{ card.status_ponto_unico.ph }}">
+                        {% if card.ponto_unico.ph is not None %}{{ card.ponto_unico.ph|floatformat:2 }}{% else %}--{% endif %}
                     </td>
                 </tr>
             </tbody>

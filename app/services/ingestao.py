@@ -77,7 +77,7 @@ def processar_leitura_esp32(request_body):
         data_hora=data_hora_leitura,
     )
 
-    reservatorio.sincronizar_status_pelo_ponto_depois()
+    reservatorio.sincronizar_status_pelo_ponto()
 
     return reservatorio
 

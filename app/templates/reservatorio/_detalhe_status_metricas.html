@@ -1,29 +1,3 @@
-<section class="detail-layout detail-status-grid">
-    <article class="panel">
-        <h4>Status antes do tratamento</h4>
-        <p class="detail-status">
-            <strong class="status-text status-{{ ponto_antes.status_atual }}">{{ ponto_antes.get_status_atual_display }}</strong>
-        </p>
-        {% if ponto_antes.modelo_versao %}
-        <p class="status-meta">
-            Modelo: {{ ponto_antes.modelo_versao }}{% if ponto_antes.confianca_status is not None %} ({{ ponto_antes.confianca_status|floatformat:2 }}){% endif %}
-        </p>
-        {% endif %}
-    </article>
-
-    <article class="panel">
-        <h4>Status depois do tratamento</h4>
-        <p class="detail-status">
-            <strong class="status-text status-{{ ponto_depois.status_atual }}">{{ ponto_depois.get_status_atual_display }}</strong>
-        </p>
-        {% if ponto_depois.modelo_versao %}
-        <p class="status-meta">
-            Modelo: {{ ponto_depois.modelo_versao }}{% if ponto_depois.confianca_status is not None %} ({{ ponto_depois.confianca_status|floatformat:2 }}){% endif %}
-        </p>
-        {% endif %}
-    </article>
-</section>
-
 <section class="detail-metrics-grid" aria-label="Medições mais recentes por sensor">
     {% for metrica in metricas_recentes %}
     <article class="panel detail-metric-card">
@@ -34,32 +8,16 @@
 
         <div class="detail-metric-points">
             <div class="detail-metric-point">
-                <span class="detail-metric-point-name">Antes</span>
                 <strong class="detail-metric-value">
-                    {% if metrica.antes.valor is not None %}
-                    {{ metrica.antes.valor|floatformat:metrica.casas }}{% if metrica.unidade %} {{ metrica.unidade }}{% endif %}
+                    {% if metrica.ponto_unico.valor is not None %}
+                    {{ metrica.ponto_unico.valor|floatformat:metrica.casas }}{% if metrica.unidade %} {{ metrica.unidade }}{% endif %}
                     {% else %}
                     --
                     {% endif %}
                 </strong>
-                <span class="detail-metric-status status-text status-{{ metrica.antes.status }}">{{ metrica.antes.status_label }}</span>
-                {% if metrica.antes.data_hora %}
-                <small>{{ metrica.antes.data_hora }}</small>
-                {% endif %}
-            </div>
-
-            <div class="detail-metric-point">
-                <span class="detail-metric-point-name">Depois</span>
-                <strong class="detail-metric-value">
-                    {% if metrica.depois.valor is not None %}
-                    {{ metrica.depois.valor|floatformat:metrica.casas }}{% if metrica.unidade %} {{ metrica.unidade }}{% endif %}
-                    {% else %}
-                    --
-                    {% endif %}
-                </strong>
-                <span class="detail-metric-status status-text status-{{ metrica.depois.status }}">{{ metrica.depois.status_label }}</span>
-                {% if metrica.depois.data_hora %}
-                <small>{{ metrica.depois.data_hora }}</small>
+                <span class="detail-metric-status status-text status-{{ metrica.ponto_unico.status }}">{{ metrica.ponto_unico.status_label }}</span>
+                {% if metrica.ponto_unico.data_hora %}
+                <small>{{ metrica.ponto_unico.data_hora }}</small>
                 {% endif %}
             </div>
         </div>

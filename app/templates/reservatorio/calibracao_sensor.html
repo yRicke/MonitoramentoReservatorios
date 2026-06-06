@@ -5,7 +5,7 @@
 
 {% block content %}
 <section class="message-wrap">
-    <p><a class="btn-main" href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo %}">Voltar aos sensores</a></p>
+    <p><a class="btn-main" href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo_canonico %}">Voltar aos sensores</a></p>
     {% if messages %}
     {% for message in messages %}
     <p class="message {{ message.tags }}">{{ message }}</p>
@@ -17,17 +17,17 @@
     <div class="detail-hero-copy">
         <h2>{{ sensor_selecionado_nome|upper }} {{ reservatorio.nome|upper }}</h2>
         <p class="index-hero-subtitle">
-            Ponto atual: <strong>{{ ponto_calibracao.get_tipo_display }}</strong>. Ajuste os parâmetros abaixo para este sensor.
+            Ponto atual: <strong>{{ ponto_calibracao.nome_exibicao }}</strong>. Ajuste os parâmetros abaixo para este sensor.
         </p>
     </div>
     <div class="detail-hero-actions">
-        <a class="btn-main" href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo %}">Trocar sensor</a>
+        <a class="btn-main" href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo_canonico %}">Trocar sensor</a>
     </div>
 </section>
 
 <nav class="calibration-breadcrumbs" aria-label="Etapas da calibração">
-    <a href="{% url 'reservatorio_calibracao' reservatorio.id %}">Pontos</a>
-    <a href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo %}">{{ ponto_calibracao.get_tipo_display }}</a>
+    <a href="{% url 'reservatorio_calibracao' reservatorio.id %}">{{ ponto_calibracao.nome_exibicao }}</a>
+    <a href="{% url 'reservatorio_calibracao_ponto' reservatorio.id ponto_calibracao.tipo_canonico %}">{{ ponto_calibracao.nome_exibicao }}</a>
     <span>{{ sensor_selecionado_nome }}</span>
 </nav>
 
@@ -46,21 +46,21 @@
         </div>
         <div class="calibration-session-actions">
             {% if sessao_calibracao_ativa.ativa %}
-            <form method="post" action="{% url 'reservatorio_calibracao_sessao_encerrar' reservatorio.id ponto_calibracao.tipo sensor_selecionado %}">
+            <form method="post" action="{% url 'reservatorio_calibracao_sessao_encerrar' reservatorio.id ponto_calibracao.tipo_canonico sensor_selecionado %}">
                 {% csrf_token %}
                 <button class="btn-main" type="submit">Encerrar sessão</button>
             </form>
             {% else %}
-            <form method="post" action="{% url 'reservatorio_calibracao_sessao_iniciar' reservatorio.id ponto_calibracao.tipo sensor_selecionado %}">
+            <form method="post" action="{% url 'reservatorio_calibracao_sessao_iniciar' reservatorio.id ponto_calibracao.tipo_canonico sensor_selecionado %}">
                 {% csrf_token %}
-                <button class="btn-main" type="submit">Iniciar calibracao</button>
+                <button class="btn-main" type="submit">Iniciar calibração</button>
             </form>
             {% endif %}
         </div>
     </div>
 
     <div class="calibration-live-grid" id="calibrationLivePanel"
-        data-status-url="{% url 'reservatorio_calibracao_sessao_status' reservatorio.id ponto_calibracao.tipo sensor_selecionado %}"
+        data-status-url="{% url 'reservatorio_calibracao_sessao_status' reservatorio.id ponto_calibracao.tipo_canonico sensor_selecionado %}"
         data-sensor="{{ sensor_selecionado }}">
         <article class="calibration-live-card">
             <h4>Status da sessão</h4>
