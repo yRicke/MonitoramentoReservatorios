@@ -159,6 +159,21 @@ def reservatorio_detalhe(request, reservatorio_id):
 
 @login_required(login_url="entrar")
 @require_http_methods(["GET"])
+def reservatorio_editar(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        return redirect("index")
+
+    return render(
+        request,
+        "reservatorio/editar.html",
+        _contexto_edicao_reservatorio(reservatorio),
+    )
+
+
+@login_required(login_url="entrar")
+@require_http_methods(["GET"])
 def reservatorio_relatorio(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
@@ -219,10 +234,10 @@ def reservatorio_atualizar(request, reservatorio_id):
         )
     except ValueError as exc:
         messages.error(request, str(exc))
-        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+        return redirect("reservatorio_editar", reservatorio_id=reservatorio.id)
     except IntegrityError:
         messages.error(request, "Já existe reservatório com este nome.")
-        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+        return redirect("reservatorio_editar", reservatorio_id=reservatorio.id)
 
     messages.success(request, "Reservatório atualizado.")
     return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
@@ -1408,6 +1423,11 @@ def _contexto_detalhe_reservatorio(reservatorio):
             ponto_unico=ponto_unico,
         ),
     }
+
+
+def _contexto_edicao_reservatorio(reservatorio):
+    reservatorio.garantir_pontos_monitoramento()
+    return {"reservatorio": reservatorio}
 
 
 def _montar_dashboard_cards(reservatorios, periodo_delta):

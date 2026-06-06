@@ -1,0 +1,82 @@
+{% load l10n %}
+
+<article class="panel reservatorio-edit-panel">
+    <div class="reservatorio-edit-panel-head">
+        <div>
+            <div class="calibration-step-kicker">Configurações</div>
+            <h3>Dados do reservatório</h3>
+        </div>
+        <p class="status-meta">
+            Ajuste nome e faixas ideais para cada métrica monitorada.
+        </p>
+    </div>
+
+    <form class="edit-form" method="post" action="{% url 'reservatorio_atualizar' reservatorio.id %}">
+        {% csrf_token %}
+
+        <label for="nome">Nome</label>
+        <input id="nome" name="nome" type="text" value="{{ reservatorio.nome }}" required>
+
+        <label for="faixa_ppm_tds_min">Faixa TDS min (ppm)</label>
+        <input id="faixa_ppm_tds_min" name="faixa_ppm_tds_min" type="number" step="0.01" min="0"
+            value="{{ reservatorio.faixa_ppm_tds_min|unlocalize }}" required>
+
+        <label for="faixa_ppm_tds_max">Faixa TDS max (ppm)</label>
+        <input id="faixa_ppm_tds_max" name="faixa_ppm_tds_max" type="number" step="0.01" min="0.01"
+            value="{{ reservatorio.faixa_ppm_tds_max|unlocalize }}" required>
+
+        <label for="faixa_ntu_turbidez_min">Faixa turbidez min (ntu)</label>
+        <input id="faixa_ntu_turbidez_min" name="faixa_ntu_turbidez_min" type="number" step="0.01" min="0"
+            value="{{ reservatorio.faixa_ntu_turbidez_min|unlocalize }}" required>
+
+        <label for="faixa_ntu_turbidez_max">Faixa turbidez max (ntu)</label>
+        <input id="faixa_ntu_turbidez_max" name="faixa_ntu_turbidez_max" type="number" step="0.01" min="0.01"
+            value="{{ reservatorio.faixa_ntu_turbidez_max|unlocalize }}" required>
+
+        <label for="faixa_celsius_temperatura_min">Faixa temperatura min (celsius)</label>
+        <input id="faixa_celsius_temperatura_min" name="faixa_celsius_temperatura_min" type="number" step="0.01"
+            min="0.01" value="{{ reservatorio.faixa_celsius_temperatura_min|unlocalize }}" required>
+
+        <label for="faixa_celsius_temperatura_max">Faixa temperatura max (celsius)</label>
+        <input id="faixa_celsius_temperatura_max" name="faixa_celsius_temperatura_max" type="number" step="0.01"
+            min="0.01" value="{{ reservatorio.faixa_celsius_temperatura_max|unlocalize }}" required>
+
+        <label for="faixa_ph_min">Faixa pH min</label>
+        <input id="faixa_ph_min" name="faixa_ph_min" type="number" step="0.01" min="0.01" max="14"
+            value="{{ reservatorio.faixa_ph_min|unlocalize }}" required>
+
+        <label for="faixa_ph_max">Faixa pH max</label>
+        <input id="faixa_ph_max" name="faixa_ph_max" type="number" step="0.01" min="0.01" max="14"
+            value="{{ reservatorio.faixa_ph_max|unlocalize }}" required>
+
+        <p class="edit-help">
+            O status é calculado automaticamente com base nas faixas deste reservatório.
+        </p>
+
+        <button class="btn-main" type="submit">Salvar alterações</button>
+    </form>
+</article>
+
+<article class="panel reservatorio-edit-panel reservatorio-edit-danger">
+    <div class="reservatorio-edit-panel-head">
+        <div>
+            <div class="calibration-step-kicker">Manutenção</div>
+            <h3>Resetar leituras</h3>
+        </div>
+        <p class="status-meta">
+            Use essa ação somente quando precisar reiniciar o histórico de leituras do reservatório.
+        </p>
+    </div>
+
+    <form
+        class="edit-form"
+        method="post"
+        action="{% url 'reservatorio_resetar_leituras' reservatorio.id %}"
+        data-confirm-reset-leituras
+        data-reservatorio-nome="{{ reservatorio.nome }}"
+    >
+        {% csrf_token %}
+        <p class="edit-help">Essa ação remove todas as leituras deste reservatório.</p>
+        <button class="btn-main" type="submit">Resetar leituras</button>
+    </form>
+</article>

@@ -2,6 +2,7 @@
 .btn-sair,
 .btn-main,
 .btn-secondary,
+.btn-edit,
 .btn-ver,
 .btn-delete,
 .search button {
@@ -13,6 +14,7 @@
 .btn-sair:focus-visible,
 .btn-main:focus-visible,
 .btn-secondary:focus-visible,
+.btn-edit:focus-visible,
 .btn-ver:focus-visible,
 .btn-delete:focus-visible,
 .search button:focus-visible,
@@ -20,7 +22,6 @@
 .edit-form input:focus-visible,
 .edit-form select:focus-visible,
 .auth-form input:focus-visible,
-.top-toggle-btn:focus-visible,
 .calibration-toggle-btn:focus-visible,
 .ph-calibration-form input:focus-visible,
 .ph-auto-card input:focus-visible,
@@ -75,6 +76,7 @@
 .btn-sair,
 .btn-main,
 .btn-secondary,
+.btn-edit,
 .btn-ver {
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
@@ -110,6 +112,12 @@
     color: #203148;
 }
 
+.btn-edit {
+    background: #5b7799;
+    border-color: #5b7799;
+    color: #ffffff;
+}
+
 .btn-main:hover,
 .btn-ver:hover,
 .search button:hover {
@@ -120,6 +128,12 @@
 .btn-secondary:hover {
     background: #d2dce9;
     border-color: #bcc9da;
+    box-shadow: none;
+}
+
+.btn-edit:hover {
+    background: #4d6788;
+    border-color: #4d6788;
     box-shadow: none;
 }
 
@@ -609,37 +623,6 @@
     margin-bottom: 16px;
 }
 
-.detail-top-toggle {
-    margin-bottom: 16px;
-}
-
-.top-toggle-menu {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.top-toggle-btn {
-    border: 1px solid #ccd6e3;
-    border-radius: var(--radius-sm);
-    padding: 9px 16px;
-    background: #f3f6fa;
-    color: #27405c;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.top-toggle-btn.is-open {
-    background: #e6eef8;
-    border-color: #b7c8de;
-    color: #17365b;
-}
-
-.top-toggle-panel {
-    margin-top: 12px;
-}
-
 .panel {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
@@ -687,6 +670,39 @@
     padding: 10px 12px;
     background: #fdfefe;
     color: var(--color-text);
+}
+
+.reservatorio-edit-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.reservatorio-edit-aside {
+    position: sticky;
+    top: 14px;
+    display: grid;
+    gap: 12px;
+}
+
+.reservatorio-edit-stack {
+    display: grid;
+    gap: 18px;
+}
+
+.reservatorio-edit-panel {
+    display: grid;
+    gap: 16px;
+}
+
+.reservatorio-edit-panel-head {
+    display: grid;
+    gap: 8px;
+}
+
+.reservatorio-edit-danger {
+    border-color: #ead8d8;
 }
 
 .chart-grid {
@@ -1191,6 +1207,14 @@
         grid-template-columns: 1fr;
     }
 
+    .reservatorio-edit-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .reservatorio-edit-aside {
+        position: static;
+    }
+
     .detail-metrics-grid {
         grid-template-columns: repeat(2, minmax(220px, 1fr));
     }
@@ -1278,6 +1302,7 @@
 
     .btn-main,
     .btn-secondary,
+    .btn-edit,
     .btn-ver {
         width: 100%;
     }

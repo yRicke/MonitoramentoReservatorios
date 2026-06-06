@@ -23,6 +23,7 @@ urlpatterns = [
     path('', views.index, name="index"),
     path('reservatorios/adicionar/', views.reservatorio_adicionar, name="reservatorio_adicionar"),
     path('reservatorios/<int:reservatorio_id>/', views.reservatorio_detalhe, name="reservatorio_detalhe"),
+    path('reservatorios/<int:reservatorio_id>/editar/', views.reservatorio_editar, name="reservatorio_editar"),
     path(
         'reservatorios/<int:reservatorio_id>/relatorio/',
         views.reservatorio_relatorio,

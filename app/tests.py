@@ -113,6 +113,21 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         self.assertEqual(relatorio.status_code, 200)
         self.assertContains(calibracao, "Ponto único")
 
+    def test_detalhe_exibe_link_de_edicao_e_pagina_editar_responde(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio edicao")
+
+        detalhe = self.client.get(reverse("reservatorio_detalhe", args=[reservatorio.id]))
+        edicao = self.client.get(reverse("reservatorio_editar", args=[reservatorio.id]))
+
+        self.assertEqual(detalhe.status_code, 200)
+        self.assertContains(
+            detalhe,
+            reverse("reservatorio_editar", args=[reservatorio.id]),
+        )
+        self.assertEqual(edicao.status_code, 200)
+        self.assertContains(edicao, "Salvar altera")
+
     def test_relatorio_retorna_todos_os_periodos_disponiveis(self):
         self.login()
         reservatorio = self.criar_reservatorio("Reservatorio relatorio")

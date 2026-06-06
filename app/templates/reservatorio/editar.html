@@ -1,0 +1,51 @@
+{% extends "blocos/base.html" %}
+{% load static l10n %}
+
+{% block title %}Editar reservatório {{ reservatorio.nome }}{% endblock %}
+
+{% block content %}
+<section class="message-wrap">
+    {% if messages %}
+    {% for message in messages %}
+    <p class="message {{ message.tags }}">{{ message }}</p>
+    {% endfor %}
+    {% endif %}
+</section>
+
+<section class="detail-hero">
+    <div class="detail-hero-copy">
+        <h2>EDITAR {{ reservatorio.nome|upper }}</h2>
+        <p class="index-hero-subtitle">
+            Atualize os parâmetros do reservatório e revise as faixas usadas para classificar o status da água.
+        </p>
+        <p class="detail-status">
+            <span>Status atual:</span>
+            <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
+        </p>
+    </div>
+    <div class="detail-hero-actions">
+        <a class="btn-secondary" href="{% url 'reservatorio_detalhe' reservatorio.id %}">Voltar aos detalhes</a>
+    </div>
+</section>
+
+<section class="reservatorio-edit-layout">
+    <article class="panel reservatorio-edit-aside">
+        <div class="calibration-step-kicker">Resumo</div>
+        <h3>Revisão rápida</h3>
+        <p class="status-meta">
+            Use esta tela para ajustar os limites ideais de temperatura, TDS, turbidez e pH.
+        </p>
+        <p class="status-meta">
+            As mudanças afetam a classificação automática exibida no dashboard, nos detalhes e no relatório.
+        </p>
+    </article>
+
+    <div class="reservatorio-edit-stack">
+        {% include "reservatorio/_edicao_formularios.html" %}
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/confirmar-reset-leituras.js' %}?v=20260525-reset-leituras-1"></script>
+{% endblock %}
