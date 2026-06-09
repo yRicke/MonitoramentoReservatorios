@@ -264,6 +264,25 @@ class CalibrationFlowTests(BaseAppTestCase):
         ponto.refresh_from_db()
         self.assertEqual(ponto.temperatura_offset_c, 0.0)
 
+    def test_calibracao_turbidez_aceita_alvo_ate_cinco_ntu(self):
+        self.login()
+        reservatorio = self.criar_reservatorio()
+        ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+        sessao = self.criar_sessao(ponto, SessaoCalibracao.SENSOR_TURBIDEZ)
+        self.adicionar_amostras_estaveis(sessao, adc_turb=300)
+
+        response = self.client.post(
+            reverse("reservatorio_calibracao_turbidez_auto", args=[reservatorio.id]),
+            {
+                "turbidez_alvo_ntu": "5.0",
+                "turbidez_inclinacao": "1.0",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        ponto.refresh_from_db()
+        self.assertEqual(ponto.turbidez_alvo_calibracao_ntu, 5.0)
+
 
 class Esp32IngestaoTests(BaseAppTestCase):
     def setUp(self):

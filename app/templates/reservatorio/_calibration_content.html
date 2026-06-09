@@ -97,8 +97,8 @@
                 {% endif %}
             </p>
             <label for="turbidez_alvo_ativo">A media da turbidez deveria estar em (NTU)</label>
-            <input id="turbidez_alvo_ativo" name="turbidez_alvo_ntu" type="number" min="0" max="0.499"
-                step="0.001" value="{{ ponto_calibracao.turbidez_alvo_calibracao_ntu|unlocalize }}" required>
+            <input id="turbidez_alvo_ativo" name="turbidez_alvo_ntu" type="number" min="0" max="5.0"
+                step="0.01" value="{{ ponto_calibracao.turbidez_alvo_calibracao_ntu|unlocalize }}" required>
             <details class="calibration-advanced">
                 <summary>Ajustes avancados</summary>
                 <p class="status-meta">

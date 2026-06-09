@@ -1070,8 +1070,8 @@ class PontoMonitoramento(models.Model):
         except (TypeError, ValueError) as exc:
             raise ValueError("Alvo de turbidez inválido para calibração.") from exc
 
-        if not math.isfinite(numero) or numero < 0 or numero >= 0.5:
-            raise ValueError("O alvo de turbidez da calibração deve estar entre 0 e ser menor que 0.5 NTU.")
+        if not math.isfinite(numero) or numero < 0 or numero > 5.0:
+            raise ValueError("O alvo de turbidez da calibração deve estar entre 0 e 5.0 NTU.")
         return numero
 
     @staticmethod
