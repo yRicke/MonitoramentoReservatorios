@@ -5,100 +5,121 @@ ESTRUTURA DO SISTEMA - MONITORAMENTO DE RESERVATORIOS
 --------------
 O sistema possui 3 camadas principais:
 
-- Entrada de dados (API ESP32)
-- Regra de negocio (models + services)
-- Apresentacao (views + templates)
+- entrada de dados IoT (ESP32)
+- regra de negocio (models + services)
+- apresentacao (views + templates)
 
 Fluxo principal:
-ESP32 -> POST /api/esp32/leituras/ -> processar_leitura_esp32 ->
-calcular_status -> salva LeituraQualidade -> atualiza status do ponto ->
-sincroniza status do reservatorio pelo ponto unico.
+ESP32 -> GET /api/esp32/config/ -> POST /api/esp32/leituras/ ->
+processar_leitura_esp32 -> salvar LeituraQualidade ->
+atualizar status do ponto -> sincronizar status do reservatorio.
 
 
 2) ESTRUTURA DE PASTAS
 ----------------------
 setup/
-- settings.py: configuracoes Django (token, hosts, static, etc.)
+- settings.py: configuracoes Django, hosts e static
 - urls.py: roteamento principal
 
 app/
 - models.py: entidades de dominio
 - views.py: entrada HTTP e renderizacao de telas
 - services/
-  - ingestao.py: orquestra ingestao da ESP32
-  - regras.py: regras de classificacao de status
+  - ingestao.py: ingestao das leituras do ESP32
+  - regras.py: classificacao de status
 - templates/
-  - index.html: listagem de reservatorios
-  - reservatorio/detalhe.html: painel detalhado com graficos
-  - reservatorio/calibracao*.html: fluxo de calibracao do ponto unico
-  - auth/entrar.html: tela de login
-  - blocos/: layout base, navbar e footer
+  - index.html: dashboard
+  - reservatorio/detalhe.html: painel detalhado
+  - reservatorio/editar.html: edicao do reservatorio e integracao do ESP32
+  - reservatorio/calibracao*.html: fluxo de calibracao
 - static/
-  - css/: estilos da aplicacao
-  - js/reservatorio-detalhe.js: logica dos graficos do detalhe/relatorio
+  - css/: estilos
+  - js/: scripts da interface
 - tests.py: testes de login, CRUD, calibracao e ingestao
+
+MonitoramentoAgua/
+- src/: biblioteca do ESP32
+- examples/esp_reservatorio_unico/: exemplo canonico de uso
 
 
 3) MODELO DE DADOS
 ------------------
 Reservatorio
-- dono (usuario)
+- dono
 - nome
-- status (status geral)
-- regra: status geral = status do ponto unico
+- status geral
+- token de integracao do ESP32
+- intervalo de envio normal do ESP32
+- intervalo de envio em calibracao do ESP32
 
 PontoMonitoramento
 - pertence a um reservatorio
 - tipo canonico: ponto_unico
-- compatibilidade de entrada: antes_tratamento | depois_tratamento | pre | pos
-- status_atual: status da ultima leitura do ponto
+- status atual da ultima leitura
 
 LeituraQualidade
-- pertence a um ponto
+- pertence ao ponto unico
 - dados finais: temperatura, tds, turbidez, ph
-- sinais_brutos: ADCs, timestamps de firmware, device_id
-- status_leitura: status calculado na criacao da leitura
+- sinais brutos: ADCs, timestamps de firmware e device_id
+
+SessaoCalibracao
+- representa a sessao ativa de calibracao
+- define sensor, quantidade de amostras, atraso entre amostras e validade
 
 
-4) REGRAS DE STATUS
--------------------
-Arquivo: app/services/regras.py
+4) CONTRATO ESP32
+-----------------
+Configuracao remota:
+- GET /api/esp32/config/
+- autenticacao por X-API-Token do proprio reservatorio
+- query obrigatoria: reservatorio_id
+- retorno:
+  - server_epoch_ms
+  - poll_configuracao_ms
+  - intervalo_normal_ms
+  - intervalo_calibracao_ms
+  - modo
+  - quando em calibracao: sessao_id, sensor, qtd_amostras, atraso_amostra_ms, expira_em
 
-- perigo: desvio critico em qualquer metrica
-- atencao: desvio moderado em qualquer metrica
-- bom: todas metricas dentro da faixa
+Leituras:
+- POST /api/esp32/leituras/
+- payload sem ponto_tipo
 
-Observacao:
-- o frontend e o dashboard agora exibem apenas o ponto unico.
+Calibracao:
+- POST /api/esp32/calibracao/amostras/
+- payload sem ponto_tipo
 
 
-5) RESPONSABILIDADES
+5) PAINEL LOCAL DO ESP32
+------------------------
+- operacao somente em AP
+- IP padrao: 192.168.50.1
+- rota do painel: http://<ip_atual>/<senha_wifi>
+- configuracoes persistidas em NVS:
+  - reservatorio_id
+  - ssid
+  - senha
+  - ip_esp
+  - ip_django
+  - token
+  - device_id
+  - cache dos ultimos intervalos validos
+
+
+6) REGRAS IMPORTANTES
+---------------------
+- 1 ESP = 1 reservatorio
+- o token nasce no Django e e copiado manualmente para o painel do ESP32
+- rotacao de token e imediata
+- intervalos dinamicos:
+  - poll de configuracao: 2s
+  - envio normal padrao: 60s
+  - envio em calibracao padrao: 5s
+- os intervalos recebidos do Django sao aplicados em RAM e cacheados em NVS
+
+
+7) PONTOS DE ATENCAO
 --------------------
-Views:
-- validam request HTTP
-- delegam regra para services/models
-- retornam redirect/render/json
-
-Services:
-- coordenam fluxo de ingestao
-- validam payload e dados obrigatorios
-
-Models:
-- concentram regra de dominio e estado
-- metodos principais:
-  - Reservatorio.sincronizar_status_pelo_ponto
-  - PontoMonitoramento.registrar_leitura
-
-
-6) COMPATIBILIDADE LEGADA
--------------------------
-- A aplicacao web trabalha apenas com ponto unico.
-- A API ainda aceita ponto_tipo legado para nao quebrar a biblioteca Arduino atual.
-- O repositorio MonitoramentoAgua nao foi alterado nesta etapa.
-
-
-7) PONTOS DE ATENCAO PARA EVOLUCAO
-----------------------------------
-- Se a biblioteca Arduino migrar depois para ponto_unico, a compatibilidade legada pode ser simplificada.
-- Para API externa, considerar endpoint dedicado em modulo separado (app/api/).
-- Para producao, sempre configurar DJANGO_SECRET_KEY e ESP32_API_TOKEN via variavel de ambiente.
+- o fluxo ativo nao depende mais de token global no .env
+- o fluxo ativo nao depende mais de ponto_tipo
+- resquicios de antes/depois podem existir apenas em migracoes historicas e aliases internos de compatibilidade do modelo

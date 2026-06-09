@@ -1,82 +1,222 @@
 {% load l10n %}
 
-<article class="panel reservatorio-edit-panel">
-    <div class="reservatorio-edit-panel-head">
-        <div>
-            <div class="calibration-step-kicker">Configurações</div>
-            <h3>Dados do reservatório</h3>
+<div class="reservatorio-edit-main">
+    <article class="panel reservatorio-edit-panel">
+        <div class="reservatorio-edit-panel-head">
+            <div>
+                <div class="calibration-step-kicker">Configuracoes</div>
+                <h3>Parametros do reservatorio</h3>
+            </div>
+            <p class="status-meta">
+                Organize os limites por sensor e ajuste o ritmo de operacao do dispositivo sem misturar isso com as credenciais tecnicas.
+            </p>
         </div>
-        <p class="status-meta">
-            Ajuste nome e faixas ideais para cada métrica monitorada.
-        </p>
-    </div>
 
-    <form class="edit-form" method="post" action="{% url 'reservatorio_atualizar' reservatorio.id %}">
-        {% csrf_token %}
+        <form class="edit-form reservatorio-edit-form" method="post" action="{% url 'reservatorio_atualizar' reservatorio.id %}">
+            {% csrf_token %}
 
-        <label for="nome">Nome</label>
-        <input id="nome" name="nome" type="text" value="{{ reservatorio.nome }}" required>
+            <section class="reservatorio-edit-section">
+                <div class="reservatorio-edit-section-head">
+                    <div>
+                        <h4>Identificacao</h4>
+                        <p class="status-meta">Informacoes basicas usadas no painel e nos relatorios.</p>
+                    </div>
+                </div>
+                <div class="reservatorio-edit-fields reservatorio-edit-fields-single">
+                    <div class="form-field">
+                        <label for="nome">Nome do reservatorio</label>
+                        <input id="nome" name="nome" type="text" value="{{ reservatorio.nome }}" required>
+                    </div>
+                </div>
+            </section>
 
-        <label for="faixa_ppm_tds_min">Faixa TDS min (ppm)</label>
-        <input id="faixa_ppm_tds_min" name="faixa_ppm_tds_min" type="number" step="0.01" min="0"
-            value="{{ reservatorio.faixa_ppm_tds_min|unlocalize }}" required>
+            <section class="reservatorio-edit-section">
+                <div class="reservatorio-edit-section-head">
+                    <div>
+                        <h4>Temperatura</h4>
+                        <p class="status-meta">Faixa ideal em graus Celsius para classificar o estado da agua.</p>
+                    </div>
+                    <span class="sensor-badge">Sensor termico</span>
+                </div>
+                <div class="reservatorio-edit-fields">
+                    <div class="form-field">
+                        <label for="faixa_celsius_temperatura_min">Faixa minima (C)</label>
+                        <input id="faixa_celsius_temperatura_min" name="faixa_celsius_temperatura_min" type="number" step="0.01"
+                            value="{{ reservatorio.faixa_celsius_temperatura_min|unlocalize }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="faixa_celsius_temperatura_max">Faixa maxima (C)</label>
+                        <input id="faixa_celsius_temperatura_max" name="faixa_celsius_temperatura_max" type="number" step="0.01"
+                            value="{{ reservatorio.faixa_celsius_temperatura_max|unlocalize }}" required>
+                    </div>
+                </div>
+            </section>
 
-        <label for="faixa_ppm_tds_max">Faixa TDS max (ppm)</label>
-        <input id="faixa_ppm_tds_max" name="faixa_ppm_tds_max" type="number" step="0.01" min="0.01"
-            value="{{ reservatorio.faixa_ppm_tds_max|unlocalize }}" required>
+            <section class="reservatorio-edit-section">
+                <div class="reservatorio-edit-section-head">
+                    <div>
+                        <h4>TDS</h4>
+                        <p class="status-meta">Limites em ppm usados para classificar a concentracao de solidos dissolvidos.</p>
+                    </div>
+                    <span class="sensor-badge">Sensor analogico</span>
+                </div>
+                <div class="reservatorio-edit-fields">
+                    <div class="form-field">
+                        <label for="faixa_ppm_tds_min">Faixa minima (ppm)</label>
+                        <input id="faixa_ppm_tds_min" name="faixa_ppm_tds_min" type="number" step="0.01" min="0"
+                            value="{{ reservatorio.faixa_ppm_tds_min|unlocalize }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="faixa_ppm_tds_max">Faixa maxima (ppm)</label>
+                        <input id="faixa_ppm_tds_max" name="faixa_ppm_tds_max" type="number" step="0.01" min="0.01"
+                            value="{{ reservatorio.faixa_ppm_tds_max|unlocalize }}" required>
+                    </div>
+                </div>
+            </section>
 
-        <label for="faixa_ntu_turbidez_min">Faixa turbidez min (ntu)</label>
-        <input id="faixa_ntu_turbidez_min" name="faixa_ntu_turbidez_min" type="number" step="0.01" min="0"
-            value="{{ reservatorio.faixa_ntu_turbidez_min|unlocalize }}" required>
+            <section class="reservatorio-edit-section">
+                <div class="reservatorio-edit-section-head">
+                    <div>
+                        <h4>Turbidez</h4>
+                        <p class="status-meta">Faixa em NTU usada para acompanhar transparencia e particulas em suspensao.</p>
+                    </div>
+                    <span class="sensor-badge">Sensor optico</span>
+                </div>
+                <div class="reservatorio-edit-fields">
+                    <div class="form-field">
+                        <label for="faixa_ntu_turbidez_min">Faixa minima (NTU)</label>
+                        <input id="faixa_ntu_turbidez_min" name="faixa_ntu_turbidez_min" type="number" step="0.01" min="0"
+                            value="{{ reservatorio.faixa_ntu_turbidez_min|unlocalize }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="faixa_ntu_turbidez_max">Faixa maxima (NTU)</label>
+                        <input id="faixa_ntu_turbidez_max" name="faixa_ntu_turbidez_max" type="number" step="0.01" min="0.01"
+                            value="{{ reservatorio.faixa_ntu_turbidez_max|unlocalize }}" required>
+                    </div>
+                </div>
+            </section>
 
-        <label for="faixa_ntu_turbidez_max">Faixa turbidez max (ntu)</label>
-        <input id="faixa_ntu_turbidez_max" name="faixa_ntu_turbidez_max" type="number" step="0.01" min="0.01"
-            value="{{ reservatorio.faixa_ntu_turbidez_max|unlocalize }}" required>
+            <section class="reservatorio-edit-section">
+                <div class="reservatorio-edit-section-head">
+                    <div>
+                        <h4>pH</h4>
+                        <p class="status-meta">Faixa quimica esperada para as medicoes do reservatorio.</p>
+                    </div>
+                    <span class="sensor-badge">Sensor eletroquimico</span>
+                </div>
+                <div class="reservatorio-edit-fields">
+                    <div class="form-field">
+                        <label for="faixa_ph_min">Faixa minima</label>
+                        <input id="faixa_ph_min" name="faixa_ph_min" type="number" step="0.01" min="0" max="14"
+                            value="{{ reservatorio.faixa_ph_min|unlocalize }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="faixa_ph_max">Faixa maxima</label>
+                        <input id="faixa_ph_max" name="faixa_ph_max" type="number" step="0.01" min="0" max="14"
+                            value="{{ reservatorio.faixa_ph_max|unlocalize }}" required>
+                    </div>
+                </div>
+            </section>
 
-        <label for="faixa_celsius_temperatura_min">Faixa temperatura min (celsius)</label>
-        <input id="faixa_celsius_temperatura_min" name="faixa_celsius_temperatura_min" type="number" step="0.01"
-            min="0.01" value="{{ reservatorio.faixa_celsius_temperatura_min|unlocalize }}" required>
+            <section class="reservatorio-edit-section">
+                <div class="reservatorio-edit-section-head">
+                    <div>
+                        <h4>Operacao do ESP32</h4>
+                        <p class="status-meta">Defina o intervalo normal de envio e o intervalo usado durante uma sessao de calibracao.</p>
+                    </div>
+                </div>
+                <div class="reservatorio-edit-fields">
+                    <div class="form-field">
+                        <label for="esp32_intervalo_envio_normal_s">Intervalo normal (s)</label>
+                        <input id="esp32_intervalo_envio_normal_s" name="esp32_intervalo_envio_normal_s" type="number" min="1" step="1"
+                            value="{{ reservatorio.esp32_intervalo_envio_normal_s }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="esp32_intervalo_envio_calibracao_s">Intervalo em calibracao (s)</label>
+                        <input id="esp32_intervalo_envio_calibracao_s" name="esp32_intervalo_envio_calibracao_s" type="number" min="1" step="1"
+                            value="{{ reservatorio.esp32_intervalo_envio_calibracao_s }}" required>
+                    </div>
+                </div>
+            </section>
 
-        <label for="faixa_celsius_temperatura_max">Faixa temperatura max (celsius)</label>
-        <input id="faixa_celsius_temperatura_max" name="faixa_celsius_temperatura_max" type="number" step="0.01"
-            min="0.01" value="{{ reservatorio.faixa_celsius_temperatura_max|unlocalize }}" required>
+            <div class="reservatorio-edit-submitbar">
+                <p class="edit-help">
+                    O status do reservatorio e calculado automaticamente com base nas faixas configuradas acima.
+                </p>
+                <button class="btn-main" type="submit">Salvar alteracoes</button>
+            </div>
+        </form>
+    </article>
 
-        <label for="faixa_ph_min">Faixa pH min</label>
-        <input id="faixa_ph_min" name="faixa_ph_min" type="number" step="0.01" min="0.01" max="14"
-            value="{{ reservatorio.faixa_ph_min|unlocalize }}" required>
-
-        <label for="faixa_ph_max">Faixa pH max</label>
-        <input id="faixa_ph_max" name="faixa_ph_max" type="number" step="0.01" min="0.01" max="14"
-            value="{{ reservatorio.faixa_ph_max|unlocalize }}" required>
-
-        <p class="edit-help">
-            O status é calculado automaticamente com base nas faixas deste reservatório.
-        </p>
-
-        <button class="btn-main" type="submit">Salvar alterações</button>
-    </form>
-</article>
-
-<article class="panel reservatorio-edit-panel reservatorio-edit-danger">
-    <div class="reservatorio-edit-panel-head">
-        <div>
-            <div class="calibration-step-kicker">Manutenção</div>
-            <h3>Resetar leituras</h3>
+    <article class="panel reservatorio-edit-panel reservatorio-edit-danger">
+        <div class="reservatorio-edit-panel-head">
+            <div>
+                <div class="calibration-step-kicker">Manutencao</div>
+                <h3>Resetar leituras</h3>
+            </div>
+            <p class="status-meta">
+                Use essa acao apenas quando precisar reiniciar completamente o historico de leituras do reservatorio.
+            </p>
         </div>
-        <p class="status-meta">
-            Use essa ação somente quando precisar reiniciar o histórico de leituras do reservatório.
-        </p>
-    </div>
 
-    <form
-        class="edit-form"
-        method="post"
-        action="{% url 'reservatorio_resetar_leituras' reservatorio.id %}"
-        data-confirm-reset-leituras
-        data-reservatorio-nome="{{ reservatorio.nome }}"
-    >
-        {% csrf_token %}
-        <p class="edit-help">Essa ação remove todas as leituras deste reservatório.</p>
-        <button class="btn-main" type="submit">Resetar leituras</button>
-    </form>
-</article>
+        <form
+            class="edit-form"
+            method="post"
+            action="{% url 'reservatorio_resetar_leituras' reservatorio.id %}"
+            data-confirm-reset-leituras
+            data-reservatorio-nome="{{ reservatorio.nome }}"
+        >
+            {% csrf_token %}
+            <p class="edit-help">Essa acao remove todas as leituras registradas deste reservatorio.</p>
+            <button class="btn-main" type="submit">Resetar leituras</button>
+        </form>
+    </article>
+</div>
+
+<aside class="reservatorio-edit-sidebar">
+    <article class="panel reservatorio-edit-panel">
+        <div class="reservatorio-edit-panel-head">
+            <div>
+                <div class="calibration-step-kicker">Integracao</div>
+                <h3>Dados tecnicos do ESP32</h3>
+            </div>
+            <p class="status-meta">
+                Use estes dados no painel local do dispositivo. O token e a credencial principal de comunicacao com o servidor.
+            </p>
+        </div>
+
+        <div class="reservatorio-tech-grid">
+            <div class="reservatorio-tech-item">
+                <span class="reservatorio-tech-label">Reservatorio ID</span>
+                <strong class="reservatorio-tech-value">{{ reservatorio.id }}</strong>
+            </div>
+            <div class="reservatorio-tech-item">
+                <span class="reservatorio-tech-label">Status atual</span>
+                <strong class="reservatorio-tech-value status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
+            </div>
+            <div class="reservatorio-tech-item reservatorio-tech-item-full">
+                <span class="reservatorio-tech-label">Token de integracao</span>
+                <textarea id="esp32_token_integracao" class="reservatorio-tech-token" rows="4" readonly>{{ reservatorio.esp32_token_integracao }}</textarea>
+            </div>
+            <div class="reservatorio-tech-item">
+                <span class="reservatorio-tech-label">Intervalo normal</span>
+                <strong class="reservatorio-tech-value">{{ reservatorio.esp32_intervalo_envio_normal_s }}s</strong>
+            </div>
+            <div class="reservatorio-tech-item">
+                <span class="reservatorio-tech-label">Intervalo calibracao</span>
+                <strong class="reservatorio-tech-value">{{ reservatorio.esp32_intervalo_envio_calibracao_s }}s</strong>
+            </div>
+        </div>
+
+        <div class="reservatorio-tech-note">
+            <p class="edit-help">
+                Ao gerar um novo token, o anterior deixa de funcionar imediatamente. Atualize o painel local do ESP32 logo em seguida.
+            </p>
+        </div>
+
+        <form class="edit-form" method="post" action="{% url 'reservatorio_regenerar_token_esp32' reservatorio.id %}">
+            {% csrf_token %}
+            <button class="btn-secondary" type="submit">Gerar novo token</button>
+        </form>
+    </article>
+</aside>

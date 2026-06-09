@@ -10,9 +10,20 @@ const char* SENSOR_TURBIDEZ = "turbidez";
 const char* SENSOR_PH = "ph";
 
 const unsigned long INTERVALO_FLUSH_FILA_MS = 2000;
-const unsigned long INTERVALO_RECONEXAO_STA_MS = 10000;
 
-const char* NVS_NAMESPACE = "fila_esp32";
+const char* NVS_NAMESPACE_CONFIG = "mon_cfg";
+const char* NVS_NAMESPACE_QUEUE = "mon_queue";
+
+const char* NVS_KEY_SSID = "ssid";
+const char* NVS_KEY_PASSWORD = "pwd";
+const char* NVS_KEY_AP_IP = "ap_ip";
+const char* NVS_KEY_DJANGO_IP = "dj_ip";
+const char* NVS_KEY_TOKEN = "token";
+const char* NVS_KEY_DEVICE = "device";
+const char* NVS_KEY_RESERVATORIO = "res_id";
+const char* NVS_KEY_CACHE_NORMAL = "itv_norm";
+const char* NVS_KEY_CACHE_CAL = "itv_cal";
+
 const char* NVS_KEY_META_INI = "meta_ini";
 const char* NVS_KEY_META_FIM = "meta_fim";
 const char* NVS_KEY_META_QTD = "meta_qtd";
@@ -21,27 +32,22 @@ const char* NVS_KEY_DADOS_B = "dados_b";
 }
 
 MonitoramentoAguaConfig::MonitoramentoAguaConfig()
-  : modoRede(MONITORAMENTO_REDE_AP),
-    redeSsid("MONITOR-ESP32"),
-    redePassword("12345678"),
-    localIP(192, 168, 50, 1),
+  : apSsid("MONITOR-ESP32"),
+    apPassword("12345678"),
+    apIP(192, 168, 50, 1),
     gateway(192, 168, 50, 1),
     subnet(255, 255, 255, 0),
-    dns(192, 168, 50, 1),
     djangoHost("192.168.50.2"),
     djangoPort(8000),
-    djangoPath("/api/esp32/leituras/"),
-    djangoSyncPath("/api/esp32/sync/"),
-    djangoCalibrationCommandPath("/api/esp32/calibracao/comando/"),
+    djangoLeiturasPath("/api/esp32/leituras/"),
+    djangoConfiguracaoPath("/api/esp32/config/"),
     djangoCalibrationSamplesPath("/api/esp32/calibracao/amostras/"),
+    reservatorioId(0),
     apiToken(""),
-    reservatorioId(8),
-    pontoTipo("antes_tratamento"),
-    deviceId("esp_antes_tratamento"),
-    intervaloEnvioMs(1UL * 1000UL * 60UL),
-    intervaloSyncRelogioMs(30UL * 1000UL),
-    intervaloPollCalibracaoMs(2000),
-    intervaloEnvioCalibracaoPadraoMs(5000),
+    deviceId(""),
+    intervaloEnvioNormalPadraoMs(60UL * 1000UL),
+    intervaloEnvioCalibracaoPadraoMs(5UL * 1000UL),
+    intervaloPollConfiguracaoMs(2UL * 1000UL),
     delayLoopMs(50),
     tdsPin(34),
     turbidityPin(35),
@@ -59,19 +65,28 @@ MonitoramentoAgua::MonitoramentoAgua(uint8_t ds18b20Pin)
   : config_(),
     oneWire_(ds18b20Pin),
     sensors_(&oneWire_),
+    prefsConfig_(),
+    prefsQueue_(),
+    server_(80),
+    apSsid_(""),
+    apPassword_(""),
+    djangoHost_(""),
+    apiToken_(""),
+    deviceId_(""),
+    apIP_(192, 168, 50, 1),
+    reservatorioId_(0),
+    intervaloEnvioNormalMs_(0),
+    intervaloEnvioCalibracaoMs_(0),
+    intervaloPollConfiguracaoMs_(0),
     ultimoEnvio_(0),
     ultimoFlushFila_(0),
-    ultimaSincronizacaoRelogio_(0),
-    proximaLeituraSincronizada_(0),
-    ultimoPollCalibracao_(0),
+    ultimoPollConfiguracao_(0),
     ultimoEnvioCalibracao_(0),
-    ultimaTentativaReconexao_(0),
-    relogioSincronizado_(false),
     calibracaoAtiva_(false),
-    nvsDisponivel_(false),
     iniciado_(false),
+    prefsConfigDisponivel_(false),
+    prefsQueueDisponivel_(false),
     sensorCalibracaoAtivo_(""),
-    intervaloEnvioCalibracaoMs_(0),
     qtdAmostrasCalibracao_(0),
     atrasoAmostraCalibracaoMs_(0),
     sessaoCalibracaoId_(0),
@@ -82,30 +97,52 @@ MonitoramentoAgua::MonitoramentoAgua(uint8_t ds18b20Pin)
 
 void MonitoramentoAgua::begin(const MonitoramentoAguaConfig& config) {
   config_ = config;
-  intervaloEnvioCalibracaoMs_ = config_.intervaloEnvioCalibracaoPadraoMs;
-  qtdAmostrasCalibracao_ = config_.qtdAmostrasCalibracaoPadrao;
-  atrasoAmostraCalibracaoMs_ = config_.atrasoAmostraCalibracaoPadraoMs;
 
   Serial.begin(config_.serialBaud);
   analogSetAttenuation(ADC_11db);
   sensors_.begin();
 
-  nvsDisponivel_ = prefs_.begin(NVS_NAMESPACE, false);
-  if (!nvsDisponivel_) {
-    Serial.println("Falha ao iniciar NVS para fila offline.");
+  apSsid_ = config_.apSsid ? String(config_.apSsid) : String("MONITOR-ESP32");
+  apPassword_ = config_.apPassword ? String(config_.apPassword) : String("12345678");
+  djangoHost_ = config_.djangoHost ? String(config_.djangoHost) : String("192.168.50.2");
+  apiToken_ = config_.apiToken ? String(config_.apiToken) : String("");
+  deviceId_ = config_.deviceId ? String(config_.deviceId) : String("");
+  apIP_ = config_.apIP;
+  reservatorioId_ = config_.reservatorioId;
+  intervaloEnvioNormalMs_ = config_.intervaloEnvioNormalPadraoMs;
+  intervaloEnvioCalibracaoMs_ = config_.intervaloEnvioCalibracaoPadraoMs;
+  intervaloPollConfiguracaoMs_ = config_.intervaloPollConfiguracaoMs;
+  qtdAmostrasCalibracao_ = config_.qtdAmostrasCalibracaoPadrao;
+  atrasoAmostraCalibracaoMs_ = config_.atrasoAmostraCalibracaoPadraoMs;
+
+  prefsConfigDisponivel_ = prefsConfig_.begin(NVS_NAMESPACE_CONFIG, false);
+  if (!prefsConfigDisponivel_) {
+    Serial.println("Falha ao abrir NVS de configuracao.");
+  } else {
+    carregarConfiguracaoSalva();
+    carregarCacheIntervalos();
+  }
+
+  prefsQueueDisponivel_ = prefsQueue_.begin(NVS_NAMESPACE_QUEUE, false);
+  if (!prefsQueueDisponivel_) {
+    Serial.println("Falha ao abrir NVS da fila.");
   } else {
     carregarFilaDaFlash();
   }
 
-  iniciarRede();
-  ultimoEnvio_ = millis() - config_.intervaloEnvioMs;
-  atualizarSincronizacaoLeitura(true);
-  ultimoPollCalibracao_ = millis() - config_.intervaloPollCalibracaoMs;
+  garantirDeviceId();
+  iniciarRedePropria();
+  iniciarPainelConfiguracao();
+
+  ultimoEnvio_ = millis() - intervaloEnvioNormalMs_;
+  ultimoPollConfiguracao_ = millis() - intervaloPollConfiguracaoMs_;
   iniciado_ = true;
 }
 
 void MonitoramentoAgua::loop() {
   if (!iniciado_) return;
+
+  server_.handleClient();
 
   unsigned long agora = millis();
 
@@ -114,9 +151,9 @@ void MonitoramentoAgua::loop() {
     tentarEnviarFila(3);
   }
 
-  if (agora - ultimoPollCalibracao_ >= config_.intervaloPollCalibracaoMs) {
-    ultimoPollCalibracao_ = agora;
-    atualizarModoCalibracao();
+  if (agora - ultimoPollConfiguracao_ >= intervaloPollConfiguracaoMs_) {
+    ultimoPollConfiguracao_ = agora;
+    atualizarConfiguracaoRemota();
   }
 
   if (calibracaoAtiva_) {
@@ -124,58 +161,101 @@ void MonitoramentoAgua::loop() {
       ultimoEnvioCalibracao_ = agora;
       executarCicloCalibracao();
     }
-  } else if (relogioSincronizado_) {
-    if ((long)(agora - proximaLeituraSincronizada_) >= 0) {
-      executarCicloLeituraNormal();
-      unsigned long depoisLeitura = millis();
-      do {
-        proximaLeituraSincronizada_ += config_.intervaloEnvioMs;
-      } while ((long)(depoisLeitura - proximaLeituraSincronizada_) >= 0);
-    }
-  } else if (agora - ultimoEnvio_ >= config_.intervaloEnvioMs) {
+  } else if (agora - ultimoEnvio_ >= intervaloEnvioNormalMs_) {
     ultimoEnvio_ = agora;
     executarCicloLeituraNormal();
-  }
-
-  if (!calibracaoAtiva_ && agora - ultimaSincronizacaoRelogio_ >= config_.intervaloSyncRelogioMs) {
-    atualizarSincronizacaoLeitura();
   }
 
   delay(config_.delayLoopMs);
 }
 
-String MonitoramentoAgua::montarUrlDjangoLeituras() {
-  return String("http://") + config_.djangoHost + ":" + String(config_.djangoPort) + config_.djangoPath;
+void MonitoramentoAgua::carregarConfiguracaoSalva() {
+  String ssidSalvo = prefsConfig_.getString(NVS_KEY_SSID, "");
+  String senhaSalva = prefsConfig_.getString(NVS_KEY_PASSWORD, "");
+  String ipSalvo = prefsConfig_.getString(NVS_KEY_AP_IP, "");
+  String djangoSalvo = prefsConfig_.getString(NVS_KEY_DJANGO_IP, "");
+  String tokenSalvo = prefsConfig_.getString(NVS_KEY_TOKEN, "");
+  String deviceSalvo = prefsConfig_.getString(NVS_KEY_DEVICE, "");
+  int reservatorioSalvo = prefsConfig_.getInt(NVS_KEY_RESERVATORIO, 0);
+
+  if (ssidSalvo.length() > 0) apSsid_ = ssidSalvo;
+  if (senhaSalva.length() >= 8) apPassword_ = senhaSalva;
+  if (djangoSalvo.length() > 0) djangoHost_ = djangoSalvo;
+  if (tokenSalvo.length() > 0) apiToken_ = tokenSalvo;
+  if (deviceSalvo.length() > 0) deviceId_ = deviceSalvo;
+  if (reservatorioSalvo > 0) reservatorioId_ = reservatorioSalvo;
+
+  IPAddress ipConvertido;
+  if (ipSalvo.length() > 0 && converterIp(ipSalvo, ipConvertido)) {
+    apIP_ = ipConvertido;
+  }
 }
 
-String MonitoramentoAgua::montarUrlDjangoSync() {
-  return String("http://") + config_.djangoHost + ":" + String(config_.djangoPort) + config_.djangoSyncPath;
+void MonitoramentoAgua::salvarConfiguracaoSalva() {
+  if (!prefsConfigDisponivel_) return;
+
+  prefsConfig_.putString(NVS_KEY_SSID, apSsid_);
+  prefsConfig_.putString(NVS_KEY_PASSWORD, apPassword_);
+  prefsConfig_.putString(NVS_KEY_AP_IP, apIP_.toString());
+  prefsConfig_.putString(NVS_KEY_DJANGO_IP, djangoHost_);
+  prefsConfig_.putString(NVS_KEY_TOKEN, apiToken_);
+  prefsConfig_.putString(NVS_KEY_DEVICE, deviceId_);
+  prefsConfig_.putInt(NVS_KEY_RESERVATORIO, reservatorioId_);
 }
 
-String MonitoramentoAgua::montarUrlDjangoComandoCalibracao() {
-  String url = String("http://") + config_.djangoHost + ":" + String(config_.djangoPort) + config_.djangoCalibrationCommandPath;
-  url += "?reservatorio_id=" + String(config_.reservatorioId);
-  url += "&ponto_tipo=" + String(config_.pontoTipo);
-  return url;
+void MonitoramentoAgua::carregarCacheIntervalos() {
+  if (!prefsConfigDisponivel_) return;
+
+  unsigned long normalSalvo = prefsConfig_.getULong(
+    NVS_KEY_CACHE_NORMAL,
+    config_.intervaloEnvioNormalPadraoMs
+  );
+  unsigned long calibracaoSalva = prefsConfig_.getULong(
+    NVS_KEY_CACHE_CAL,
+    config_.intervaloEnvioCalibracaoPadraoMs
+  );
+
+  if (normalSalvo >= 1000UL) {
+    intervaloEnvioNormalMs_ = normalSalvo;
+  }
+  if (calibracaoSalva >= 1000UL) {
+    intervaloEnvioCalibracaoMs_ = calibracaoSalva;
+  }
 }
 
-String MonitoramentoAgua::montarUrlDjangoAmostrasCalibracao() {
-  return String("http://") + config_.djangoHost + ":" + String(config_.djangoPort) + config_.djangoCalibrationSamplesPath;
+void MonitoramentoAgua::salvarCacheIntervalos() {
+  if (!prefsConfigDisponivel_) return;
+  prefsConfig_.putULong(NVS_KEY_CACHE_NORMAL, intervaloEnvioNormalMs_);
+  prefsConfig_.putULong(NVS_KEY_CACHE_CAL, intervaloEnvioCalibracaoMs_);
 }
 
-void MonitoramentoAgua::iniciarRede() {
-  if (config_.modoRede == MONITORAMENTO_REDE_AP) {
-    iniciarRedePropria();
-  } else {
-    conectarNaRedePrincipal();
+bool MonitoramentoAgua::configuracaoProntaParaEnvio() const {
+  return reservatorioId_ > 0 && djangoHost_.length() > 0 && apiToken_.length() > 0;
+}
+
+void MonitoramentoAgua::garantirDeviceId() {
+  if (deviceId_.length() > 0) {
+    if (prefsConfigDisponivel_) {
+      prefsConfig_.putString(NVS_KEY_DEVICE, deviceId_);
+    }
+    return;
+  }
+
+  uint64_t chipId = ESP.getEfuseMac();
+  char buffer[24];
+  snprintf(buffer, sizeof(buffer), "esp32-%04X%08X", (uint16_t)(chipId >> 32), (uint32_t)chipId);
+  deviceId_ = String(buffer);
+
+  if (prefsConfigDisponivel_) {
+    prefsConfig_.putString(NVS_KEY_DEVICE, deviceId_);
   }
 }
 
 void MonitoramentoAgua::iniciarRedePropria() {
   WiFi.mode(WIFI_AP);
-  WiFi.softAPConfig(config_.localIP, config_.gateway, config_.subnet);
+  WiFi.softAPConfig(apIP_, apIP_, config_.subnet);
 
-  bool ok = WiFi.softAP(config_.redeSsid, config_.redePassword);
+  bool ok = WiFi.softAP(apSsid_.c_str(), apPassword_.c_str());
   if (!ok) {
     Serial.println("Falha ao subir AP do ESP32.");
     return;
@@ -183,54 +263,168 @@ void MonitoramentoAgua::iniciarRedePropria() {
 
   Serial.println("AP iniciado.");
   Serial.print("SSID: ");
-  Serial.println(config_.redeSsid);
+  Serial.println(apSsid_);
   Serial.print("IP AP: ");
   Serial.println(WiFi.softAPIP());
+  Serial.print("Painel: http://");
+  Serial.print(WiFi.softAPIP());
+  Serial.print("/");
+  Serial.println(apPassword_);
 }
 
-void MonitoramentoAgua::conectarNaRedePrincipal() {
-  WiFi.mode(WIFI_STA);
-  WiFi.config(config_.localIP, config_.gateway, config_.subnet, config_.dns);
-  WiFi.begin(config_.redeSsid, config_.redePassword);
+bool MonitoramentoAgua::redeDisponivel() const {
+  return WiFi.softAPgetStationNum() > 0;
+}
 
-  Serial.print("Conectando na rede principal ");
-  Serial.print(config_.redeSsid);
+void MonitoramentoAgua::iniciarPainelConfiguracao() {
+  server_.on("/", HTTP_GET, [this]() {
+    server_.send(200, "text/plain", "Acesse /" + apPassword_ + " para abrir o painel.");
+  });
 
-  unsigned long inicio = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - inicio < 15000) {
-    delay(500);
-    Serial.print(".");
+  String rotaPainel = "/" + apPassword_;
+  server_.on(rotaPainel.c_str(), HTTP_GET, [this]() {
+    responderPainelConfiguracao();
+  });
+  server_.on(rotaPainel.c_str(), HTTP_POST, [this]() {
+    salvarPainelConfiguracao();
+  });
+  server_.onNotFound([this]() {
+    server_.send(404, "text/plain", "Rota nao encontrada.");
+  });
+  server_.begin();
+}
+
+void MonitoramentoAgua::responderPainelConfiguracao() {
+  server_.send(200, "text/html", montarHtmlPainel());
+}
+
+void MonitoramentoAgua::salvarPainelConfiguracao() {
+  String reservatorioTexto = server_.arg("reservatorio_id");
+  String ssid = server_.arg("ssid");
+  String senha = server_.arg("senha");
+  String ipEspTexto = server_.arg("ip_esp");
+  String ipDjango = server_.arg("ip_django");
+  String token = server_.arg("token");
+
+  reservatorioTexto.trim();
+  ssid.trim();
+  senha.trim();
+  ipEspTexto.trim();
+  ipDjango.trim();
+  token.trim();
+
+  if (reservatorioTexto.length() == 0 || reservatorioTexto.toInt() <= 0) {
+    server_.send(400, "text/html", montarHtmlPainel("Informe um reservatorio ID valido."));
+    return;
   }
-  Serial.println();
-
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Falha ao conectar na rede principal. Nova tentativa sera feita no loop.");
+  if (ssid.length() == 0) {
+    server_.send(400, "text/html", montarHtmlPainel("Informe o nome da rede AP."));
+    return;
+  }
+  if (senha.length() < 8) {
+    server_.send(400, "text/html", montarHtmlPainel("A senha da rede precisa ter ao menos 8 caracteres."));
+    return;
+  }
+  if (ipDjango.length() == 0) {
+    server_.send(400, "text/html", montarHtmlPainel("Informe o IP do servidor Django."));
+    return;
+  }
+  if (token.length() == 0) {
+    server_.send(400, "text/html", montarHtmlPainel("Informe o token de integracao do ESP."));
     return;
   }
 
-  Serial.println("Conectado na rede principal.");
-  Serial.print("IP STA: ");
-  Serial.println(WiFi.localIP());
+  IPAddress novoIp;
+  if (!converterIp(ipEspTexto, novoIp)) {
+    server_.send(400, "text/html", montarHtmlPainel("Informe um IP valido para o ESP32."));
+    return;
+  }
+
+  reservatorioId_ = reservatorioTexto.toInt();
+  apSsid_ = ssid;
+  apPassword_ = senha;
+  apIP_ = novoIp;
+  djangoHost_ = ipDjango;
+  apiToken_ = token;
+
+  salvarConfiguracaoSalva();
+  server_.send(200, "text/html", montarHtmlPainel("Configuracao salva. Reiniciando o ESP32..."));
+  delay(1200);
+  ESP.restart();
 }
 
-bool MonitoramentoAgua::redeDisponivel() {
-  if (config_.modoRede == MONITORAMENTO_REDE_AP) {
-    return WiFi.softAPgetStationNum() > 0;
+String MonitoramentoAgua::montarHtmlPainel(const String& alerta) const {
+  String html;
+  html += "<!doctype html><html><head><meta charset='utf-8'>";
+  html += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
+  html += "<title>Painel ESP32</title>";
+  html += "<style>";
+  html += "body{font-family:Arial,sans-serif;background:#f3f6fa;color:#123;max-width:760px;margin:0 auto;padding:24px;}";
+  html += "main{background:#fff;border:1px solid #d7e0ea;border-radius:10px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.05);}";
+  html += "h1{margin:0 0 8px;font-size:24px;}p{line-height:1.5;}label{display:block;margin-top:14px;font-weight:600;}";
+  html += "input{width:100%;padding:10px 12px;margin-top:6px;border:1px solid #b8c6d8;border-radius:8px;box-sizing:border-box;}";
+  html += "button{margin-top:20px;padding:12px 16px;border:0;border-radius:8px;background:#0f4c81;color:#fff;font-weight:700;}";
+  html += ".alerta{margin:12px 0;padding:12px;border-radius:8px;background:#eaf3ff;border:1px solid #bdd6f2;}";
+  html += ".meta{font-size:14px;color:#456;}";
+  html += "</style></head><body><main>";
+  html += "<h1>Painel de configuracao do ESP32</h1>";
+  html += "<p class='meta'>Acesse este painel sempre por <strong>http://";
+  html += WiFi.softAPIP().toString();
+  html += "/";
+  html += escaparHtml(apPassword_);
+  html += "</strong>.</p>";
+  if (alerta.length() > 0) {
+    html += "<div class='alerta'>" + escaparHtml(alerta) + "</div>";
   }
+  html += "<form method='post'>";
+  html += "<label for='reservatorio_id'>Reservatorio ID</label>";
+  html += "<input id='reservatorio_id' name='reservatorio_id' value='" + String(reservatorioId_) + "' required>";
+  html += "<label for='token'>Token de integracao</label>";
+  html += "<input id='token' name='token' value='" + escaparHtml(apiToken_) + "' required>";
+  html += "<label for='ssid'>Nome da rede AP</label>";
+  html += "<input id='ssid' name='ssid' value='" + escaparHtml(apSsid_) + "' required>";
+  html += "<label for='senha'>Senha da rede AP e rota do painel</label>";
+  html += "<input id='senha' name='senha' value='" + escaparHtml(apPassword_) + "' minlength='8' required>";
+  html += "<label for='ip_esp'>IP local do ESP32</label>";
+  html += "<input id='ip_esp' name='ip_esp' value='" + apIP_.toString() + "' required>";
+  html += "<label for='ip_django'>IP do servidor Django</label>";
+  html += "<input id='ip_django' name='ip_django' value='" + escaparHtml(djangoHost_) + "' required>";
+  html += "<label for='device_id'>Device ID</label>";
+  html += "<input id='device_id' value='" + escaparHtml(deviceId_) + "' readonly>";
+  html += "<label for='cache_normal'>Ultimo intervalo normal recebido (ms)</label>";
+  html += "<input id='cache_normal' value='" + String(intervaloEnvioNormalMs_) + "' readonly>";
+  html += "<label for='cache_cal'>Ultimo intervalo de calibracao recebido (ms)</label>";
+  html += "<input id='cache_cal' value='" + String(intervaloEnvioCalibracaoMs_) + "' readonly>";
+  html += "<button type='submit'>Salvar no ESP32</button>";
+  html += "</form></main></body></html>";
+  return html;
+}
 
-  if (WiFi.status() == WL_CONNECTED) {
-    return true;
-  }
+String MonitoramentoAgua::escaparHtml(const String& valor) {
+  String resultado = valor;
+  resultado.replace("&", "&amp;");
+  resultado.replace("<", "&lt;");
+  resultado.replace(">", "&gt;");
+  resultado.replace("\"", "&quot;");
+  return resultado;
+}
 
-  unsigned long agora = millis();
-  if (agora - ultimaTentativaReconexao_ >= INTERVALO_RECONEXAO_STA_MS) {
-    ultimaTentativaReconexao_ = agora;
-    Serial.println("WiFi desconectado. Tentando reconectar na rede principal...");
-    WiFi.disconnect();
-    WiFi.begin(config_.redeSsid, config_.redePassword);
-  }
+bool MonitoramentoAgua::converterIp(const String& texto, IPAddress& ip) {
+  return ip.fromString(texto);
+}
 
-  return false;
+String MonitoramentoAgua::montarUrlDjangoLeituras() const {
+  return String("http://") + djangoHost_ + ":" + String(config_.djangoPort) + config_.djangoLeiturasPath;
+}
+
+String MonitoramentoAgua::montarUrlDjangoConfiguracao() const {
+  String url = String("http://") + djangoHost_ + ":" + String(config_.djangoPort) + config_.djangoConfiguracaoPath;
+  url += "?reservatorio_id=" + String(reservatorioId_);
+  return url;
+}
+
+String MonitoramentoAgua::montarUrlDjangoAmostrasCalibracao() const {
+  return String("http://") + djangoHost_ + ":" + String(config_.djangoPort) + config_.djangoCalibrationSamplesPath;
 }
 
 void MonitoramentoAgua::resetarFilaEmMemoria() {
@@ -240,26 +434,26 @@ void MonitoramentoAgua::resetarFilaEmMemoria() {
 }
 
 void MonitoramentoAgua::salvarFilaEmFlash() {
-  if (!nvsDisponivel_) return;
+  if (!prefsQueueDisponivel_) return;
 
   const uint8_t* base = reinterpret_cast<const uint8_t*>(filaLeituras_);
   const size_t bytesTotais = sizeof(filaLeituras_);
   const size_t bytesA = bytesTotais / 2;
   const size_t bytesB = bytesTotais - bytesA;
 
-  prefs_.putInt(NVS_KEY_META_INI, filaInicio_);
-  prefs_.putInt(NVS_KEY_META_FIM, filaFim_);
-  prefs_.putInt(NVS_KEY_META_QTD, filaQuantidade_);
-  prefs_.putBytes(NVS_KEY_DADOS_A, base, bytesA);
-  prefs_.putBytes(NVS_KEY_DADOS_B, base + bytesA, bytesB);
+  prefsQueue_.putInt(NVS_KEY_META_INI, filaInicio_);
+  prefsQueue_.putInt(NVS_KEY_META_FIM, filaFim_);
+  prefsQueue_.putInt(NVS_KEY_META_QTD, filaQuantidade_);
+  prefsQueue_.putBytes(NVS_KEY_DADOS_A, base, bytesA);
+  prefsQueue_.putBytes(NVS_KEY_DADOS_B, base + bytesA, bytesB);
 }
 
 void MonitoramentoAgua::carregarFilaDaFlash() {
-  if (!nvsDisponivel_) return;
+  if (!prefsQueueDisponivel_) return;
 
-  int inicio = prefs_.getInt(NVS_KEY_META_INI, 0);
-  int fim = prefs_.getInt(NVS_KEY_META_FIM, 0);
-  int quantidade = prefs_.getInt(NVS_KEY_META_QTD, 0);
+  int inicio = prefsQueue_.getInt(NVS_KEY_META_INI, 0);
+  int fim = prefsQueue_.getInt(NVS_KEY_META_FIM, 0);
+  int quantidade = prefsQueue_.getInt(NVS_KEY_META_QTD, 0);
 
   if (
     inicio < 0 || inicio >= FILA_MAX_LEITURAS ||
@@ -276,8 +470,8 @@ void MonitoramentoAgua::carregarFilaDaFlash() {
   const size_t bytesB = bytesTotais - bytesA;
 
   uint8_t* base = reinterpret_cast<uint8_t*>(filaLeituras_);
-  size_t lidosA = prefs_.getBytes(NVS_KEY_DADOS_A, base, bytesA);
-  size_t lidosB = prefs_.getBytes(NVS_KEY_DADOS_B, base + bytesA, bytesB);
+  size_t lidosA = prefsQueue_.getBytes(NVS_KEY_DADOS_A, base, bytesA);
+  size_t lidosB = prefsQueue_.getBytes(NVS_KEY_DADOS_B, base + bytesA, bytesB);
 
   if (lidosA != bytesA || lidosB != bytesB) {
     resetarFilaEmMemoria();
@@ -288,18 +482,12 @@ void MonitoramentoAgua::carregarFilaDaFlash() {
   filaInicio_ = inicio;
   filaFim_ = fim;
   filaQuantidade_ = quantidade;
-
-  if (filaQuantidade_ > 0) {
-    Serial.print("Fila restaurada da flash. Pendentes: ");
-    Serial.println(filaQuantidade_);
-  }
 }
 
 void MonitoramentoAgua::enfileirarLeitura(float temperatura, int adcTds, int adcTurb, int adcPh, unsigned long firmwareTsMs) {
   if (filaQuantidade_ >= FILA_MAX_LEITURAS) {
     filaInicio_ = (filaInicio_ + 1) % FILA_MAX_LEITURAS;
     filaQuantidade_--;
-    Serial.println("Fila cheia: leitura mais antiga descartada.");
   }
 
   filaLeituras_[filaFim_].temperatura = temperatura;
@@ -311,9 +499,6 @@ void MonitoramentoAgua::enfileirarLeitura(float temperatura, int adcTds, int adc
   filaFim_ = (filaFim_ + 1) % FILA_MAX_LEITURAS;
   filaQuantidade_++;
   salvarFilaEmFlash();
-
-  Serial.print("Fila pendente: ");
-  Serial.println(filaQuantidade_);
 }
 
 bool MonitoramentoAgua::obterPrimeiraLeituraFila(LeituraPendente& leitura) {
@@ -330,6 +515,7 @@ void MonitoramentoAgua::removerPrimeiraLeituraFila() {
 
 void MonitoramentoAgua::tentarEnviarFila(int limitePorCiclo) {
   if (filaQuantidade_ <= 0) return;
+  if (!configuracaoProntaParaEnvio()) return;
   if (!redeDisponivel()) return;
 
   int enviados = 0;
@@ -344,7 +530,6 @@ void MonitoramentoAgua::tentarEnviarFila(int limitePorCiclo) {
       leitura.adcPh,
       leitura.firmwareTsMs
     )) {
-      Serial.println("Falha no envio da fila. Mantendo pendencias.");
       break;
     }
 
@@ -354,10 +539,6 @@ void MonitoramentoAgua::tentarEnviarFila(int limitePorCiclo) {
 
   if (enviados > 0) {
     salvarFilaEmFlash();
-    Serial.print("Fila enviada: ");
-    Serial.print(enviados);
-    Serial.print(" | Restantes: ");
-    Serial.println(filaQuantidade_);
   }
 }
 
@@ -398,9 +579,7 @@ int MonitoramentoAgua::mediaMioloEstavel(int* leiturasOrdenadas, int total) {
     somaCentral += leiturasOrdenadas[i];
   }
 
-  return (quantidadeFaixa > 0)
-    ? (int)(somaCentral / quantidadeFaixa)
-    : 0;
+  return (quantidadeFaixa > 0) ? (int)(somaCentral / quantidadeFaixa) : 0;
 }
 
 int MonitoramentoAgua::lerAdcFiltradoRobusto(int pino, int totalAmostras, int atrasoPorAmostraMs, bool ignorarZeros) {
@@ -425,10 +604,7 @@ int MonitoramentoAgua::lerAdcFiltradoRobusto(int pino, int totalAmostras, int at
     delay(atrasoPorAmostraMs);
   }
 
-  if (validas <= 0) {
-    return 0;
-  }
-
+  if (validas <= 0) return 0;
   ordenarLeituras(leituras, validas);
   return mediaMioloEstavel(leituras, validas);
 }
@@ -438,49 +614,41 @@ int MonitoramentoAgua::lerAdcPhFiltradoRobusto(int quantidadeAmostras, int atras
 }
 
 bool MonitoramentoAgua::enviarLeitura(float temperatura, int adcTds, int adcTurb, int adcPh, unsigned long firmwareTsMs) {
-  if (!redeDisponivel()) {
-    if (config_.modoRede == MONITORAMENTO_REDE_AP) {
-      Serial.println("Sem cliente conectado no AP. Nao enviando.");
-    } else {
-      Serial.println("Sem conexao Wi-Fi. Nao enviando.");
-    }
-    return false;
-  }
+  if (!configuracaoProntaParaEnvio()) return false;
+  if (!redeDisponivel()) return false;
 
   HTTPClient http;
   http.setTimeout(10000);
-
-  String url = montarUrlDjangoLeituras();
-  http.begin(url);
+  http.begin(montarUrlDjangoLeituras());
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-API-Token", config_.apiToken);
+  http.addHeader("X-API-Token", apiToken_);
 
   String body = "{";
-  body += "\"reservatorio_id\":" + String(config_.reservatorioId) + ",";
-  body += "\"ponto_tipo\":\"" + String(config_.pontoTipo) + "\",";
-  body += "\"device_id\":\"" + String(config_.deviceId) + "\",";
+  body += "\"reservatorio_id\":" + String(reservatorioId_) + ",";
+  body += "\"device_id\":\"" + deviceId_ + "\",";
   body += "\"temperatura\":" + String(temperatura, 2) + ",";
   body += "\"raw\":{";
   body += "\"adc_tds\":" + String(adcTds) + ",";
   body += "\"adc_turb\":" + String(adcTurb) + ",";
   body += "\"adc_ph\":" + String(adcPh) + ",";
   body += "\"firmware_ts_ms\":" + String(firmwareTsMs) + ",";
-  body += "\"firmware_now_ms\":" + String(millis());
-  body += "}";
-  body += "}";
+  body += "\"firmware_now_ms\":" + String(millis()) + ",";
+  body += "\"device_id\":\"" + deviceId_ + "\"";
+  body += "}}";
 
   int code = http.POST(body);
   String resposta = http.getString();
   http.end();
 
-  Serial.print("URL: ");
-  Serial.println(url);
-  Serial.print("POST code: ");
-  Serial.println(code);
-  Serial.print("Resposta: ");
-  Serial.println(resposta);
+  if (code < 200 || code >= 300) {
+    Serial.print("Falha envio leitura: ");
+    Serial.print(code);
+    Serial.print(" | ");
+    Serial.println(resposta);
+    return false;
+  }
 
-  return (code >= 200 && code < 300);
+  return true;
 }
 
 bool MonitoramentoAgua::enviarAmostraCalibracao(
@@ -491,27 +659,18 @@ bool MonitoramentoAgua::enviarAmostraCalibracao(
   int adcPh,
   unsigned long firmwareTsMs
 ) {
-  if (!redeDisponivel()) {
-    if (config_.modoRede == MONITORAMENTO_REDE_AP) {
-      Serial.println("Sem cliente conectado no AP. Nao enviando amostra de calibracao.");
-    } else {
-      Serial.println("Sem conexao Wi-Fi. Nao enviando amostra de calibracao.");
-    }
-    return false;
-  }
+  if (!configuracaoProntaParaEnvio()) return false;
+  if (!redeDisponivel()) return false;
 
   HTTPClient http;
   http.setTimeout(10000);
-
-  String url = montarUrlDjangoAmostrasCalibracao();
-  http.begin(url);
+  http.begin(montarUrlDjangoAmostrasCalibracao());
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-API-Token", config_.apiToken);
+  http.addHeader("X-API-Token", apiToken_);
 
   String body = "{";
-  body += "\"reservatorio_id\":" + String(config_.reservatorioId) + ",";
-  body += "\"ponto_tipo\":\"" + String(config_.pontoTipo) + "\",";
-  body += "\"device_id\":\"" + String(config_.deviceId) + "\",";
+  body += "\"reservatorio_id\":" + String(reservatorioId_) + ",";
+  body += "\"device_id\":\"" + deviceId_ + "\",";
   body += "\"sensor\":\"" + sensor + "\"";
   if (!isnan(temperatura)) {
     body += ",\"temperatura\":" + String(temperatura, 2);
@@ -535,28 +694,35 @@ bool MonitoramentoAgua::enviarAmostraCalibracao(
   }
   if (precisaVirgula) body += ",";
   body += "\"firmware_ts_ms\":" + String(firmwareTsMs) + ",";
-  body += "\"firmware_now_ms\":" + String(millis());
+  body += "\"firmware_now_ms\":" + String(millis()) + ",";
+  body += "\"device_id\":\"" + deviceId_ + "\"";
   body += "}}";
 
   int code = http.POST(body);
   String resposta = http.getString();
   http.end();
 
-  Serial.print("Calibracao POST code: ");
-  Serial.println(code);
-  Serial.print("Resposta calibracao: ");
-  Serial.println(resposta);
+  if (code < 200 || code >= 300) {
+    Serial.print("Falha envio calibracao: ");
+    Serial.print(code);
+    Serial.print(" | ");
+    Serial.println(resposta);
+    return false;
+  }
 
-  return (code >= 200 && code < 300);
+  return true;
 }
 
-String MonitoramentoAgua::extrairCampoJsonString(const String& json, const String& chave) {
+String MonitoramentoAgua::extrairCampoJsonString(const String& json, const String& chave) const {
   String marcador = "\"" + chave + "\":";
   int inicio = json.indexOf(marcador);
   if (inicio < 0) return "";
 
   inicio += marcador.length();
-  while (inicio < (int)json.length() && (json[inicio] == ' ' || json[inicio] == '\n' || json[inicio] == '\r' || json[inicio] == '\t')) {
+  while (
+    inicio < (int)json.length() &&
+    (json[inicio] == ' ' || json[inicio] == '\n' || json[inicio] == '\r' || json[inicio] == '\t')
+  ) {
     inicio++;
   }
 
@@ -567,13 +733,16 @@ String MonitoramentoAgua::extrairCampoJsonString(const String& json, const Strin
   return json.substring(inicio, fim);
 }
 
-long MonitoramentoAgua::extrairCampoJsonLong(const String& json, const String& chave, long padrao) {
+long MonitoramentoAgua::extrairCampoJsonLong(const String& json, const String& chave, long padrao) const {
   String marcador = "\"" + chave + "\":";
   int inicio = json.indexOf(marcador);
   if (inicio < 0) return padrao;
 
   inicio += marcador.length();
-  while (inicio < (int)json.length() && (json[inicio] == ' ' || json[inicio] == '\n' || json[inicio] == '\r' || json[inicio] == '\t')) {
+  while (
+    inicio < (int)json.length() &&
+    (json[inicio] == ' ' || json[inicio] == '\n' || json[inicio] == '\r' || json[inicio] == '\t')
+  ) {
     inicio++;
   }
 
@@ -594,117 +763,38 @@ long MonitoramentoAgua::extrairCampoJsonLong(const String& json, const String& c
   return valor.toInt();
 }
 
-bool MonitoramentoAgua::atualizarSincronizacaoLeitura(bool forcar) {
-  unsigned long agora = millis();
-  if (!forcar && relogioSincronizado_ && agora - ultimaSincronizacaoRelogio_ < config_.intervaloSyncRelogioMs) {
-    return true;
-  }
-
-  ultimaSincronizacaoRelogio_ = agora;
-
-  if (!redeDisponivel()) {
-    return false;
-  }
+bool MonitoramentoAgua::atualizarConfiguracaoRemota() {
+  if (!configuracaoProntaParaEnvio()) return false;
+  if (!redeDisponivel()) return false;
 
   HTTPClient http;
   http.setTimeout(5000);
-
-  String url = montarUrlDjangoSync();
-  http.begin(url);
-  http.addHeader("X-API-Token", config_.apiToken);
+  http.begin(montarUrlDjangoConfiguracao());
+  http.addHeader("X-API-Token", apiToken_);
 
   int code = http.GET();
   String resposta = http.getString();
   http.end();
 
   if (code < 200 || code >= 300) {
-    Serial.print("Falha ao sincronizar leitura. Code: ");
+    Serial.print("Falha ao consultar configuracao remota: ");
     Serial.println(code);
     return false;
   }
 
-  long aguardarMs = extrairCampoJsonLong(resposta, "aguardar_ms", -1);
-  long intervaloMs = extrairCampoJsonLong(resposta, "intervalo_ms", config_.intervaloEnvioMs);
-  if (aguardarMs < 0 || intervaloMs <= 0) {
-    Serial.println("Resposta de sincronizacao invalida.");
-    return false;
-  }
+  long intervaloNormal = extrairCampoJsonLong(resposta, "intervalo_normal_ms", (long)intervaloEnvioNormalMs_);
+  long intervaloCalibracao = extrairCampoJsonLong(resposta, "intervalo_calibracao_ms", (long)intervaloEnvioCalibracaoMs_);
+  long pollConfiguracao = extrairCampoJsonLong(resposta, "poll_configuracao_ms", (long)intervaloPollConfiguracaoMs_);
 
-  if (aguardarMs < 500) {
-    aguardarMs += intervaloMs;
-  }
-
-  proximaLeituraSincronizada_ = millis() + (unsigned long)aguardarMs;
-  relogioSincronizado_ = true;
-
-  Serial.print("Leitura sincronizada em ");
-  Serial.print(aguardarMs);
-  Serial.println(" ms.");
-  return true;
-}
-
-void MonitoramentoAgua::desativarModoCalibracao() {
-  if (calibracaoAtiva_) {
-    Serial.println("Modo calibracao encerrado. Voltando para o fluxo normal.");
-  }
-  calibracaoAtiva_ = false;
-  sensorCalibracaoAtivo_ = "";
-  intervaloEnvioCalibracaoMs_ = config_.intervaloEnvioCalibracaoPadraoMs;
-  qtdAmostrasCalibracao_ = config_.qtdAmostrasCalibracaoPadrao;
-  atrasoAmostraCalibracaoMs_ = config_.atrasoAmostraCalibracaoPadraoMs;
-  sessaoCalibracaoId_ = 0;
-}
-
-void MonitoramentoAgua::aplicarModoCalibracao(
-  const String& sensor,
-  long sessaoId,
-  unsigned long intervaloEnvioMs,
-  int qtdAmostras,
-  int atrasoAmostraMs
-) {
-  bool mudou = (!calibracaoAtiva_) || sensorCalibracaoAtivo_ != sensor || sessaoCalibracaoId_ != sessaoId;
-
-  calibracaoAtiva_ = true;
-  sensorCalibracaoAtivo_ = sensor;
-  sessaoCalibracaoId_ = sessaoId;
-  intervaloEnvioCalibracaoMs_ = intervaloEnvioMs;
-  qtdAmostrasCalibracao_ = qtdAmostras;
-  atrasoAmostraCalibracaoMs_ = atrasoAmostraMs;
-
-  if (mudou) {
-    ultimoEnvioCalibracao_ = millis() - intervaloEnvioCalibracaoMs_;
-    Serial.print("Modo calibracao ativo. Sensor: ");
-    Serial.print(sensorCalibracaoAtivo_);
-    Serial.print(" | sessao ");
-    Serial.println(sessaoCalibracaoId_);
-  }
-}
-
-void MonitoramentoAgua::atualizarModoCalibracao() {
-  if (!redeDisponivel()) {
-    return;
-  }
-
-  HTTPClient http;
-  http.setTimeout(5000);
-  String url = montarUrlDjangoComandoCalibracao();
-  http.begin(url);
-  http.addHeader("X-API-Token", config_.apiToken);
-
-  int code = http.GET();
-  String resposta = http.getString();
-  http.end();
-
-  if (code < 200 || code >= 300) {
-    Serial.print("Falha ao consultar comando de calibracao. Code: ");
-    Serial.println(code);
-    return;
-  }
+  if (intervaloNormal >= 1000L) intervaloEnvioNormalMs_ = (unsigned long)intervaloNormal;
+  if (intervaloCalibracao >= 1000L) intervaloEnvioCalibracaoMs_ = (unsigned long)intervaloCalibracao;
+  if (pollConfiguracao >= 1000L) intervaloPollConfiguracaoMs_ = (unsigned long)pollConfiguracao;
+  salvarCacheIntervalos();
 
   String modo = extrairCampoJsonString(resposta, "modo");
   if (modo != "calibracao") {
     desativarModoCalibracao();
-    return;
+    return true;
   }
 
   String sensor = extrairCampoJsonString(resposta, "sensor");
@@ -715,15 +805,10 @@ void MonitoramentoAgua::atualizarModoCalibracao() {
     sensor != SENSOR_PH
   ) {
     desativarModoCalibracao();
-    return;
+    return true;
   }
 
   long sessaoId = extrairCampoJsonLong(resposta, "sessao_id", 0);
-  unsigned long intervaloEnvioMs = (unsigned long)extrairCampoJsonLong(
-    resposta,
-    "intervalo_envio_ms",
-    config_.intervaloEnvioCalibracaoPadraoMs
-  );
   int qtdAmostras = (int)extrairCampoJsonLong(
     resposta,
     "qtd_amostras",
@@ -735,9 +820,6 @@ void MonitoramentoAgua::atualizarModoCalibracao() {
     config_.atrasoAmostraCalibracaoPadraoMs
   );
 
-  if (intervaloEnvioMs < 1000) {
-    intervaloEnvioMs = config_.intervaloEnvioCalibracaoPadraoMs;
-  }
   if (qtdAmostras <= 0) {
     qtdAmostras = config_.qtdAmostrasCalibracaoPadrao;
   }
@@ -745,13 +827,35 @@ void MonitoramentoAgua::atualizarModoCalibracao() {
     atrasoAmostraMs = config_.atrasoAmostraCalibracaoPadraoMs;
   }
 
-  aplicarModoCalibracao(
-    sensor,
-    sessaoId,
-    intervaloEnvioMs,
-    qtdAmostras,
-    atrasoAmostraMs
-  );
+  aplicarModoCalibracao(sensor, sessaoId, qtdAmostras, atrasoAmostraMs);
+  return true;
+}
+
+void MonitoramentoAgua::desativarModoCalibracao() {
+  calibracaoAtiva_ = false;
+  sensorCalibracaoAtivo_ = "";
+  qtdAmostrasCalibracao_ = config_.qtdAmostrasCalibracaoPadrao;
+  atrasoAmostraCalibracaoMs_ = config_.atrasoAmostraCalibracaoPadraoMs;
+  sessaoCalibracaoId_ = 0;
+}
+
+void MonitoramentoAgua::aplicarModoCalibracao(
+  const String& sensor,
+  long sessaoId,
+  int qtdAmostras,
+  int atrasoAmostraMs
+) {
+  bool mudou = (!calibracaoAtiva_) || sensorCalibracaoAtivo_ != sensor || sessaoCalibracaoId_ != sessaoId;
+
+  calibracaoAtiva_ = true;
+  sensorCalibracaoAtivo_ = sensor;
+  sessaoCalibracaoId_ = sessaoId;
+  qtdAmostrasCalibracao_ = qtdAmostras;
+  atrasoAmostraCalibracaoMs_ = atrasoAmostraMs;
+
+  if (mudou) {
+    ultimoEnvioCalibracao_ = millis() - intervaloEnvioCalibracaoMs_;
+  }
 }
 
 void MonitoramentoAgua::executarCicloLeituraNormal() {
@@ -776,25 +880,7 @@ void MonitoramentoAgua::executarCicloLeituraNormal() {
   int adcPh = lerAdcPhFiltradoRobusto(config_.qtdAmostrasPh, 5);
 
   unsigned long firmwareTsMs = millis();
-
-  Serial.print("Ponto: ");
-  Serial.print(config_.pontoTipo);
-  Serial.print(" | Temp: ");
-  Serial.print(temp, 2);
-  Serial.print(" C | ADC Turbidez: ");
-  Serial.print(adcTurbidez);
-  Serial.print(" | ADC TDS: ");
-  Serial.print(adcTDS);
-  Serial.print(" | ADC pH: ");
-  Serial.println(adcPh);
-
-  enfileirarLeitura(
-    temp,
-    adcTDS,
-    adcTurbidez,
-    adcPh,
-    firmwareTsMs
-  );
+  enfileirarLeitura(temp, adcTDS, adcTurbidez, adcPh, firmwareTsMs);
   tentarEnviarFila(10);
 }
 
@@ -806,16 +892,10 @@ void MonitoramentoAgua::executarCicloCalibracao() {
 
   if (sensorCalibracaoAtivo_ == SENSOR_TEMPERATURA) {
     temperatura = lerTemperatura();
-    if (isnan(temperatura)) {
-      Serial.println("Falha ao ler temperatura para calibracao.");
-      return;
-    }
+    if (isnan(temperatura)) return;
   } else if (sensorCalibracaoAtivo_ == SENSOR_TDS) {
     temperatura = lerTemperatura();
-    if (isnan(temperatura)) {
-      Serial.println("Falha ao ler temperatura para calibracao de TDS.");
-      return;
-    }
+    if (isnan(temperatura)) return;
     adcTds = lerAdcFiltradoRobusto(
       config_.tdsPin,
       qtdAmostrasCalibracao_,
@@ -831,10 +911,7 @@ void MonitoramentoAgua::executarCicloCalibracao() {
     );
   } else if (sensorCalibracaoAtivo_ == SENSOR_PH) {
     temperatura = lerTemperatura();
-    if (isnan(temperatura)) {
-      Serial.println("Falha ao ler temperatura para calibracao de pH.");
-      return;
-    }
+    if (isnan(temperatura)) return;
     adcPh = lerAdcPhFiltradoRobusto(
       qtdAmostrasCalibracao_,
       atrasoAmostraCalibracaoMs_
@@ -843,28 +920,12 @@ void MonitoramentoAgua::executarCicloCalibracao() {
     return;
   }
 
-  unsigned long firmwareTsMs = millis();
-  Serial.print("Calibracao | sensor: ");
-  Serial.print(sensorCalibracaoAtivo_);
-  Serial.print(" | temp: ");
-  if (isnan(temperatura)) {
-    Serial.print("--");
-  } else {
-    Serial.print(temperatura, 2);
-  }
-  Serial.print(" | adc_tds: ");
-  Serial.print(adcTds);
-  Serial.print(" | adc_turb: ");
-  Serial.print(adcTurb);
-  Serial.print(" | adc_ph: ");
-  Serial.println(adcPh);
-
   enviarAmostraCalibracao(
     sensorCalibracaoAtivo_,
     temperatura,
     adcTds,
     adcTurb,
     adcPh,
-    firmwareTsMs
+    millis()
   );
 }

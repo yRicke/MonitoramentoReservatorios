@@ -128,8 +128,3 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 LOGIN_URL = 'entrar'
 LOGIN_REDIRECT_URL = 'index'
 LOGOUT_REDIRECT_URL = 'entrar'
-
-ESP32_API_TOKEN = os.getenv(
-    "ESP32_API_TOKEN",
-    "Oqc9zeW5fZjRFvxXZhaJtdVAD3sRrhy2G0a7IWegMR3ZOR3dsAxQ142qRut3fWtA",
-)

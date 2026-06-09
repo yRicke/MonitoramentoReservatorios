@@ -25,6 +25,11 @@ urlpatterns = [
     path('reservatorios/<int:reservatorio_id>/', views.reservatorio_detalhe, name="reservatorio_detalhe"),
     path('reservatorios/<int:reservatorio_id>/editar/', views.reservatorio_editar, name="reservatorio_editar"),
     path(
+        'reservatorios/<int:reservatorio_id>/token-esp32/regenerar/',
+        views.reservatorio_regenerar_token_esp32,
+        name="reservatorio_regenerar_token_esp32",
+    ),
+    path(
         'reservatorios/<int:reservatorio_id>/relatorio/',
         views.reservatorio_relatorio,
         name="reservatorio_relatorio",
@@ -35,32 +40,27 @@ urlpatterns = [
         name="reservatorio_calibracao",
     ),
     path(
-        'reservatorios/<int:reservatorio_id>/calibracao/<str:ponto_tipo>/',
-        views.reservatorio_calibracao_ponto,
-        name="reservatorio_calibracao_ponto",
-    ),
-    path(
-        'reservatorios/<int:reservatorio_id>/calibracao/<str:ponto_tipo>/<str:sensor_id>/',
+        'reservatorios/<int:reservatorio_id>/calibracao/<str:sensor_id>/',
         views.reservatorio_calibracao_sensor,
         name="reservatorio_calibracao_sensor",
     ),
     path(
-        'reservatorios/<int:reservatorio_id>/calibracao/<str:ponto_tipo>/<str:sensor_id>/sessao/iniciar/',
+        'reservatorios/<int:reservatorio_id>/calibracao/<str:sensor_id>/sessao/iniciar/',
         views.reservatorio_calibracao_sessao_iniciar,
         name="reservatorio_calibracao_sessao_iniciar",
     ),
     path(
-        'reservatorios/<int:reservatorio_id>/calibracao/<str:ponto_tipo>/<str:sensor_id>/sessao/encerrar/',
+        'reservatorios/<int:reservatorio_id>/calibracao/<str:sensor_id>/sessao/encerrar/',
         views.reservatorio_calibracao_sessao_encerrar,
         name="reservatorio_calibracao_sessao_encerrar",
     ),
     path(
-        'reservatorios/<int:reservatorio_id>/calibracao/<str:ponto_tipo>/<str:sensor_id>/resetar/',
+        'reservatorios/<int:reservatorio_id>/calibracao/<str:sensor_id>/resetar/',
         views.reservatorio_calibracao_sensor_resetar,
         name="reservatorio_calibracao_sensor_resetar",
     ),
     path(
-        'reservatorios/<int:reservatorio_id>/calibracao/<str:ponto_tipo>/<str:sensor_id>/sessao/status/',
+        'reservatorios/<int:reservatorio_id>/calibracao/<str:sensor_id>/sessao/status/',
         views.reservatorio_calibracao_sessao_status,
         name="reservatorio_calibracao_sessao_status",
     ),
@@ -94,8 +94,7 @@ urlpatterns = [
     path('entrar/', views.entrar, name="entrar"),
     path('sair/', views.sair, name="sair"),
 
+    path("api/esp32/config/", views.esp32_configuracao, name="esp32_configuracao"),
     path("api/esp32/leituras/", views.esp32_leitura, name="esp32_leitura"),
-    path("api/esp32/sync/", views.esp32_sync, name="esp32_sync"),
-    path("api/esp32/calibracao/comando/", views.esp32_calibracao_comando, name="esp32_calibracao_comando"),
     path("api/esp32/calibracao/amostras/", views.esp32_calibracao_amostra, name="esp32_calibracao_amostra"),
 ]

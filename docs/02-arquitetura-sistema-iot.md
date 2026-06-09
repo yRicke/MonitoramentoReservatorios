@@ -1,95 +1,78 @@
 # Arquitetura do Sistema IoT
 
 ## 1. Objetivo
-Este documento descreve a arquitetura tecnica integrada do produto:
-- modulo fisico embarcado (`ESP32 + sensores`);
-- modulo de plataforma de monitoramento (`Django + banco + interface web`).
+Descrever a arquitetura integrada entre:
+- modulo fisico embarcado;
+- backend Django;
+- interface web de operacao.
 
 ## 2. Visao de Alto Nivel
-Arquitetura em camadas:
-1. Borda (Edge): aquisicao local e envio HTTP.
-2. Ingestao: API Django para leituras, sync e calibracao.
+Camadas principais:
+1. Edge: coleta local, painel AP e envio HTTP.
+2. Ingestao: endpoints do Django para configuracao, leituras e calibracao.
 3. Dominio: regras de negocio, calibracao e status.
-4. Persistencia: SQLite via Django ORM.
-5. Apresentacao: dashboard, detalhe e modulos de calibracao.
+4. Persistencia: banco via Django ORM.
+5. Apresentacao: dashboard, detalhe, edicao e calibracao.
 
 Fluxo principal:
-`Sensores -> ESP32 -> /api/esp32/leituras/ -> services/ingestao.py -> models.py -> views/templates`
+`Sensores -> ESP32 -> /api/esp32/config/ -> /api/esp32/leituras/ -> services/ingestao.py -> models.py -> views/templates`
 
 ## 3. Pipeline de Ingestao
-Sequencia no backend (`processar_leitura_esp32`):
-1. parse do JSON e validacao do payload;
-2. identificacao de `reservatorio` e `ponto_tipo`;
-3. extracao de temperatura e sinais brutos (`raw`);
-4. aplicacao de calibracao de temperatura do ponto;
-5. resolucao de TDS, turbidez e pH;
-6. aplicacao de calibracao de agua;
-7. classificacao de status;
-8. gravacao em `LeituraQualidade`;
-9. atualizacao de status do ponto;
-10. sincronizacao do status do reservatorio pelo ponto unico.
+Sequencia no backend:
+1. validacao do token do reservatorio;
+2. parse do JSON;
+3. localizacao do reservatorio;
+4. uso do ponto canonico unico;
+5. aplicacao de calibracoes;
+6. classificacao de status;
+7. gravacao em `LeituraQualidade`;
+8. atualizacao do status do ponto;
+9. sincronizacao do status do reservatorio.
 
 ## 4. Modelo de Dominio
 ### `Reservatorio`
-- proprietario (`usuario`);
 - nome;
 - status geral;
-- faixas de referencia (TDS, turbidez, temperatura, pH);
-- metas auxiliares.
-
-Regra de estado:
-- status geral reflete o estado do ponto unico.
+- faixas de referencia;
+- token de integracao do ESP32;
+- intervalo normal do ESP32;
+- intervalo de calibracao do ESP32.
 
 ### `PontoMonitoramento`
-Tipo canonico:
-- `ponto_unico`
-
-Compatibilidade de entrada:
-- `antes_tratamento`
-- `depois_tratamento`
-- `pre`
-- `pos`
-
-Funcoes:
-- manter status atual do ponto;
-- armazenar parametros de calibracao por sensor;
-- registrar leituras calculadas.
+- tipo canonico: `ponto_unico`;
+- parametros de calibracao por sensor;
+- status atual.
 
 ### `LeituraQualidade`
-Armazena:
-- medicoes finais (`temperatura`, `tds`, `turbidez`, `ph`);
-- sinais brutos (`JSONField`);
-- status da leitura e origem;
-- metadados de modelo e confianca.
+- medicoes finais;
+- sinais brutos;
+- status da leitura;
+- metadados tecnicos.
 
 ### `SessaoCalibracao`
-Representa sessao ativa de calibracao:
 - sensor alvo;
-- janela de validade;
-- parametros de coleta;
-- dados de fluxo em tempo real.
+- validade;
+- parametros de amostragem;
+- dados de acompanhamento em tempo real.
 
-## 5. Fluxo de Calibracao Assistida
-1. Operador inicia sessao na UI.
-2. ESP32 consulta `/api/esp32/calibracao/comando/`.
-3. Backend responde `modo=calibracao` quando ha sessao ativa.
-4. ESP envia amostras dedicadas para `/api/esp32/calibracao/amostras/`.
-5. UI calcula estabilidade das ultimas amostras.
-6. Confirmacao e habilitada apenas quando a sessao estiver estavel.
-7. Backend grava novos parametros de calibracao no ponto unico.
+## 5. Fluxo de Configuracao do ESP32
+1. O Django gera o token do reservatorio.
+2. O operador abre a tela de edicao do reservatorio.
+3. O operador copia token e `reservatorio_id`.
+4. O operador acessa o painel AP local do ESP32.
+5. O ESP32 salva configuracao estrutural em NVS.
+6. O dispositivo passa a consultar o endpoint unico de configuracao.
 
-## 6. Observabilidade
-No painel web:
-- dashboard com medias por periodo do ponto unico;
-- detalhe com series historicas por metrica;
-- status do ponto unico;
-- indicadores de ultima calibracao e vencimento.
+## 6. Fluxo de Calibracao
+1. Operador inicia a sessao na UI.
+2. O Django passa a responder `modo=calibracao` em `/api/esp32/config/`.
+3. O ESP32 troca o ciclo normal por amostras dedicadas.
+4. A UI acompanha estabilidade das ultimas amostras.
+5. O backend grava os novos parametros no ponto unico.
 
-Na camada IoT:
-- respostas HTTP para diagnostico;
-- persistencia de sinais brutos para auditoria tecnica.
-
-## 7. Compatibilidade Legada
-- A plataforma web foi simplificada para um unico ponto.
-- A API ainda aceita `antes_tratamento` e `depois_tratamento`.
-- Isso evita quebra imediata da biblioteca `MonitoramentoAgua`, que permaneceu sem alteracoes nesta fase.
+## 7. Regras de Contrato
+- `1 ESP = 1 reservatorio`
+- sem `ponto_tipo` no fluxo ativo
+- sem token global em `.env`
+- `poll` de configuracao fixo em 2 segundos
+- intervalos operacionais definidos pelo reservatorio no Django

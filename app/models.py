@@ -1,10 +1,15 @@
 from datetime import timedelta
 import math
+import secrets
 
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+
+
+def gerar_token_integracao_esp32():
+    return secrets.token_urlsafe(32)
 
 
 class Reservatorio(models.Model):
@@ -23,6 +28,8 @@ class Reservatorio(models.Model):
     META_PADRAO_NTU_TURBIDEZ = 1.5
     META_PADRAO_CELSIUS_TEMPERATURA = 25.0
     META_PADRAO_PH = 7.0
+    ESP32_INTERVALO_ENVIO_NORMAL_PADRAO_S = 60
+    ESP32_INTERVALO_ENVIO_CALIBRACAO_PADRAO_S = 5
     STATUS_CHOICES = (
         (STATUS_BOM, "Bom"),
         (STATUS_ATENCAO, "Ateno"),
@@ -48,6 +55,17 @@ class Reservatorio(models.Model):
     meta_ntu_turbidez = models.FloatField(default=META_PADRAO_NTU_TURBIDEZ)
     meta_celsius_temperatura = models.FloatField(default=META_PADRAO_CELSIUS_TEMPERATURA)
     meta_ph = models.FloatField(default=META_PADRAO_PH)
+    esp32_token_integracao = models.CharField(
+        max_length=128,
+        unique=True,
+        default=gerar_token_integracao_esp32,
+    )
+    esp32_intervalo_envio_normal_s = models.PositiveIntegerField(
+        default=ESP32_INTERVALO_ENVIO_NORMAL_PADRAO_S,
+    )
+    esp32_intervalo_envio_calibracao_s = models.PositiveIntegerField(
+        default=ESP32_INTERVALO_ENVIO_CALIBRACAO_PADRAO_S,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -99,6 +117,8 @@ class Reservatorio(models.Model):
         faixa_celsius_temperatura_max=None,
         faixa_ph_min=None,
         faixa_ph_max=None,
+        esp32_intervalo_envio_normal_s=None,
+        esp32_intervalo_envio_calibracao_s=None,
     ):
         if usuario is None:
             raise ValueError("Usuário obrigatório para criar reservatório.")
@@ -188,6 +208,16 @@ class Reservatorio(models.Model):
             meta_ntu_turbidez=meta_ntu_turbidez_final,
             meta_celsius_temperatura=meta_celsius_temperatura_final,
             meta_ph=meta_ph_final,
+            esp32_intervalo_envio_normal_s=cls._normalizar_intervalo_esp32(
+                esp32_intervalo_envio_normal_s,
+                campo="esp32_intervalo_envio_normal_s",
+                padrao=cls.ESP32_INTERVALO_ENVIO_NORMAL_PADRAO_S,
+            ),
+            esp32_intervalo_envio_calibracao_s=cls._normalizar_intervalo_esp32(
+                esp32_intervalo_envio_calibracao_s,
+                campo="esp32_intervalo_envio_calibracao_s",
+                padrao=cls.ESP32_INTERVALO_ENVIO_CALIBRACAO_PADRAO_S,
+            ),
         )
         reservatorio.garantir_pontos_monitoramento()
         return reservatorio
@@ -209,6 +239,8 @@ class Reservatorio(models.Model):
         faixa_celsius_temperatura_max=None,
         faixa_ph_min=None,
         faixa_ph_max=None,
+        esp32_intervalo_envio_normal_s=None,
+        esp32_intervalo_envio_calibracao_s=None,
     ):
         if status is not None:
             raise ValueError("O status do reservatório é automático e não pode ser editado manualmente.")
@@ -328,6 +360,22 @@ class Reservatorio(models.Model):
             )
             campos_para_salvar.append("meta_ph")
 
+        if esp32_intervalo_envio_normal_s is not None:
+            self.esp32_intervalo_envio_normal_s = self._normalizar_intervalo_esp32(
+                esp32_intervalo_envio_normal_s,
+                campo="esp32_intervalo_envio_normal_s",
+                padrao=self.ESP32_INTERVALO_ENVIO_NORMAL_PADRAO_S,
+            )
+            campos_para_salvar.append("esp32_intervalo_envio_normal_s")
+
+        if esp32_intervalo_envio_calibracao_s is not None:
+            self.esp32_intervalo_envio_calibracao_s = self._normalizar_intervalo_esp32(
+                esp32_intervalo_envio_calibracao_s,
+                campo="esp32_intervalo_envio_calibracao_s",
+                padrao=self.ESP32_INTERVALO_ENVIO_CALIBRACAO_PADRAO_S,
+            )
+            campos_para_salvar.append("esp32_intervalo_envio_calibracao_s")
+
         if not campos_para_salvar:
             return self
 
@@ -382,6 +430,11 @@ class Reservatorio(models.Model):
     def sincronizar_status_pelo_ponto_depois(self):
         return self.sincronizar_status_pelo_ponto()
 
+    def regenerar_token_integracao_esp32(self):
+        self.esp32_token_integracao = gerar_token_integracao_esp32()
+        self.save(update_fields=["esp32_token_integracao", "updated_at"])
+        return self
+
     @classmethod
     def _proximo_nome(cls):
         indice = 1
@@ -417,6 +470,20 @@ class Reservatorio(models.Model):
         numero = cls._normalizar_meta(meta, campo="meta_ph", padrao=padrao)
         if numero > 14:
             raise ValueError("meta_ph deve ser menor ou igual a 14.")
+        return numero
+
+    @staticmethod
+    def _normalizar_intervalo_esp32(valor, *, campo, padrao):
+        if valor is None:
+            return int(padrao)
+
+        try:
+            numero = int(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{campo} invalido para reservatorio.") from exc
+
+        if numero <= 0:
+            raise ValueError(f"{campo} deve ser maior que zero.")
         return numero
 
     @classmethod
@@ -960,7 +1027,7 @@ class PontoMonitoramento(models.Model):
             raise ValueError("Inclinação de pH inválida para o ponto.") from exc
 
         if not math.isfinite(numero) or numero <= 0:
-            raise ValueError("A inclina??o de pH deve ser maior que zero.")
+            raise ValueError("A inclinacao de pH deve ser maior que zero.")
         return numero
 
     @staticmethod
@@ -971,7 +1038,7 @@ class PontoMonitoramento(models.Model):
             raise ValueError("Inclinação de temperatura inválida para o ponto.") from exc
 
         if not math.isfinite(numero) or numero <= 0:
-            raise ValueError("A inclina??o de temperatura deve ser maior que zero.")
+            raise ValueError("A inclinacao de temperatura deve ser maior que zero.")
         return numero
 
     @staticmethod

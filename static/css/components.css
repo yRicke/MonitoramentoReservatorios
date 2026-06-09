@@ -663,6 +663,7 @@
 
 .edit-form input,
 .edit-form select,
+.edit-form textarea,
 .auth-form input {
     width: 100%;
     border: 1px solid #cbd6e3;
@@ -674,16 +675,20 @@
 
 .reservatorio-edit-layout {
     display: grid;
-    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 380px);
     gap: 18px;
     align-items: start;
 }
 
-.reservatorio-edit-aside {
+.reservatorio-edit-main,
+.reservatorio-edit-sidebar {
+    display: grid;
+    gap: 18px;
+}
+
+.reservatorio-edit-sidebar {
     position: sticky;
     top: 14px;
-    display: grid;
-    gap: 12px;
 }
 
 .reservatorio-edit-stack {
@@ -699,6 +704,118 @@
 .reservatorio-edit-panel-head {
     display: grid;
     gap: 8px;
+}
+
+.reservatorio-edit-form {
+    gap: 18px;
+}
+
+.reservatorio-edit-section {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid #d9e2ec;
+    border-radius: var(--radius-md);
+    background: #fbfdff;
+}
+
+.reservatorio-edit-section-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.reservatorio-edit-section-head h4 {
+    margin-bottom: 4px;
+}
+
+.reservatorio-edit-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+}
+
+.reservatorio-edit-fields-single {
+    grid-template-columns: 1fr;
+}
+
+.form-field {
+    display: grid;
+    gap: 8px;
+}
+
+.sensor-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border: 1px solid #c9d7e6;
+    border-radius: 999px;
+    background: #f2f7fc;
+    color: #35516b;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.reservatorio-edit-submitbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding-top: 4px;
+}
+
+.reservatorio-tech-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.reservatorio-tech-item {
+    display: grid;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid #d9e2ec;
+    border-radius: var(--radius-md);
+    background: #fbfdff;
+}
+
+.reservatorio-tech-item-full {
+    grid-column: 1 / -1;
+}
+
+.reservatorio-tech-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.reservatorio-tech-value {
+    font-size: 18px;
+    color: var(--color-text);
+}
+
+.reservatorio-tech-token {
+    min-height: 92px;
+    resize: vertical;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.45;
+    background: #f7fafc;
+}
+
+.reservatorio-tech-note {
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    background: #f5f8fb;
+    border: 1px solid #dbe4ee;
+}
+
+.reservatorio-tech-note .edit-help {
+    margin-top: 0;
 }
 
 .reservatorio-edit-danger {
@@ -1211,8 +1328,13 @@
         grid-template-columns: 1fr;
     }
 
-    .reservatorio-edit-aside {
+    .reservatorio-edit-sidebar {
         position: static;
+    }
+
+    .reservatorio-edit-fields,
+    .reservatorio-tech-grid {
+        grid-template-columns: 1fr;
     }
 
     .detail-metrics-grid {
@@ -1277,6 +1399,14 @@
 
     .ph-paper-entry-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .reservatorio-edit-section-head,
+    .reservatorio-edit-submitbar {
+        flex-direction: column;
+        align-items: stretch;
     }
 }
 

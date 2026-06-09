@@ -4,9 +4,9 @@
 <h3>{{ titulo_calibracao_ativa }}</h3>
 <p class="status-meta calibration-page-intro">
     {% if sensor_selecionado == "ph" %}
-    Sensor atual: <strong>{{ sensor_selecionado_nome }}</strong>. Use a sessão apenas para observar a tensão estabilizada, anotar dois pares pH/voltagem e depois salvar a calibração manual.
+    Sensor atual: <strong>{{ sensor_selecionado_nome }}</strong>. Use a sessao apenas para observar a tensao estabilizada, anotar dois pares pH/voltagem e depois salvar a calibracao manual.
     {% else %}
-    Sensor atual: <strong>{{ sensor_selecionado_nome }}</strong>. O sistema usa a média estável das amostras da sessão para calcular a calibração.
+    Sensor atual: <strong>{{ sensor_selecionado_nome }}</strong>. O sistema usa a media estavel das amostras da sessao para calcular a calibracao.
     {% endif %}
 </p>
 
@@ -14,34 +14,33 @@
 <section class="ph-calibration-section">
     <h5>Temperatura</h5>
     <p class="status-meta">
-        Informe em quanto a média da temperatura deveria estar. O sistema usa a média estável da sessão para ajustar a calibração automaticamente.
+        Informe em quanto a media da temperatura deveria estar. O sistema usa a media estavel da sessao para ajustar a calibracao automaticamente.
     </p>
     <div class="ph-auto-grid calibration-single-grid">
         <form class="ph-auto-card" method="post" data-calibration-form data-sensor-form="temperatura"
             action="{% url 'reservatorio_calibracao_temperatura_auto' reservatorio.id %}">
             {% csrf_token %}
-            <input type="hidden" name="ponto_tipo" value="{{ ponto_calibracao.tipo_canonico }}">
             <p class="ph-calibration-status {% if temperatura_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
                 {% if temperatura_calibracao_ativa.calibrado_em %}
-                Última calibração: {{ temperatura_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ temperatura_calibracao_ativa.dias }}d)
+                Ultima calibracao: {{ temperatura_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ temperatura_calibracao_ativa.dias }}d)
                 {% else %}
-                Última calibração: nunca calibrado
+                Ultima calibracao: nunca calibrado
                 {% endif %}
             </p>
-            <label for="temperatura_referencia_ativa">A média da temperatura deveria estar em (C)</label>
+            <label for="temperatura_referencia_ativa">A media da temperatura deveria estar em (C)</label>
             <input id="temperatura_referencia_ativa" name="temperatura_referencia_c" type="number"
                 step="0.01" value="{{ ponto_calibracao.temperatura_valor_referencia_c|default:reservatorio.meta_celsius_temperatura|unlocalize }}"
                 required>
             <details class="calibration-advanced">
-                <summary>Ajustes avançados</summary>
+                <summary>Ajustes avancados</summary>
                 <p class="status-meta">
-                    A inclinação define o quanto o valor final reage a mudanças na leitura bruta do sensor. Não é recomendado alterar isso sem necessidade.
+                    A inclinacao define o quanto o valor final reage a mudancas na leitura bruta do sensor. Nao e recomendado alterar isso sem necessidade.
                 </p>
-                <label for="temperatura_inclinacao_ativa">Inclinação atual</label>
+                <label for="temperatura_inclinacao_ativa">Inclinacao atual</label>
                 <input id="temperatura_inclinacao_ativa" name="temperatura_inclinacao" type="number"
                     min="0.001" step="0.001" value="{{ ponto_calibracao.temperatura_inclinacao|unlocalize }}" required>
             </details>
-            <button class="btn-main" type="submit" data-confirm-button disabled>Salvar calibração</button>
+            <button class="btn-main" type="submit" data-confirm-button disabled>Salvar calibracao</button>
             <p class="status-meta" data-confirm-hint>Aguardando estabilidade do sensor.</p>
         </form>
     </div>
@@ -50,33 +49,32 @@
 <section class="water-calibration-section">
     <h5>TDS</h5>
     <p class="status-meta">
-        Informe em quanto a média do TDS deveria estar. A temperatura calibrada atual deste ponto continua sendo usada no cálculo.
+        Informe em quanto a media do TDS deveria estar. A temperatura calibrada atual continua sendo usada no calculo.
     </p>
     <div class="water-auto-grid calibration-single-grid">
         <form class="water-auto-card" method="post" data-calibration-form data-sensor-form="tds"
             action="{% url 'reservatorio_calibracao_tds_auto' reservatorio.id %}">
             {% csrf_token %}
-            <input type="hidden" name="ponto_tipo" value="{{ ponto_calibracao.tipo_canonico }}">
             <p class="water-calibration-status {% if tds_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
                 {% if tds_calibracao_ativa.calibrado_em %}
-                Última calibração: {{ tds_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ tds_calibracao_ativa.dias }}d)
+                Ultima calibracao: {{ tds_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ tds_calibracao_ativa.dias }}d)
                 {% else %}
-                Última calibração: nunca calibrado
+                Ultima calibracao: nunca calibrado
                 {% endif %}
             </p>
-            <label for="tds_alvo_ativo">A média do TDS deveria estar em (ppm)</label>
+            <label for="tds_alvo_ativo">A media do TDS deveria estar em (ppm)</label>
             <input id="tds_alvo_ativo" name="tds_alvo_ppm" type="number" min="0" max="49.99"
                 step="0.01" value="{{ ponto_calibracao.tds_alvo_calibracao_ppm|unlocalize }}" required>
             <details class="calibration-advanced">
-                <summary>Ajustes avançados</summary>
+                <summary>Ajustes avancados</summary>
                 <p class="status-meta">
-                    A inclinação controla o ganho do sensor na conversão final. Não é recomendado alterar este valor sem uma necessidade técnica clara.
+                    A inclinacao controla o ganho do sensor na conversao final. Nao e recomendado alterar este valor sem necessidade tecnica clara.
                 </p>
-                <label for="tds_inclinacao_ativa">Inclinação atual</label>
+                <label for="tds_inclinacao_ativa">Inclinacao atual</label>
                 <input id="tds_inclinacao_ativa" name="tds_inclinacao" type="number"
                     min="0.001" step="0.001" value="{{ ponto_calibracao.tds_inclinacao|unlocalize }}" required>
             </details>
-            <button class="btn-main" type="submit" data-confirm-button disabled>Salvar calibração</button>
+            <button class="btn-main" type="submit" data-confirm-button disabled>Salvar calibracao</button>
             <p class="status-meta" data-confirm-hint>Aguardando estabilidade do sensor e da temperatura.</p>
         </form>
     </div>
@@ -85,33 +83,32 @@
 <section class="water-calibration-section">
     <h5>Turbidez</h5>
     <p class="status-meta">
-        Informe em quanto a média da turbidez deveria estar. A calibração usa a média estável da sessão e aplica o ajuste automaticamente.
+        Informe em quanto a media da turbidez deveria estar. A calibracao usa a media estavel da sessao e aplica o ajuste automaticamente.
     </p>
     <div class="water-auto-grid calibration-single-grid">
         <form class="water-auto-card" method="post" data-calibration-form data-sensor-form="turbidez"
             action="{% url 'reservatorio_calibracao_turbidez_auto' reservatorio.id %}">
             {% csrf_token %}
-            <input type="hidden" name="ponto_tipo" value="{{ ponto_calibracao.tipo_canonico }}">
             <p class="water-calibration-status {% if turbidez_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
                 {% if turbidez_calibracao_ativa.calibrado_em %}
-                Última calibração: {{ turbidez_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ turbidez_calibracao_ativa.dias }}d)
+                Ultima calibracao: {{ turbidez_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ turbidez_calibracao_ativa.dias }}d)
                 {% else %}
-                Última calibração: nunca calibrado
+                Ultima calibracao: nunca calibrado
                 {% endif %}
             </p>
-            <label for="turbidez_alvo_ativo">A média da turbidez deveria estar em (NTU)</label>
+            <label for="turbidez_alvo_ativo">A media da turbidez deveria estar em (NTU)</label>
             <input id="turbidez_alvo_ativo" name="turbidez_alvo_ntu" type="number" min="0" max="0.499"
                 step="0.001" value="{{ ponto_calibracao.turbidez_alvo_calibracao_ntu|unlocalize }}" required>
             <details class="calibration-advanced">
-                <summary>Ajustes avançados</summary>
+                <summary>Ajustes avancados</summary>
                 <p class="status-meta">
-                    A inclinação ajusta o ganho da conversão para NTU. Não é recomendado alterar isso manualmente sem validação técnica.
+                    A inclinacao ajusta o ganho da conversao para NTU. Nao e recomendado alterar isso manualmente sem validacao tecnica.
                 </p>
-                <label for="turbidez_inclinacao_ativa">Inclinação atual</label>
+                <label for="turbidez_inclinacao_ativa">Inclinacao atual</label>
                 <input id="turbidez_inclinacao_ativa" name="turbidez_inclinacao" type="number"
                     min="0.001" step="0.001" value="{{ ponto_calibracao.turbidez_inclinacao|unlocalize }}" required>
             </details>
-            <button class="btn-main" type="submit" data-confirm-button disabled>Salvar calibração</button>
+            <button class="btn-main" type="submit" data-confirm-button disabled>Salvar calibracao</button>
             <p class="status-meta" data-confirm-hint>Aguardando estabilidade do sensor.</p>
         </form>
     </div>
@@ -120,55 +117,54 @@
 <section class="ph-calibration-section">
     <h5>pH em 2 pontos - papel e caneta</h5>
     <p class="status-meta">
-        Use a sessão apenas para observar a tensão estabilizada em cada solução conhecida. Depois, preencha abaixo os dois pares pH/voltagem e salve. Recomendado usar 7 e 4, ou 7 e 10.
+        Use a sessao apenas para observar a tensao estabilizada em cada solucao conhecida. Depois, preencha abaixo os dois pares pH/voltagem e salve. Recomendado usar 7 e 4, ou 7 e 10.
     </p>
     <div class="ph-manual-grid calibration-single-grid">
         <form class="ph-manual-card ph-paper-form" method="post" action="{% url 'reservatorio_calibracao_ph_auto' reservatorio.id %}">
             {% csrf_token %}
-            <input type="hidden" name="ponto_tipo" value="{{ ponto_calibracao.tipo_canonico }}">
             <p class="ph-calibration-status {% if ph_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
                 {% if ph_calibracao_ativa.calibrado_em %}
-                Última calibração: {{ ph_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ ph_calibracao_ativa.dias }}d)
+                Ultima calibracao: {{ ph_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ ph_calibracao_ativa.dias }}d)
                 {% else %}
-                Última calibração: nunca calibrado
+                Ultima calibracao: nunca calibrado
                 {% endif %}
             </p>
             <p class="ph-voltage-hint">
-                Fluxo sugerido: medir a solução 1, anotar a tensão estabilizada, limpar o sensor, medir a solução 2, anotar novamente e só então preencher os quatro campos.
+                Fluxo sugerido: medir a solucao 1, anotar a tensao estabilizada, limpar o sensor, medir a solucao 2, anotar novamente e so entao preencher os quatro campos.
             </p>
             <div class="ph-paper-entry-grid">
-                <label for="ph_solucao_ponto_1">pH da solução 1 conhecida</label>
-                <label for="ph_tensao_ponto_1">Tensão da solução 1 (V)</label>
+                <label for="ph_solucao_ponto_1">pH da solucao 1 conhecida</label>
+                <label for="ph_tensao_ponto_1">Tensao da solucao 1 (V)</label>
                 <input id="ph_solucao_ponto_1" name="ph_solucao_ponto_1" type="number" min="0" max="14" step="0.01" value="7.00" required>
                 <input id="ph_tensao_ponto_1" name="ph_tensao_ponto_1" type="number" min="0" max="3.3" step="0.001" required>
-                <label for="ph_solucao_ponto_2">pH da solução 2 conhecida</label>
-                <label for="ph_tensao_ponto_2">Tensão da solução 2 (V)</label>
+                <label for="ph_solucao_ponto_2">pH da solucao 2 conhecida</label>
+                <label for="ph_tensao_ponto_2">Tensao da solucao 2 (V)</label>
                 <input id="ph_solucao_ponto_2" name="ph_solucao_ponto_2" type="number" min="0" max="14" step="0.01" value="4.00" required>
                 <input id="ph_tensao_ponto_2" name="ph_tensao_ponto_2" type="number" min="0" max="3.3" step="0.001" required>
             </div>
             <p class="status-meta">
-                O sistema ajusta a reta do eletrodo a partir dos dois pontos informados e preserva a temperatura de calibração atual deste ponto.
+                O sistema ajusta a reta do eletrodo a partir dos dois pontos informados e preserva a temperatura de calibracao atual.
             </p>
-            <button class="btn-main" type="submit">Salvar calibração</button>
+            <button class="btn-main" type="submit">Salvar calibracao</button>
         </form>
     </div>
 </section>
 {% endif %}
 
 <section class="water-calibration-section">
-    <h5>Reset de calibração</h5>
+    <h5>Reset de calibracao</h5>
     <p class="status-meta">
-        Use apenas quando precisar voltar os parâmetros deste sensor para o padrão inicial.
+        Use apenas quando precisar voltar os parametros deste sensor para o padrao inicial.
     </p>
     <form
         class="water-auto-card"
         method="post"
-        action="{% url 'reservatorio_calibracao_sensor_resetar' reservatorio.id ponto_calibracao.tipo_canonico sensor_selecionado %}"
+        action="{% url 'reservatorio_calibracao_sensor_resetar' reservatorio.id sensor_selecionado %}"
         data-confirm-reset-calibracao-sensor
         data-sensor-nome="{{ sensor_selecionado_nome }}"
         data-ponto-nome="{{ ponto_calibracao.nome_exibicao }}"
     >
         {% csrf_token %}
-        <button class="btn-main" type="submit">Resetar dados de calibração do sensor</button>
+        <button class="btn-main" type="submit">Resetar dados de calibracao do sensor</button>
     </form>
 </section>

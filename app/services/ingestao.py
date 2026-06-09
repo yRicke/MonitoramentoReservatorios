@@ -21,7 +21,7 @@ def processar_leitura_esp32(request_body):
     payload = _carregar_payload(request_body)
 
     reservatorio_id = payload.get("reservatorio_id")
-    ponto_tipo = _extrair_ponto_tipo(payload)
+    _validar_payload_ponto_unico(payload)
     temperatura_bruta = _extrair_float(payload, "temperatura")
     sinais_brutos = _extrair_sinais_brutos(payload)
     sinais_brutos["temperatura_bruta"] = temperatura_bruta
@@ -32,9 +32,9 @@ def processar_leitura_esp32(request_body):
         raise IngestaoLeituraErro("reservatório inválido")
 
     reservatorio.garantir_pontos_monitoramento()
-    ponto = reservatorio.obter_ponto_monitoramento(ponto_tipo)
+    ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
     if ponto is None:
-        raise IngestaoLeituraErro("ponto_tipo invalido")
+        raise IngestaoLeituraErro("ponto de monitoramento invÃ¡lido")
 
     temperatura = ponto.aplicar_calibracao_temperatura(temperatura_bruta)
     tds = _resolver_tds(payload, sinais_brutos, temperatura)
@@ -99,15 +99,9 @@ def _carregar_payload(request_body):
     return payload
 
 
-def _extrair_ponto_tipo(payload):
-    ponto_tipo = payload.get("ponto_tipo")
-    if ponto_tipo is None:
-        raise IngestaoLeituraErro("campo obrigatorio: ponto_tipo")
-
-    try:
-        return PontoMonitoramento.normalizar_tipo(ponto_tipo)
-    except ValueError as exc:
-        raise IngestaoLeituraErro("campo invalido: ponto_tipo") from exc
+def _validar_payload_ponto_unico(payload):
+    if "ponto_tipo" in payload:
+        raise IngestaoLeituraErro("campo nao suportado: ponto_tipo")
 
 
 def _extrair_float(payload, campo):

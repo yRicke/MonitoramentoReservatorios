@@ -5,40 +5,31 @@
 #include <DallasTemperature.h>
 #include <OneWire.h>
 #include <Preferences.h>
+#include <WebServer.h>
 #include <WiFi.h>
-
-enum MonitoramentoModoRede {
-  MONITORAMENTO_REDE_AP,
-  MONITORAMENTO_REDE_STA
-};
 
 struct MonitoramentoAguaConfig {
   MonitoramentoAguaConfig();
 
-  MonitoramentoModoRede modoRede;
-  const char* redeSsid;
-  const char* redePassword;
-  IPAddress localIP;
+  const char* apSsid;
+  const char* apPassword;
+  IPAddress apIP;
   IPAddress gateway;
   IPAddress subnet;
-  IPAddress dns;
 
   const char* djangoHost;
   int djangoPort;
-  const char* djangoPath;
-  const char* djangoSyncPath;
-  const char* djangoCalibrationCommandPath;
+  const char* djangoLeiturasPath;
+  const char* djangoConfiguracaoPath;
   const char* djangoCalibrationSamplesPath;
-  const char* apiToken;
 
   int reservatorioId;
-  const char* pontoTipo;
+  const char* apiToken;
   const char* deviceId;
 
-  unsigned long intervaloEnvioMs;
-  unsigned long intervaloSyncRelogioMs;
-  unsigned long intervaloPollCalibracaoMs;
+  unsigned long intervaloEnvioNormalPadraoMs;
   unsigned long intervaloEnvioCalibracaoPadraoMs;
+  unsigned long intervaloPollConfiguracaoMs;
   unsigned long delayLoopMs;
 
   int tdsPin;
@@ -77,23 +68,32 @@ private:
   MonitoramentoAguaConfig config_;
   OneWire oneWire_;
   DallasTemperature sensors_;
-  Preferences prefs_;
+  Preferences prefsConfig_;
+  Preferences prefsQueue_;
+  WebServer server_;
+
+  String apSsid_;
+  String apPassword_;
+  String djangoHost_;
+  String apiToken_;
+  String deviceId_;
+  IPAddress apIP_;
+  int reservatorioId_;
+  unsigned long intervaloEnvioNormalMs_;
+  unsigned long intervaloEnvioCalibracaoMs_;
+  unsigned long intervaloPollConfiguracaoMs_;
 
   unsigned long ultimoEnvio_;
   unsigned long ultimoFlushFila_;
-  unsigned long ultimaSincronizacaoRelogio_;
-  unsigned long proximaLeituraSincronizada_;
-  unsigned long ultimoPollCalibracao_;
+  unsigned long ultimoPollConfiguracao_;
   unsigned long ultimoEnvioCalibracao_;
-  unsigned long ultimaTentativaReconexao_;
 
-  bool relogioSincronizado_;
   bool calibracaoAtiva_;
-  bool nvsDisponivel_;
   bool iniciado_;
+  bool prefsConfigDisponivel_;
+  bool prefsQueueDisponivel_;
 
   String sensorCalibracaoAtivo_;
-  unsigned long intervaloEnvioCalibracaoMs_;
   int qtdAmostrasCalibracao_;
   int atrasoAmostraCalibracaoMs_;
   long sessaoCalibracaoId_;
@@ -103,15 +103,26 @@ private:
   int filaFim_;
   int filaQuantidade_;
 
-  String montarUrlDjangoLeituras();
-  String montarUrlDjangoSync();
-  String montarUrlDjangoComandoCalibracao();
-  String montarUrlDjangoAmostrasCalibracao();
+  void carregarConfiguracaoSalva();
+  void salvarConfiguracaoSalva();
+  void carregarCacheIntervalos();
+  void salvarCacheIntervalos();
+  bool configuracaoProntaParaEnvio() const;
+  void garantirDeviceId();
 
-  void iniciarRede();
   void iniciarRedePropria();
-  void conectarNaRedePrincipal();
-  bool redeDisponivel();
+  bool redeDisponivel() const;
+
+  void iniciarPainelConfiguracao();
+  void responderPainelConfiguracao();
+  void salvarPainelConfiguracao();
+  String montarHtmlPainel(const String& alerta = "") const;
+  static String escaparHtml(const String& valor);
+  static bool converterIp(const String& texto, IPAddress& ip);
+
+  String montarUrlDjangoLeituras() const;
+  String montarUrlDjangoConfiguracao() const;
+  String montarUrlDjangoAmostrasCalibracao() const;
 
   void resetarFilaEmMemoria();
   void salvarFilaEmFlash();
@@ -130,13 +141,12 @@ private:
   bool enviarLeitura(float temperatura, int adcTds, int adcTurb, int adcPh, unsigned long firmwareTsMs);
   bool enviarAmostraCalibracao(const String& sensor, float temperatura, int adcTds, int adcTurb, int adcPh, unsigned long firmwareTsMs);
 
-  String extrairCampoJsonString(const String& json, const String& chave);
-  long extrairCampoJsonLong(const String& json, const String& chave, long padrao);
+  String extrairCampoJsonString(const String& json, const String& chave) const;
+  long extrairCampoJsonLong(const String& json, const String& chave, long padrao) const;
 
-  bool atualizarSincronizacaoLeitura(bool forcar = false);
+  bool atualizarConfiguracaoRemota();
   void desativarModoCalibracao();
-  void aplicarModoCalibracao(const String& sensor, long sessaoId, unsigned long intervaloEnvioMs, int qtdAmostras, int atrasoAmostraMs);
-  void atualizarModoCalibracao();
+  void aplicarModoCalibracao(const String& sensor, long sessaoId, int qtdAmostras, int atrasoAmostraMs);
 
   void executarCicloLeituraNormal();
   void executarCicloCalibracao();

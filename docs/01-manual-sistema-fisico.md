@@ -1,32 +1,28 @@
 # Manual Tecnico do Sistema Fisico
 
 ## 1. Objetivo
-Este documento descreve o modulo fisico do sistema de monitoramento de agua, baseado em ESP32, sensores analogicos e integracao com a plataforma web.
-
-Objetivos principais:
-- coletar medicoes de qualidade da agua em campo;
-- manter coleta continua mesmo com instabilidade de rede;
-- enviar leituras estruturadas para o backend Django;
-- suportar rotinas de calibracao assistida em operacao.
+Este documento descreve o modulo fisico do sistema de monitoramento de agua baseado em:
+- ESP32;
+- sensores analogicos;
+- painel local em AP;
+- integracao HTTP com o backend Django.
 
 ## 2. Escopo do Modulo Fisico
-O produto fisico cobre:
-- hardware embarcado (ESP32 + sensores);
+O modulo fisico cobre:
+- hardware embarcado;
 - firmware da biblioteca `MonitoramentoAgua`;
-- conectividade Wi-Fi em modo AP ou STA;
-- envio de leitura para endpoints HTTP do backend;
-- fila offline persistente em NVS.
-
-Nao cobre:
-- decisao final de status de qualidade (executada no backend);
-- gestao de usuarios e dashboards da plataforma.
+- conectividade em modo AP;
+- painel web local de configuracao;
+- envio de leituras e amostras de calibracao;
+- cache local dos ultimos intervalos recebidos do servidor.
 
 ## 3. Fluxo Fisico Resumido
-1. Sensores coletam grandezas fisicas e eletricas.
-2. ESP32 realiza amostragem e filtragem local.
-3. Leitura e enfileirada localmente.
-4. Quando a rede esta disponivel, o firmware envia para a API Django.
-5. Backend processa, classifica e persiste no ponto unico do reservatorio.
+1. O ESP32 sobe a rede AP local.
+2. O operador acessa `http://<ip_atual>/<senha_wifi>`.
+3. O painel salva `reservatorio_id`, IP do Django e token.
+4. O firmware consulta `GET /api/esp32/config/` a cada 2 segundos.
+5. Em modo normal, envia leitura em `/api/esp32/leituras/`.
+6. Em modo de calibracao, envia amostras em `/api/esp32/calibracao/amostras/`.
 
 ## 4. Componentes de Hardware
 - Microcontrolador: ESP32
@@ -35,31 +31,28 @@ Nao cobre:
 - Sensor de turbidez: saida analogica
 - Sensor de pH: saida analogica
 
-Dependencias de firmware:
+Dependencias:
 - `OneWire`
 - `DallasTemperature`
 
-## 5. Pinagem Padrao do Firmware
+## 5. Pinagem Padrao
 Definida em `MonitoramentoAguaConfig`:
 - `ds18b20Pin`: 4
 - `tdsPin`: 34
 - `turbidityPin`: 35
 - `phPin`: 32
 
-## 6. Canais de Comunicacao com Backend
-URLs usadas pelo firmware:
-- `/api/esp32/leituras/`
-- `/api/esp32/sync/`
-- `/api/esp32/calibracao/comando/`
-- `/api/esp32/calibracao/amostras/`
+## 6. Endpoints do Backend
+- `GET /api/esp32/config/`
+- `POST /api/esp32/leituras/`
+- `POST /api/esp32/calibracao/amostras/`
 
-Cabecalho de autenticacao:
-- `X-API-Token: <token>`
+Autenticacao:
+- `X-API-Token: <token_do_reservatorio>`
 
 ## 7. Estrutura de Leitura Enviada
 Payload tipico:
 - `reservatorio_id`
-- `ponto_tipo`
 - `device_id`
 - `temperatura`
 - `raw.adc_tds`
@@ -68,46 +61,24 @@ Payload tipico:
 - `raw.firmware_ts_ms`
 - `raw.firmware_now_ms`
 
-Contrato atual do backend:
-- o sistema opera com `ponto_unico`;
-- por compatibilidade, a API ainda aceita `antes_tratamento` e `depois_tratamento`.
+Observacao:
+- o fluxo ativo nao usa `ponto_tipo`.
 
-## 8. Resiliencia Offline
-Mecanismo implementado:
-- fila circular local;
-- persistencia em NVS;
-- reenvio automatico quando a rede volta;
-- descarte da leitura mais antiga se a fila lotar.
+## 8. Cache e Persistencia
+Persistido em NVS:
+- configuracao estrutural do painel;
+- `device_id`;
+- ultimo `intervalo_normal_ms` valido;
+- ultimo `intervalo_calibracao_ms` valido.
 
-## 9. Sincronizacao Temporal
-O firmware consulta `/api/esp32/sync/` para:
-- obter o intervalo oficial de leitura;
-- alinhar a proxima coleta com o servidor;
-- reduzir desalinhamento entre dispositivos.
+Com Django offline:
+- o ESP32 continua usando o ultimo cache valido;
+- apos reboot, sobe com os ultimos intervalos persistidos.
 
-## 10. Modo de Calibracao no Dispositivo
-Durante calibracao:
-1. firmware consulta o endpoint de comando;
-2. backend informa modo e sensor ativo;
-3. dispositivo envia amostras dedicadas;
-4. ao encerrar a sessao, retorna ao ciclo normal.
-
-## 11. Instalacao Fisica Recomendada
-1. Definir o ponto fisico monitorado para cada reservatorio.
-2. Instalar sensores com protecao mecanica e acesso para manutencao.
-3. Garantir isolamento de respingos na eletronica.
-4. Validar alimentacao estavel e aterramento.
-5. Validar intensidade de sinal Wi-Fi no local.
-
-## 12. Comissionamento de Campo
-1. Gravar firmware com `reservatorio_id`, `ponto_tipo` e `device_id` corretos.
-2. Configurar `djangoHost` e `apiToken` validos.
-3. Verificar conexao Wi-Fi.
-4. Confirmar retorno `201` em `/api/esp32/leituras/`.
-5. Conferir leitura no painel web do reservatorio correto.
-6. Executar calibracao inicial dos sensores.
-
-## 13. Observacao Importante desta Fase
-- O backend e a interface web ja usam ponto unico.
-- A biblioteca Arduino nao foi refatorada nesta etapa.
-- Por isso, aliases legados de `ponto_tipo` continuam aceitos pela API.
+## 9. Comissionamento de Campo
+1. Gravar o firmware generico.
+2. Conectar no AP do ESP32.
+3. Abrir o painel local.
+4. Informar `reservatorio_id`, `ip_django` e token.
+5. Salvar e aguardar reinicio.
+6. Confirmar recebimento no painel web do reservatorio.

@@ -1,7 +1,7 @@
 {% extends "blocos/base.html" %}
-{% load static l10n %}
+{% load static %}
 
-{% block title %}Editar reservatório {{ reservatorio.nome }}{% endblock %}
+{% block title %}Editar reservatorio {{ reservatorio.nome }}{% endblock %}
 
 {% block content %}
 <section class="message-wrap">
@@ -16,7 +16,7 @@
     <div class="detail-hero-copy">
         <h2>EDITAR {{ reservatorio.nome|upper }}</h2>
         <p class="index-hero-subtitle">
-            Atualize os parâmetros do reservatório e revise as faixas usadas para classificar o status da água.
+            Revise os limites de cada sensor, ajuste o comportamento do ESP32 e mantenha os dados de integracao organizados em um unico lugar.
         </p>
         <p class="detail-status">
             <span>Status atual:</span>
@@ -29,20 +29,7 @@
 </section>
 
 <section class="reservatorio-edit-layout">
-    <article class="panel reservatorio-edit-aside">
-        <div class="calibration-step-kicker">Resumo</div>
-        <h3>Revisão rápida</h3>
-        <p class="status-meta">
-            Use esta tela para ajustar os limites ideais de temperatura, TDS, turbidez e pH.
-        </p>
-        <p class="status-meta">
-            As mudanças afetam a classificação automática exibida no dashboard, nos detalhes e no relatório.
-        </p>
-    </article>
-
-    <div class="reservatorio-edit-stack">
-        {% include "reservatorio/_edicao_formularios.html" %}
-    </div>
+    {% include "reservatorio/_edicao_formularios.html" %}
 </section>
 {% endblock %}
 
