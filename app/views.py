@@ -3,6 +3,7 @@ import json
 import math
 import secrets
 import statistics
+import time
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -67,6 +68,8 @@ DIAS_ALERTA_CALIBRACAO_PH = 15
 DIAS_ALERTA_CALIBRACAO_AGUA = 15
 TTL_SESSAO_CALIBRACAO_SEGUNDOS = 10 * 60
 LIMITE_AMOSTRAS_STATUS_CALIBRACAO = 30
+CALIBRACAO_STATUS_LONG_POLL_MAX_MS = 15 * 1000
+CALIBRACAO_STATUS_LONG_POLL_SLEEP_MS = 0.2
 DESVIO_MAXIMO_ESTAVEL_TEMPERATURA = 0.2
 DESVIO_MAXIMO_ESTAVEL_TDS_ADC = 20.0
 DESVIO_MAXIMO_ESTAVEL_TURBIDEZ_ADC = 20.0
@@ -257,7 +260,7 @@ def reservatorio_atualizar(request, reservatorio_id):
         return redirect("reservatorio_editar", reservatorio_id=reservatorio.id)
 
     messages.success(request, "Reservatório atualizado.")
-    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+    return redirect("reservatorio_editar", reservatorio_id=reservatorio.id)
 
 
 @login_required(login_url="entrar")
@@ -325,6 +328,7 @@ def reservatorio_calibracao_sensor(request, reservatorio_id, sensor_id):
                 ponto=ponto_calibracao,
                 sensor=sensor_selecionado,
             ),
+            "calibracao_intervalo_poll_ms": int(reservatorio.esp32_intervalo_envio_calibracao_s) * 1000,
         },
     )
 
@@ -421,10 +425,24 @@ def reservatorio_calibracao_sessao_status(request, reservatorio_id, sensor_id):
         return JsonResponse({"erro": "ponto inválido"}, status=404)
 
     sensor = _normalizar_sensor_calibracao(sensor_id, padrao="temperatura")
-    return JsonResponse(
-        _resumo_sessao_calibracao(ponto=ponto, sensor=sensor),
-        status=200,
+    intervalo_padrao_ms = int(reservatorio.esp32_intervalo_envio_calibracao_s) * 1000
+    cursor = str(request.GET.get("cursor") or "").strip()
+    wait_ms = _normalizar_wait_status_calibracao_ms(
+        request.GET.get("wait_ms"),
+        intervalo_padrao_ms=intervalo_padrao_ms,
     )
+    if cursor and wait_ms > 0:
+        _aguardar_atualizacao_status_calibracao(
+            ponto=ponto,
+            sensor=sensor,
+            cursor_atual=cursor,
+            wait_ms=wait_ms,
+        )
+
+    resumo = _resumo_sessao_calibracao(ponto=ponto, sensor=sensor)
+    if not resumo.get("intervalo_poll_ms"):
+        resumo["intervalo_poll_ms"] = intervalo_padrao_ms
+    return JsonResponse(resumo, status=200)
 
 
 @login_required(login_url="entrar")
@@ -1106,6 +1124,8 @@ def _resumo_sessao_calibracao(*, ponto, sensor):
             "medias": {},
             "medianas": {},
             "serie": [],
+            "cursor": _cursor_sessao_calibracao_inativa(sensor),
+            "intervalo_poll_ms": None,
             "estabilidade_sensor": {"disponivel": False, "estavel": False, "desvio": None},
             "estabilidade_temperatura": {"disponivel": False, "estavel": False, "desvio": None},
         }
@@ -1134,6 +1154,8 @@ def _resumo_sessao_calibracao(*, ponto, sensor):
         "sessao_id": sessao.id,
         "status": sessao.status,
         "dados_fluxo": sessao.dados_fluxo if isinstance(sessao.dados_fluxo, dict) else {},
+        "cursor": _cursor_sessao_calibracao_ativa(sessao),
+        "intervalo_poll_ms": sessao.intervalo_envio_ms,
         "iniciada_em": timezone.localtime(sessao.iniciada_em).isoformat(),
         "expira_em": timezone.localtime(sessao.expira_em).isoformat(),
         "ultima_amostra_em": timezone.localtime(sessao.ultima_amostra_em).isoformat() if sessao.ultima_amostra_em else None,
@@ -1179,6 +1201,41 @@ def _resumo_sessao_calibracao(*, ponto, sensor):
             "limite": DESVIO_MAXIMO_ESTAVEL_TEMPERATURA if temperatura_disponivel else None,
         },
     }
+
+
+def _cursor_sessao_calibracao_inativa(sensor):
+    return f"inativa:{sensor}"
+
+
+def _cursor_sessao_calibracao_ativa(sessao):
+    atualizado_em = timezone.localtime(sessao.updated_at).isoformat() if sessao.updated_at else ""
+    ultima_amostra_em = timezone.localtime(sessao.ultima_amostra_em).isoformat() if sessao.ultima_amostra_em else ""
+    return f"ativa:{sessao.id}:{atualizado_em}:{ultima_amostra_em}"
+
+
+def _cursor_sessao_calibracao_atual(*, ponto, sensor):
+    sessao = SessaoCalibracao.obter_ativa(ponto=ponto, sensor=sensor)
+    if sessao is None:
+        return _cursor_sessao_calibracao_inativa(sensor)
+    return _cursor_sessao_calibracao_ativa(sessao)
+
+
+def _normalizar_wait_status_calibracao_ms(valor, *, intervalo_padrao_ms):
+    try:
+        wait_ms = int(valor)
+    except (TypeError, ValueError):
+        wait_ms = int(intervalo_padrao_ms or 0)
+
+    wait_ms = max(0, wait_ms)
+    return min(wait_ms, CALIBRACAO_STATUS_LONG_POLL_MAX_MS)
+
+
+def _aguardar_atualizacao_status_calibracao(*, ponto, sensor, cursor_atual, wait_ms):
+    prazo_final = time.monotonic() + (wait_ms / 1000.0)
+    while time.monotonic() < prazo_final:
+        if _cursor_sessao_calibracao_atual(ponto=ponto, sensor=sensor) != cursor_atual:
+            return
+        time.sleep(CALIBRACAO_STATUS_LONG_POLL_SLEEP_MS)
 
 
 def _temperatura_bruta_para_calibracao(ponto):

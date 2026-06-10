@@ -55,7 +55,9 @@
     <div class="calibration-live-grid" id="calibrationLivePanel"
         data-status-url="{% url 'reservatorio_calibracao_sessao_status' reservatorio.id sensor_selecionado %}"
         data-sensor="{{ sensor_selecionado }}"
-        data-session-active="{% if sessao_calibracao_ativa.ativa %}true{% else %}false{% endif %}">
+        data-session-active="{% if sessao_calibracao_ativa.ativa %}true{% else %}false{% endif %}"
+        data-status-cursor="{{ sessao_calibracao_ativa.cursor|default:'' }}"
+        data-poll-interval-ms="{{ calibracao_intervalo_poll_ms }}">
         <article class="calibration-live-card">
             <h4>Status da sessao</h4>
             <p class="calibration-live-value" data-live-status>
@@ -92,6 +94,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{% static 'js/calibracao-sensor.js' %}?v=20260610-polling-1"></script>
+<script src="{% static 'js/calibracao-sensor.js' %}?v=20260610-polling-2"></script>
 <script src="{% static 'js/confirmar-reset-calibracao-sensor.js' %}?v=20260525-reset-calibracao-1"></script>
 {% endblock %}

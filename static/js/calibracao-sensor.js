@@ -10,6 +10,8 @@
         return;
     }
 
+    let statusCursor = panel.dataset.statusCursor || "";
+    let pollIntervalMs = Number(panel.dataset.pollIntervalMs || 5000);
     let pollTimer = null;
 
     const refs = {
@@ -87,6 +89,12 @@
 
     function render(data) {
         panel.dataset.sessionActive = data.ativa ? "true" : "false";
+        statusCursor = data.cursor || "";
+        panel.dataset.statusCursor = statusCursor;
+        if (data.intervalo_poll_ms !== null && data.intervalo_poll_ms !== undefined && !Number.isNaN(Number(data.intervalo_poll_ms))) {
+            pollIntervalMs = Number(data.intervalo_poll_ms);
+            panel.dataset.pollIntervalMs = String(pollIntervalMs);
+        }
 
         refs.status.textContent = data.ativa ? "Ativa" : "Inativa";
         refs.count.textContent = data.ativa
@@ -191,16 +199,22 @@
 
     function scheduleNextPoll() {
         stopPolling();
-        pollTimer = window.setTimeout(loadStatus, 5000);
+        pollTimer = window.setTimeout(loadStatus, 0);
     }
 
     async function loadStatus() {
         stopPolling();
         try {
-            const response = await fetch(statusUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+            const requestUrl = new URL(statusUrl, window.location.origin);
+            if (panel.dataset.sessionActive === "true" && statusCursor) {
+                requestUrl.searchParams.set("cursor", statusCursor);
+                requestUrl.searchParams.set("wait_ms", String(pollIntervalMs));
+            }
+
+            const response = await fetch(requestUrl.toString(), { headers: { "X-Requested-With": "XMLHttpRequest" } });
             if (!response.ok) {
                 if (panel.dataset.sessionActive === "true") {
-                    scheduleNextPoll();
+                    pollTimer = window.setTimeout(loadStatus, Math.max(500, pollIntervalMs));
                 }
                 return;
             }
@@ -213,7 +227,7 @@
         } catch (error) {
             // Mantem o ultimo estado visivel se o polling falhar.
             if (panel.dataset.sessionActive === "true") {
-                scheduleNextPoll();
+                pollTimer = window.setTimeout(loadStatus, Math.max(500, pollIntervalMs));
             }
         }
     }

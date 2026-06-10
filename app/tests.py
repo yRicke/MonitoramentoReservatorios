@@ -132,6 +132,10 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         )
 
         self.assertEqual(resposta.status_code, 302)
+        self.assertEqual(
+            resposta.url,
+            reverse("reservatorio_editar", args=[reservatorio.id]),
+        )
         reservatorio.refresh_from_db()
         self.assertEqual(reservatorio.esp32_intervalo_envio_normal_s, 120)
         self.assertEqual(reservatorio.esp32_intervalo_envio_calibracao_s, 2)
@@ -222,6 +226,11 @@ class CalibrationFlowTests(BaseAppTestCase):
         self.assertTrue(payload["ativa"])
         self.assertEqual(payload["sensor"], "temperatura")
         self.assertGreaterEqual(payload["amostras"], 5)
+        self.assertEqual(
+            payload["intervalo_poll_ms"],
+            reservatorio.esp32_intervalo_envio_calibracao_s * 1000,
+        )
+        self.assertTrue(payload["cursor"].startswith("ativa:"))
 
     def test_calibracao_temperatura_auto_funciona_sem_ponto_tipo(self):
         self.login()
