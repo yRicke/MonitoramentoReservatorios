@@ -30,6 +30,7 @@ O modulo fisico cobre:
 - Sensor TDS: saida analogica
 - Sensor de turbidez: saida analogica
 - Sensor de pH: saida analogica
+- Buzzer ativo continuo: ligado entre `3V3` e `GPIO 25` em modo ativo em nivel baixo
 
 Dependencias:
 - `OneWire`
@@ -41,6 +42,7 @@ Definida em `MonitoramentoAguaConfig`:
 - `tdsPin`: 34
 - `turbidityPin`: 35
 - `phPin`: 32
+- `buzzerPin`: 25
 
 ## 6. Endpoints do Backend
 - `GET /api/esp32/config/`

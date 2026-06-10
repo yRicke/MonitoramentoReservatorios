@@ -13,6 +13,7 @@ void setup() {
 
   config.djangoHost = "192.168.50.2";
   config.djangoPort = 8000;
+  config.buzzerPin = 25;
 
   monitoramento.begin(config);
 }

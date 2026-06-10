@@ -48,10 +48,13 @@ MonitoramentoAguaConfig::MonitoramentoAguaConfig()
     intervaloEnvioNormalPadraoMs(60UL * 1000UL),
     intervaloEnvioCalibracaoPadraoMs(5UL * 1000UL),
     intervaloPollConfiguracaoMs(2UL * 1000UL),
+    alertaSonoroLigadoPadraoMs(500UL),
+    alertaSonoroDesligadoPadraoMs(500UL),
     delayLoopMs(50),
     tdsPin(34),
     turbidityPin(35),
     phPin(32),
+    buzzerPin(25),
     qtdAmostrasPh(60),
     qtdAmostrasTds(60),
     qtdAmostrasTurbidez(60),
@@ -82,14 +85,20 @@ MonitoramentoAgua::MonitoramentoAgua(uint8_t ds18b20Pin)
     ultimoFlushFila_(0),
     ultimoPollConfiguracao_(0),
     ultimoEnvioCalibracao_(0),
+    ultimoToggleBuzzer_(0),
     calibracaoAtiva_(false),
+    alertaSonoroAtivo_(false),
+    buzzerLigado_(false),
     iniciado_(false),
     prefsConfigDisponivel_(false),
     prefsQueueDisponivel_(false),
     sensorCalibracaoAtivo_(""),
     qtdAmostrasCalibracao_(0),
     atrasoAmostraCalibracaoMs_(0),
+    buzzerPin_(-1),
     sessaoCalibracaoId_(0),
+    alertaSonoroLigadoMs_(0),
+    alertaSonoroDesligadoMs_(0),
     filaInicio_(0),
     filaFim_(0),
     filaQuantidade_(0) {
@@ -112,8 +121,11 @@ void MonitoramentoAgua::begin(const MonitoramentoAguaConfig& config) {
   intervaloEnvioNormalMs_ = config_.intervaloEnvioNormalPadraoMs;
   intervaloEnvioCalibracaoMs_ = config_.intervaloEnvioCalibracaoPadraoMs;
   intervaloPollConfiguracaoMs_ = config_.intervaloPollConfiguracaoMs;
+  alertaSonoroLigadoMs_ = config_.alertaSonoroLigadoPadraoMs;
+  alertaSonoroDesligadoMs_ = config_.alertaSonoroDesligadoPadraoMs;
   qtdAmostrasCalibracao_ = config_.qtdAmostrasCalibracaoPadrao;
   atrasoAmostraCalibracaoMs_ = config_.atrasoAmostraCalibracaoPadraoMs;
+  buzzerPin_ = config_.buzzerPin;
 
   prefsConfigDisponivel_ = prefsConfig_.begin(NVS_NAMESPACE_CONFIG, false);
   if (!prefsConfigDisponivel_) {
@@ -131,6 +143,7 @@ void MonitoramentoAgua::begin(const MonitoramentoAguaConfig& config) {
   }
 
   garantirDeviceId();
+  configurarBuzzer();
   iniciarRedePropria();
   iniciarPainelConfiguracao();
 
@@ -165,6 +178,8 @@ void MonitoramentoAgua::loop() {
     ultimoEnvio_ = agora;
     executarCicloLeituraNormal();
   }
+
+  atualizarBuzzer(agora);
 
   delay(config_.delayLoopMs);
 }
@@ -274,6 +289,76 @@ void MonitoramentoAgua::iniciarRedePropria() {
 
 bool MonitoramentoAgua::redeDisponivel() const {
   return WiFi.softAPgetStationNum() > 0;
+}
+
+void MonitoramentoAgua::configurarBuzzer() {
+  if (buzzerPin_ < 0) {
+    return;
+  }
+
+  pinMode(buzzerPin_, OUTPUT_OPEN_DRAIN);
+  digitalWrite(buzzerPin_, HIGH);
+  buzzerLigado_ = false;
+}
+
+void MonitoramentoAgua::aplicarEstadoBuzzer(bool ligado) {
+  if (buzzerPin_ < 0) {
+    buzzerLigado_ = false;
+    return;
+  }
+
+  pinMode(buzzerPin_, OUTPUT_OPEN_DRAIN);
+  digitalWrite(buzzerPin_, ligado ? LOW : HIGH);
+  buzzerLigado_ = ligado;
+}
+
+void MonitoramentoAgua::atualizarBuzzer(unsigned long agora) {
+  if (!alertaSonoroAtivo_) {
+    if (buzzerLigado_) {
+      aplicarEstadoBuzzer(false);
+    }
+    return;
+  }
+
+  unsigned long duracaoAtualMs = buzzerLigado_ ? alertaSonoroLigadoMs_ : alertaSonoroDesligadoMs_;
+  if (duracaoAtualMs < 50UL) {
+    duracaoAtualMs = 50UL;
+  }
+
+  if (agora - ultimoToggleBuzzer_ < duracaoAtualMs) {
+    return;
+  }
+
+  ultimoToggleBuzzer_ = agora;
+  aplicarEstadoBuzzer(!buzzerLigado_);
+}
+
+void MonitoramentoAgua::atualizarAlertaSonoroRemoto(
+  bool ativo,
+  unsigned long ligadoMs,
+  unsigned long desligadoMs
+) {
+  if (ligadoMs >= 50UL) {
+    alertaSonoroLigadoMs_ = ligadoMs;
+  }
+  if (desligadoMs >= 50UL) {
+    alertaSonoroDesligadoMs_ = desligadoMs;
+  }
+
+  if (!ativo) {
+    alertaSonoroAtivo_ = false;
+    aplicarEstadoBuzzer(false);
+    return;
+  }
+
+  bool reiniciarCiclo = !alertaSonoroAtivo_;
+  alertaSonoroAtivo_ = true;
+  if (!reiniciarCiclo) {
+    return;
+  }
+
+  ultimoToggleBuzzer_ = millis();
+  aplicarEstadoBuzzer(true);
 }
 
 void MonitoramentoAgua::iniciarPainelConfiguracao() {
@@ -395,6 +480,10 @@ String MonitoramentoAgua::montarHtmlPainel(const String& alerta) const {
   html += "<input id='cache_normal' value='" + String(intervaloEnvioNormalMs_) + "' readonly>";
   html += "<label for='cache_cal'>Ultimo intervalo de calibracao recebido (ms)</label>";
   html += "<input id='cache_cal' value='" + String(intervaloEnvioCalibracaoMs_) + "' readonly>";
+  html += "<label for='buzzer_pin'>GPIO do buzzer</label>";
+  html += "<input id='buzzer_pin' value='" + String(buzzerPin_) + "' readonly>";
+  html += "<label for='buzzer_cadencia'>Cadencia do alerta sonoro (ms)</label>";
+  html += "<input id='buzzer_cadencia' value='" + String(alertaSonoroLigadoMs_) + " ligado / " + String(alertaSonoroDesligadoMs_) + " desligado' readonly>";
   html += "<button type='submit'>Salvar no ESP32</button>";
   html += "</form></main></body></html>";
   return html;
@@ -763,6 +852,39 @@ long MonitoramentoAgua::extrairCampoJsonLong(const String& json, const String& c
   return valor.toInt();
 }
 
+bool MonitoramentoAgua::extrairCampoJsonBool(const String& json, const String& chave, bool padrao) const {
+  String marcador = "\"" + chave + "\":";
+  int inicio = json.indexOf(marcador);
+  if (inicio < 0) return padrao;
+
+  inicio += marcador.length();
+  while (
+    inicio < (int)json.length() &&
+    (json[inicio] == ' ' || json[inicio] == '\n' || json[inicio] == '\r' || json[inicio] == '\t')
+  ) {
+    inicio++;
+  }
+
+  int fim = inicio;
+  while (
+    fim < (int)json.length() &&
+    json[fim] != ',' &&
+    json[fim] != '}' &&
+    json[fim] != '\n' &&
+    json[fim] != '\r'
+  ) {
+    fim++;
+  }
+
+  String valor = json.substring(inicio, fim);
+  valor.trim();
+  valor.toLowerCase();
+
+  if (valor == "true" || valor == "1") return true;
+  if (valor == "false" || valor == "0") return false;
+  return padrao;
+}
+
 bool MonitoramentoAgua::atualizarConfiguracaoRemota() {
   if (!configuracaoProntaParaEnvio()) return false;
   if (!redeDisponivel()) return false;
@@ -785,10 +907,26 @@ bool MonitoramentoAgua::atualizarConfiguracaoRemota() {
   long intervaloNormal = extrairCampoJsonLong(resposta, "intervalo_normal_ms", (long)intervaloEnvioNormalMs_);
   long intervaloCalibracao = extrairCampoJsonLong(resposta, "intervalo_calibracao_ms", (long)intervaloEnvioCalibracaoMs_);
   long pollConfiguracao = extrairCampoJsonLong(resposta, "poll_configuracao_ms", (long)intervaloPollConfiguracaoMs_);
+  bool alertaSonoroAtivo = extrairCampoJsonBool(resposta, "alerta_sonoro_ativo", false);
+  long alertaSonoroLigadoMs = extrairCampoJsonLong(
+    resposta,
+    "alerta_sonoro_intervalo_ligado_ms",
+    (long)alertaSonoroLigadoMs_
+  );
+  long alertaSonoroDesligadoMs = extrairCampoJsonLong(
+    resposta,
+    "alerta_sonoro_intervalo_desligado_ms",
+    (long)alertaSonoroDesligadoMs_
+  );
 
   if (intervaloNormal >= 1000L) intervaloEnvioNormalMs_ = (unsigned long)intervaloNormal;
   if (intervaloCalibracao >= 1000L) intervaloEnvioCalibracaoMs_ = (unsigned long)intervaloCalibracao;
   if (pollConfiguracao >= 1000L) intervaloPollConfiguracaoMs_ = (unsigned long)pollConfiguracao;
+  atualizarAlertaSonoroRemoto(
+    alertaSonoroAtivo,
+    alertaSonoroLigadoMs >= 50L ? (unsigned long)alertaSonoroLigadoMs : alertaSonoroLigadoMs_,
+    alertaSonoroDesligadoMs >= 50L ? (unsigned long)alertaSonoroDesligadoMs : alertaSonoroDesligadoMs_
+  );
   salvarCacheIntervalos();
 
   String modo = extrairCampoJsonString(resposta, "modo");

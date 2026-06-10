@@ -1,7 +1,7 @@
 {% extends "blocos/base.html" %}
 {% load static l10n %}
 
-{% block title %}Reservatório {{ reservatorio.nome }}{% endblock %}
+{% block title %}Reservatorio {{ reservatorio.nome }}{% endblock %}
 
 {% block content %}
 <section class="message-wrap">
@@ -16,18 +16,28 @@
     <div class="detail-hero-copy">
         <h2>{{ reservatorio.nome|upper }}</h2>
         <p class="index-hero-subtitle">
-            Visualize o status atual, as últimas medições e o histórico completo deste reservatório.
+            Visualize o status atual, as ultimas medicoes e o historico completo deste reservatorio.
         </p>
         <p class="detail-status">
             <span>Status:</span>
             <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
         </p>
+        <p class="detail-status detail-sound-status">
+            <span>Alerta sonoro:</span>
+            <strong class="status-text {{ alerta_sonoro.classe_status }}">{{ alerta_sonoro.rotulo }}</strong>
+        </p>
     </div>
     <div class="detail-hero-actions">
         <a class="btn-secondary" href="{% url 'index' %}">Voltar</a>
-        <a class="btn-edit" href="{% url 'reservatorio_editar' reservatorio.id %}">Editar reservatório</a>
-        <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatório</a>
+        <a class="btn-edit" href="{% url 'reservatorio_editar' reservatorio.id %}">Editar reservatorio</a>
+        <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatorio</a>
         <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Calibrar</a>
+        {% if alerta_sonoro.em_perigo %}
+        <form method="post" action="{% url 'reservatorio_alerta_sonoro_alternar' reservatorio.id %}">
+            {% csrf_token %}
+            <button class="btn-secondary" type="submit">{{ alerta_sonoro.texto_acao }}</button>
+        </form>
+        {% endif %}
     </div>
 </section>
 

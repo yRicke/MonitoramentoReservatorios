@@ -245,6 +245,10 @@
     flex-wrap: wrap;
 }
 
+.detail-hero-actions form {
+    margin: 0;
+}
+
 .index-hero {
     margin-bottom: 14px;
 }
@@ -287,6 +291,10 @@
 
 .status-text.status-perigo {
     color: var(--color-status-perigo);
+}
+
+.detail-sound-status {
+    background: rgba(238, 243, 249, 0.92);
 }
 
 .status-text.status-sem-dado {

@@ -40,9 +40,12 @@ Dashboard:
 
 Detalhe do reservatorio:
 - status atual;
+- estado do alerta sonoro;
 - ultimas medicoes;
 - graficos historicos;
 - acesso para editar e calibrar.
+
+Quando o status entrar em `perigo`, a tela de detalhe permite silenciar ou reativar o alerta sonoro.
 
 ## 6. Edicao do Reservatorio
 Na tela de edicao:

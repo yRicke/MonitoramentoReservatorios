@@ -36,7 +36,8 @@ Sequencia no backend:
 - faixas de referencia;
 - token de integracao do ESP32;
 - intervalo normal do ESP32;
-- intervalo de calibracao do ESP32.
+- intervalo de calibracao do ESP32;
+- estado de silenciamento do alerta sonoro.
 
 ### `PontoMonitoramento`
 - tipo canonico: `ponto_unico`;
@@ -62,6 +63,7 @@ Sequencia no backend:
 4. O operador acessa o painel AP local do ESP32.
 5. O ESP32 salva configuracao estrutural em NVS.
 6. O dispositivo passa a consultar o endpoint unico de configuracao.
+7. O mesmo endpoint informa quando o alerta sonoro deve ficar ativo.
 
 ## 6. Fluxo de Calibracao
 1. Operador inicia a sessao na UI.
@@ -76,3 +78,4 @@ Sequencia no backend:
 - sem token global em `.env`
 - `poll` de configuracao fixo em 2 segundos
 - intervalos operacionais definidos pelo reservatorio no Django
+- alerta sonoro ativo somente quando o status do reservatorio estiver em `perigo` e nao houver silenciamento manual

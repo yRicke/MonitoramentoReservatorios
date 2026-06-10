@@ -30,11 +30,14 @@ struct MonitoramentoAguaConfig {
   unsigned long intervaloEnvioNormalPadraoMs;
   unsigned long intervaloEnvioCalibracaoPadraoMs;
   unsigned long intervaloPollConfiguracaoMs;
+  unsigned long alertaSonoroLigadoPadraoMs;
+  unsigned long alertaSonoroDesligadoPadraoMs;
   unsigned long delayLoopMs;
 
   int tdsPin;
   int turbidityPin;
   int phPin;
+  int buzzerPin;
 
   int qtdAmostrasPh;
   int qtdAmostrasTds;
@@ -87,8 +90,11 @@ private:
   unsigned long ultimoFlushFila_;
   unsigned long ultimoPollConfiguracao_;
   unsigned long ultimoEnvioCalibracao_;
+  unsigned long ultimoToggleBuzzer_;
 
   bool calibracaoAtiva_;
+  bool alertaSonoroAtivo_;
+  bool buzzerLigado_;
   bool iniciado_;
   bool prefsConfigDisponivel_;
   bool prefsQueueDisponivel_;
@@ -96,7 +102,10 @@ private:
   String sensorCalibracaoAtivo_;
   int qtdAmostrasCalibracao_;
   int atrasoAmostraCalibracaoMs_;
+  int buzzerPin_;
   long sessaoCalibracaoId_;
+  unsigned long alertaSonoroLigadoMs_;
+  unsigned long alertaSonoroDesligadoMs_;
 
   LeituraPendente filaLeituras_[FILA_MAX_LEITURAS];
   int filaInicio_;
@@ -143,8 +152,13 @@ private:
 
   String extrairCampoJsonString(const String& json, const String& chave) const;
   long extrairCampoJsonLong(const String& json, const String& chave, long padrao) const;
+  bool extrairCampoJsonBool(const String& json, const String& chave, bool padrao) const;
 
   bool atualizarConfiguracaoRemota();
+  void configurarBuzzer();
+  void aplicarEstadoBuzzer(bool ligado);
+  void atualizarBuzzer(unsigned long agora);
+  void atualizarAlertaSonoroRemoto(bool ativo, unsigned long ligadoMs, unsigned long desligadoMs);
   void desativarModoCalibracao();
   void aplicarModoCalibracao(const String& sensor, long sessaoId, int qtdAmostras, int atrasoAmostraMs);
 

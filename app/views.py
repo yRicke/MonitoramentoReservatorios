@@ -74,6 +74,8 @@ DESVIO_MAXIMO_ESTAVEL_TEMPERATURA = 0.2
 DESVIO_MAXIMO_ESTAVEL_TDS_ADC = 20.0
 DESVIO_MAXIMO_ESTAVEL_TURBIDEZ_ADC = 20.0
 DESVIO_MAXIMO_ESTAVEL_PH_ADC = 12.0
+ALERTA_SONORO_INTERVALO_LIGADO_MS = 500
+ALERTA_SONORO_INTERVALO_DESLIGADO_MS = 500
 SENSORES_CALIBRACAO = (
     {
         "id": "temperatura",
@@ -186,6 +188,29 @@ def reservatorio_regenerar_token_esp32(request, reservatorio_id):
     reservatorio.regenerar_token_integracao_esp32()
     messages.success(request, "Token de integraÃ§Ã£o do ESP32 regenerado.")
     return redirect("reservatorio_editar", reservatorio_id=reservatorio.id)
+
+
+@login_required(login_url="entrar")
+@require_http_methods(["POST"])
+def reservatorio_alerta_sonoro_alternar(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        return redirect("index")
+
+    reservatorio.sincronizar_status_pelo_ponto()
+    if reservatorio.status != Reservatorio.STATUS_PERIGO:
+        reservatorio.reativar_alerta_sonoro()
+        messages.info(request, "O alerta sonoro permanece desligado porque o reservatÃ³rio nÃ£o estÃ¡ em perigo.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    if reservatorio.alerta_sonoro_deve_apitar:
+        reservatorio.silenciar_alerta_sonoro()
+        messages.success(request, "Alerta sonoro silenciado para este estado de perigo.")
+    else:
+        reservatorio.reativar_alerta_sonoro()
+        messages.success(request, "Alerta sonoro reativado.")
+    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
 
 
 @login_required(login_url="entrar")
@@ -866,14 +891,19 @@ def _autenticar_esp32_reservatorio(*, reservatorio_id, token):
 
 
 def _montar_configuracao_esp32(reservatorio):
+    reservatorio.sincronizar_status_pelo_ponto()
     ponto = _obter_ponto_unico_calibracao(reservatorio)
     sessao = SessaoCalibracao.obter_ativa(ponto=ponto) if ponto is not None else None
+    alerta_sonoro = _resumo_alerta_sonoro_reservatorio(reservatorio)
 
     payload = {
         "server_epoch_ms": int(timezone.now().timestamp() * 1000),
         "poll_configuracao_ms": ESP32_CONFIG_POLL_INTERVALO_MS,
         "intervalo_normal_ms": int(reservatorio.esp32_intervalo_envio_normal_s) * 1000,
         "intervalo_calibracao_ms": int(reservatorio.esp32_intervalo_envio_calibracao_s) * 1000,
+        "alerta_sonoro_ativo": alerta_sonoro["ativo"],
+        "alerta_sonoro_intervalo_ligado_ms": ALERTA_SONORO_INTERVALO_LIGADO_MS,
+        "alerta_sonoro_intervalo_desligado_ms": ALERTA_SONORO_INTERVALO_DESLIGADO_MS,
         "modo": "normal",
     }
 
@@ -1404,8 +1434,34 @@ def _contexto_calibracao_reservatorio(reservatorio, *, ponto_unico):
     }
 
 
+def _resumo_alerta_sonoro_reservatorio(reservatorio):
+    ativo = reservatorio.alerta_sonoro_deve_apitar
+    em_perigo = reservatorio.status == Reservatorio.STATUS_PERIGO
+    silenciado = em_perigo and reservatorio.alerta_sonoro_silenciado
+
+    if ativo:
+        rotulo = "Apitando"
+        classe_status = "status-perigo"
+    elif silenciado:
+        rotulo = "Silenciado"
+        classe_status = "status-atencao"
+    else:
+        rotulo = "Desligado"
+        classe_status = "status-sem-dado"
+
+    return {
+        "ativo": ativo,
+        "em_perigo": em_perigo,
+        "silenciado": silenciado,
+        "rotulo": rotulo,
+        "classe_status": classe_status,
+        "texto_acao": "Silenciar alerta" if ativo else "Reativar alerta",
+    }
+
+
 def _contexto_detalhe_reservatorio(reservatorio):
     reservatorio.garantir_pontos_monitoramento()
+    reservatorio.sincronizar_status_pelo_ponto()
 
     ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
     series = _series_leituras_por_ponto(ponto_unico)
@@ -1423,6 +1479,7 @@ def _contexto_detalhe_reservatorio(reservatorio):
             reservatorio,
             ponto_unico=ponto_unico,
         ),
+        "alerta_sonoro": _resumo_alerta_sonoro_reservatorio(reservatorio),
     }
 
 

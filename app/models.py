@@ -66,6 +66,7 @@ class Reservatorio(models.Model):
     esp32_intervalo_envio_calibracao_s = models.PositiveIntegerField(
         default=ESP32_INTERVALO_ENVIO_CALIBRACAO_PADRAO_S,
     )
+    alerta_sonoro_silenciado = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -421,9 +422,17 @@ class Reservatorio(models.Model):
         if ponto is not None and ponto.status_atual:
             status_final = ponto.status_atual
 
+        campos_para_salvar = []
         if self.status != status_final:
             self.status = status_final
-            self.save(update_fields=["status", "updated_at"])
+            campos_para_salvar.append("status")
+
+        if status_final != self.STATUS_PERIGO and self.alerta_sonoro_silenciado:
+            self.alerta_sonoro_silenciado = False
+            campos_para_salvar.append("alerta_sonoro_silenciado")
+
+        if campos_para_salvar:
+            self.save(update_fields=[*campos_para_salvar, "updated_at"])
 
         return self
 
@@ -434,6 +443,24 @@ class Reservatorio(models.Model):
         self.esp32_token_integracao = gerar_token_integracao_esp32()
         self.save(update_fields=["esp32_token_integracao", "updated_at"])
         return self
+
+    def silenciar_alerta_sonoro(self):
+        if self.alerta_sonoro_silenciado:
+            return self
+        self.alerta_sonoro_silenciado = True
+        self.save(update_fields=["alerta_sonoro_silenciado", "updated_at"])
+        return self
+
+    def reativar_alerta_sonoro(self):
+        if not self.alerta_sonoro_silenciado:
+            return self
+        self.alerta_sonoro_silenciado = False
+        self.save(update_fields=["alerta_sonoro_silenciado", "updated_at"])
+        return self
+
+    @property
+    def alerta_sonoro_deve_apitar(self):
+        return self.status == self.STATUS_PERIGO and not self.alerta_sonoro_silenciado
 
     @classmethod
     def _proximo_nome(cls):

@@ -93,6 +93,7 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         self.assertTrue(reservatorio.esp32_token_integracao)
         self.assertEqual(reservatorio.esp32_intervalo_envio_normal_s, 60)
         self.assertEqual(reservatorio.esp32_intervalo_envio_calibracao_s, 5)
+        self.assertFalse(reservatorio.alerta_sonoro_silenciado)
 
         ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
         ponto_pre = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
@@ -191,6 +192,33 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
             len(PERIODOS_DISPONIVEIS),
         )
         self.assertIn("ponto_unico", response.context["relatorio_periodos_cards"][0])
+
+    def test_alerta_sonoro_pode_ser_silenciado_e_reativado_no_detalhe(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio alarme")
+        ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+        ponto.atualizar_status(status=Reservatorio.STATUS_PERIGO)
+        reservatorio.sincronizar_status_pelo_ponto()
+
+        silenciar = self.client.post(
+            reverse("reservatorio_alerta_sonoro_alternar", args=[reservatorio.id])
+        )
+
+        self.assertEqual(silenciar.status_code, 302)
+        self.assertEqual(
+            silenciar.url,
+            reverse("reservatorio_detalhe", args=[reservatorio.id]),
+        )
+        reservatorio.refresh_from_db()
+        self.assertTrue(reservatorio.alerta_sonoro_silenciado)
+
+        reativar = self.client.post(
+            reverse("reservatorio_alerta_sonoro_alternar", args=[reservatorio.id])
+        )
+
+        self.assertEqual(reativar.status_code, 302)
+        reservatorio.refresh_from_db()
+        self.assertFalse(reservatorio.alerta_sonoro_silenciado)
 
 
 class CalibrationFlowTests(BaseAppTestCase):
@@ -329,7 +357,20 @@ class Esp32IngestaoTests(BaseAppTestCase):
         self.assertEqual(payload["poll_configuracao_ms"], 2000)
         self.assertEqual(payload["intervalo_normal_ms"], 60000)
         self.assertEqual(payload["intervalo_calibracao_ms"], 5000)
+        self.assertFalse(payload["alerta_sonoro_ativo"])
+        self.assertEqual(payload["alerta_sonoro_intervalo_ligado_ms"], 500)
+        self.assertEqual(payload["alerta_sonoro_intervalo_desligado_ms"], 500)
         self.assertIn("server_epoch_ms", payload)
+
+    def test_esp32_configuracao_ativa_alerta_sonoro_em_status_perigo(self):
+        self.ponto.atualizar_status(status=Reservatorio.STATUS_PERIGO)
+        self.reservatorio.sincronizar_status_pelo_ponto()
+
+        response = self._get_config()
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["alerta_sonoro_ativo"])
 
     def test_esp32_configuracao_retorna_sessao_ativa(self):
         sessao = self.criar_sessao(
