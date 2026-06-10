@@ -47,6 +47,7 @@ Detalhe do reservatorio:
 
 Quando o status entrar em `perigo`, a tela de detalhe permite silenciar ou reativar o alerta sonoro.
 O detalhe tambem oferece um botao de silenciamento permanente, que bloqueia a buzina ate reativacao manual.
+Tambem existe um botao de teste sonoro, que ativa a buzina por 5 segundos e bloqueia repeticao durante a execucao.
 
 ## 6. Edicao do Reservatorio
 Na tela de edicao:

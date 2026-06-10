@@ -95,6 +95,7 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         self.assertEqual(reservatorio.esp32_intervalo_envio_calibracao_s, 5)
         self.assertFalse(reservatorio.alerta_sonoro_silenciado)
         self.assertFalse(reservatorio.alerta_sonoro_silenciado_permanente)
+        self.assertIsNone(reservatorio.alerta_sonoro_teste_ate)
 
         ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
         ponto_pre = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
@@ -240,6 +241,19 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         self.assertEqual(reativar.status_code, 302)
         reservatorio.refresh_from_db()
         self.assertFalse(reservatorio.alerta_sonoro_silenciado_permanente)
+
+    def test_alerta_sonoro_pode_ser_testado_por_cinco_segundos(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio teste sonoro")
+
+        resposta = self.client.post(
+            reverse("reservatorio_alerta_sonoro_testar", args=[reservatorio.id])
+        )
+
+        self.assertEqual(resposta.status_code, 302)
+        reservatorio.refresh_from_db()
+        self.assertIsNotNone(reservatorio.alerta_sonoro_teste_ate)
+        self.assertTrue(reservatorio.alerta_sonoro_teste_ativo)
 
 
 class CalibrationFlowTests(BaseAppTestCase):
@@ -403,6 +417,15 @@ class Esp32IngestaoTests(BaseAppTestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertFalse(payload["alerta_sonoro_ativo"])
+
+    def test_esp32_configuracao_ativa_alerta_sonoro_durante_teste(self):
+        self.reservatorio.iniciar_teste_alerta_sonoro(duracao_segundos=5)
+
+        response = self._get_config()
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["alerta_sonoro_ativo"])
 
     def test_esp32_configuracao_retorna_sessao_ativa(self):
         sessao = self.criar_sessao(

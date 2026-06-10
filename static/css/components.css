@@ -132,6 +132,14 @@
     box-shadow: none;
 }
 
+.btn-secondary.is-busy,
+.btn-secondary:disabled {
+    background: #9aa7b8;
+    border-color: #8b99ab;
+    color: #ffffff;
+    cursor: not-allowed;
+}
+
 .btn-edit:hover {
     background: #4d6788;
     border-color: #4d6788;

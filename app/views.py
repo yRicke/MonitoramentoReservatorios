@@ -76,6 +76,7 @@ DESVIO_MAXIMO_ESTAVEL_TURBIDEZ_ADC = 20.0
 DESVIO_MAXIMO_ESTAVEL_PH_ADC = 12.0
 ALERTA_SONORO_INTERVALO_LIGADO_MS = 500
 ALERTA_SONORO_INTERVALO_DESLIGADO_MS = 500
+ALERTA_SONORO_TESTE_DURACAO_SEGUNDOS = 5
 SENSORES_CALIBRACAO = (
     {
         "id": "temperatura",
@@ -227,6 +228,23 @@ def reservatorio_alerta_sonoro_permanente_alternar(request, reservatorio_id):
     else:
         reservatorio.silenciar_alerta_sonoro_permanentemente()
         messages.success(request, "Alerta sonoro silenciado permanentemente.")
+    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+
+@login_required(login_url="entrar")
+@require_http_methods(["POST"])
+def reservatorio_alerta_sonoro_testar(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        return redirect("index")
+
+    if reservatorio.alerta_sonoro_teste_ativo:
+        messages.info(request, "O teste do alerta sonoro jÃ¡ estÃ¡ em andamento.")
+        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+    reservatorio.iniciar_teste_alerta_sonoro(duracao_segundos=ALERTA_SONORO_TESTE_DURACAO_SEGUNDOS)
+    messages.success(request, "Teste do alerta sonoro iniciado por 5 segundos.")
     return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
 
 
@@ -1456,8 +1474,18 @@ def _resumo_alerta_sonoro_reservatorio(reservatorio):
     em_perigo = reservatorio.status == Reservatorio.STATUS_PERIGO
     silenciado_permanente = reservatorio.alerta_sonoro_silenciado_permanente
     silenciado = em_perigo and reservatorio.alerta_sonoro_silenciado
+    teste_ativo = reservatorio.alerta_sonoro_teste_ativo
+    teste_restante_ms = 0
+    if teste_ativo and reservatorio.alerta_sonoro_teste_ate is not None:
+        teste_restante_ms = max(
+            0,
+            int((reservatorio.alerta_sonoro_teste_ate - timezone.now()).total_seconds() * 1000),
+        )
 
-    if silenciado_permanente:
+    if teste_ativo:
+        rotulo = "Teste em execucao"
+        classe_status = "status-atencao"
+    elif silenciado_permanente:
         rotulo = "Silenciado permanentemente"
         classe_status = "status-atencao"
     elif ativo:
@@ -1475,6 +1503,8 @@ def _resumo_alerta_sonoro_reservatorio(reservatorio):
         "em_perigo": em_perigo,
         "silenciado": silenciado,
         "silenciado_permanente": silenciado_permanente,
+        "teste_ativo": teste_ativo,
+        "teste_restante_ms": teste_restante_ms,
         "rotulo": rotulo,
         "classe_status": classe_status,
         "texto_acao": "Silenciar alerta" if ativo else "Reativar alerta",
@@ -1483,6 +1513,7 @@ def _resumo_alerta_sonoro_reservatorio(reservatorio):
             if silenciado_permanente
             else "Silenciar permanentemente"
         ),
+        "texto_acao_teste": "Testando alerta sonoro..." if teste_ativo else "Testar alerta sonoro",
     }
 
 

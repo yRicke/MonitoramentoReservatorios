@@ -32,6 +32,20 @@
         <a class="btn-edit" href="{% url 'reservatorio_editar' reservatorio.id %}">Editar reservatorio</a>
         <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatorio</a>
         <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Calibrar</a>
+        <form method="post" action="{% url 'reservatorio_alerta_sonoro_testar' reservatorio.id %}">
+            {% csrf_token %}
+            <button
+                class="btn-secondary {% if alerta_sonoro.teste_ativo %}is-busy{% endif %}"
+                type="submit"
+                data-alerta-teste-button
+                data-alerta-teste-default-label="Testar alerta sonoro"
+                data-alerta-teste-busy-label="Testando alerta sonoro..."
+                {% if alerta_sonoro.teste_ativo %}data-alerta-teste-restante-ms="{{ alerta_sonoro.teste_restante_ms }}"{% endif %}
+                {% if alerta_sonoro.teste_ativo %}disabled{% endif %}
+            >
+                {{ alerta_sonoro.texto_acao_teste }}
+            </button>
+        </form>
         {% if alerta_sonoro.em_perigo and not alerta_sonoro.silenciado_permanente %}
         <form method="post" action="{% url 'reservatorio_alerta_sonoro_alternar' reservatorio.id %}">
             {% csrf_token %}
@@ -58,4 +72,5 @@
 {% block extra_scripts %}
 <script src="{% static 'js/vendor/apexcharts.min.js' %}?v=3.54.1"></script>
 <script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260325-apex11"></script>
+<script src="{% static 'js/alerta-sonoro-teste.js' %}?v=20260610-alerta-teste-1"></script>
 {% endblock %}

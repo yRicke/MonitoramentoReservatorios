@@ -68,6 +68,7 @@ class Reservatorio(models.Model):
     )
     alerta_sonoro_silenciado = models.BooleanField(default=False)
     alerta_sonoro_silenciado_permanente = models.BooleanField(default=False)
+    alerta_sonoro_teste_ate = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -480,12 +481,25 @@ class Reservatorio(models.Model):
         self.save(update_fields=["alerta_sonoro_silenciado_permanente", "updated_at"])
         return self
 
+    def iniciar_teste_alerta_sonoro(self, *, duracao_segundos=5):
+        agora = timezone.now()
+        self.alerta_sonoro_teste_ate = agora + timedelta(seconds=duracao_segundos)
+        self.save(update_fields=["alerta_sonoro_teste_ate", "updated_at"])
+        return self
+
+    @property
+    def alerta_sonoro_teste_ativo(self):
+        return self.alerta_sonoro_teste_ate is not None and self.alerta_sonoro_teste_ate > timezone.now()
+
     @property
     def alerta_sonoro_deve_apitar(self):
         return (
-            self.status == self.STATUS_PERIGO
-            and not self.alerta_sonoro_silenciado
-            and not self.alerta_sonoro_silenciado_permanente
+            self.alerta_sonoro_teste_ativo
+            or (
+                self.status == self.STATUS_PERIGO
+                and not self.alerta_sonoro_silenciado
+                and not self.alerta_sonoro_silenciado_permanente
+            )
         )
 
     @classmethod
