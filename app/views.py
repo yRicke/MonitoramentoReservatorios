@@ -168,7 +168,7 @@ def reservatorio_detalhe(request, reservatorio_id):
 def reservatorio_alerta_sonoro_opcoes(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
-        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        messages.error(request, "Reservatório não encontrado.")
         return redirect("index")
 
     return render(
@@ -183,7 +183,7 @@ def reservatorio_alerta_sonoro_opcoes(request, reservatorio_id):
 def reservatorio_editar(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
-        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        messages.error(request, "Reservatório não encontrado.")
         return redirect("index")
 
     return render(
@@ -198,11 +198,11 @@ def reservatorio_editar(request, reservatorio_id):
 def reservatorio_regenerar_token_esp32(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
-        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        messages.error(request, "Reservatório não encontrado.")
         return redirect("index")
 
     reservatorio.regenerar_token_integracao_esp32()
-    messages.success(request, "Token de integraÃ§Ã£o do ESP32 regenerado.")
+    messages.success(request, "Token de integração do ESP32 regenerado.")
     return redirect("reservatorio_editar", reservatorio_id=reservatorio.id)
 
 
@@ -211,13 +211,13 @@ def reservatorio_regenerar_token_esp32(request, reservatorio_id):
 def reservatorio_alerta_sonoro_alternar(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
-        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        messages.error(request, "Reservatório não encontrado.")
         return redirect("index")
 
     reservatorio.sincronizar_status_pelo_ponto()
     if reservatorio.status != Reservatorio.STATUS_PERIGO:
         reservatorio.reativar_alerta_sonoro()
-        messages.info(request, "O alerta sonoro permanece desligado porque o reservatÃ³rio nÃ£o estÃ¡ em perigo.")
+        messages.info(request, "O alerta sonoro permanece desligado porque o reservatório não está em perigo.")
         return _redirect_alerta_sonoro(request, reservatorio)
 
     if reservatorio.alerta_sonoro_deve_apitar:
@@ -234,7 +234,7 @@ def reservatorio_alerta_sonoro_alternar(request, reservatorio_id):
 def reservatorio_alerta_sonoro_permanente_alternar(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
-        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        messages.error(request, "Reservatório não encontrado.")
         return redirect("index")
 
     if reservatorio.alerta_sonoro_silenciado_permanente:
@@ -251,11 +251,11 @@ def reservatorio_alerta_sonoro_permanente_alternar(request, reservatorio_id):
 def reservatorio_alerta_sonoro_testar(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
-        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        messages.error(request, "Reservatório não encontrado.")
         return redirect("index")
 
     if reservatorio.alerta_sonoro_teste_ativo:
-        messages.info(request, "O teste do alerta sonoro jÃ¡ estÃ¡ em andamento.")
+        messages.info(request, "O teste do alerta sonoro já está em andamento.")
         return _redirect_alerta_sonoro(request, reservatorio)
 
     reservatorio.iniciar_teste_alerta_sonoro(duracao_segundos=ALERTA_SONORO_TESTE_DURACAO_SEGUNDOS)
@@ -430,7 +430,7 @@ def reservatorio_calibracao_sessao_iniciar(request, reservatorio_id, sensor_id):
     )
     messages.success(
         request,
-        f"Sessao de calibração iniciada para {_rotulo_sensor_calibracao(sensor)} em {_nome_curto_ponto(ponto)}.",
+        f"Sessão de calibração iniciada para {_rotulo_sensor_calibracao(sensor)} em {_nome_curto_ponto(ponto)}.",
     )
     return _redirect_calibracao_sensor(reservatorio, ponto, sensor)
 
@@ -453,10 +453,10 @@ def reservatorio_calibracao_sessao_encerrar(request, reservatorio_id, sensor_id)
         sessao.encerrar()
         messages.success(
             request,
-            f"Sessao de calibração encerrada para {_rotulo_sensor_calibracao(sensor)}.",
+            f"Sessão de calibração encerrada para {_rotulo_sensor_calibracao(sensor)}.",
         )
     else:
-        messages.info(request, "Nao havia sessao ativa para este sensor.")
+        messages.info(request, "Não havia sessão ativa para este sensor.")
     return _redirect_calibracao_sensor(reservatorio, ponto, sensor)
 
 
@@ -525,7 +525,7 @@ def reservatorio_calibracao_sessao_status(request, reservatorio_id, sensor_id):
 def reservatorio_calibracao_temperatura_auto(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
-        messages.error(request, "Reservatorio nao encontrado.")
+        messages.error(request, "Reservatório não encontrado.")
         return redirect("index")
 
     temperatura_referencia_raw = request.POST.get("temperatura_referencia_c")
@@ -539,12 +539,12 @@ def reservatorio_calibracao_temperatura_auto(request, reservatorio_id):
             else None
         )
     except (TypeError, ValueError):
-        messages.error(request, "Informe temperatura de referencia e inclinacao validas.")
+        messages.error(request, "Informe temperatura de referência e inclinação válidas.")
         return redirect(_url_calibracao_sensor(reservatorio, "temperatura"))
 
     ponto = _obter_ponto_unico_calibracao(reservatorio)
     if ponto is None:
-        messages.error(request, "Ponto de calibracao nao encontrado.")
+        messages.error(request, "Ponto de calibração não encontrado.")
         return redirect(_url_calibracao_raiz(reservatorio))
 
     _, _, erro_sessao = _obter_sessao_calibracao_pronta(
@@ -557,7 +557,7 @@ def reservatorio_calibracao_temperatura_auto(request, reservatorio_id):
 
     temperatura_bruta = _temperatura_bruta_para_calibracao(ponto)
     if temperatura_bruta is None:
-        messages.error(request, "Nao ha temperatura media estavel na sessao deste ponto.")
+        messages.error(request, "Não há temperatura média estável na sessão deste ponto.")
         return redirect(_url_calibracao_sensor(reservatorio, "temperatura"))
 
     try:
@@ -573,8 +573,8 @@ def reservatorio_calibracao_temperatura_auto(request, reservatorio_id):
     messages.success(
         request,
         (
-            f"Calibracao de temperatura aplicada no ponto {_nome_curto_ponto(ponto)}: "
-            f"media {temperatura_bruta:.2f}C -> referencia {temperatura_referencia:.2f}C."
+            f"Calibração de temperatura aplicada no ponto {_nome_curto_ponto(ponto)}: "
+            f"média {temperatura_bruta:.2f}C -> referência {temperatura_referencia:.2f}C."
         ),
     )
     return redirect(_url_calibracao_sensor(reservatorio, "temperatura"))
@@ -616,7 +616,7 @@ def reservatorio_calibracao_tds_auto(request, reservatorio_id):
     adc_tds = referencia_tds["adc_tds"]
     temperatura = referencia_tds["temperatura"]
     if adc_tds is None or temperatura is None:
-        messages.error(request, "Nao ha leitura bruta completa (adc_tds/temperatura) para este ponto.")
+        messages.error(request, "Não há leitura bruta completa (adc_tds/temperatura) para este ponto.")
         return redirect(_url_calibracao_sensor(reservatorio, "tds"))
 
     try:
@@ -673,7 +673,7 @@ def reservatorio_calibracao_turbidez_auto(request, reservatorio_id):
     referencia_turbidez = _referencia_turbidez_para_calibracao(ponto)
     adc_turb = referencia_turbidez["adc_turb"]
     if adc_turb is None:
-        messages.error(request, "Nao ha leitura bruta completa (adc_turb) para este ponto.")
+        messages.error(request, "Não há leitura bruta completa (adc_turb) para este ponto.")
         return redirect(_url_calibracao_sensor(reservatorio, "turbidez"))
 
     try:
@@ -703,50 +703,50 @@ def reservatorio_calibracao_turbidez_auto(request, reservatorio_id):
 def reservatorio_calibracao_ph_auto(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
-        messages.error(request, "Reservatorio nao encontrado.")
+        messages.error(request, "Reservatório não encontrado.")
         return redirect("index")
 
     try:
         ph_solucao_ponto_1 = _normalizar_valor_referencia_generico(
             request.POST.get("ph_solucao_ponto_1"),
-            campo="pH da solucao 1",
+            campo="pH da solução 1",
             minimo=0.0,
             maximo=14.0,
         )
         tensao_ponto_1 = _normalizar_valor_referencia_generico(
             request.POST.get("ph_tensao_ponto_1"),
-            campo="tensao da solucao 1",
+            campo="tensão da solução 1",
             minimo=0.0,
             maximo=ADC_TENSAO_REFERENCIA,
         )
         ph_solucao_ponto_2 = _normalizar_valor_referencia_generico(
             request.POST.get("ph_solucao_ponto_2"),
-            campo="pH da solucao 2",
+            campo="pH da solução 2",
             minimo=0.0,
             maximo=14.0,
         )
         tensao_ponto_2 = _normalizar_valor_referencia_generico(
             request.POST.get("ph_tensao_ponto_2"),
-            campo="tensao da solucao 2",
+            campo="tensão da solução 2",
             minimo=0.0,
             maximo=ADC_TENSAO_REFERENCIA,
         )
     except (TypeError, ValueError):
-        messages.error(request, "Preencha os dois pares de pH e tensao com valores validos.")
+        messages.error(request, "Preencha os dois pares de pH e tensão com valores válidos.")
         return redirect(_url_calibracao_sensor(reservatorio, "ph"))
 
     ponto = _obter_ponto_unico_calibracao(reservatorio)
     if ponto is None:
-        messages.error(request, "Ponto de calibracao nao encontrado.")
+        messages.error(request, "Ponto de calibração não encontrado.")
         return redirect(_url_calibracao_raiz(reservatorio))
 
     if math.isclose(ph_solucao_ponto_1, ph_solucao_ponto_2, rel_tol=0.0, abs_tol=1e-9):
-        messages.error(request, "As solucoes de pH devem ter valores diferentes para recalcular a inclinacao.")
+        messages.error(request, "As soluções de pH devem ter valores diferentes para recalcular a inclinação.")
         return redirect(_url_calibracao_sensor(reservatorio, "ph"))
 
     ph_inclinacao = (tensao_ponto_2 - tensao_ponto_1) / (ph_solucao_ponto_1 - ph_solucao_ponto_2)
     if not math.isfinite(ph_inclinacao) or ph_inclinacao <= 0:
-        messages.error(request, "Nao foi possivel calcular uma inclinacao valida com os dois pontos informados.")
+        messages.error(request, "Não foi possível calcular uma inclinação válida com os dois pontos informados.")
         return redirect(_url_calibracao_sensor(reservatorio, "ph"))
 
     ph7_equivalente = tensao_ponto_1 + (ph_inclinacao * (ph_solucao_ponto_1 - 7.0))
@@ -763,7 +763,7 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
     messages.success(
         request,
         (
-            f"Calibracao de pH aplicada no ponto {_nome_curto_ponto(ponto)}: "
+            f"Calibração de pH aplicada no ponto {_nome_curto_ponto(ponto)}: "
             f"ponto 1 {ph_solucao_ponto_1:.2f}/{tensao_ponto_1:.3f}V, "
             f"ponto 2 {ph_solucao_ponto_2:.2f}/{tensao_ponto_2:.3f}V."
         ),
@@ -844,7 +844,7 @@ def esp32_leitura(request):
         token=request.headers.get("X-API-Token", ""),
     )
     if reservatorio is None:
-        return JsonResponse({"erro": "nao autorizado"}, status=401)
+        return JsonResponse({"erro": "não autorizado"}, status=401)
 
     try:
         processar_leitura_esp32(request.body)
@@ -862,7 +862,7 @@ def esp32_configuracao(request):
         token=request.headers.get("X-API-Token", ""),
     )
     if reservatorio is None:
-        return JsonResponse({"erro": "nao autorizado"}, status=401)
+        return JsonResponse({"erro": "não autorizado"}, status=401)
 
     return JsonResponse(_montar_configuracao_esp32(reservatorio), status=200)
 
@@ -880,23 +880,23 @@ def esp32_calibracao_amostra(request):
         token=request.headers.get("X-API-Token", ""),
     )
     if reservatorio is None:
-        return JsonResponse({"erro": "nao autorizado"}, status=401)
+        return JsonResponse({"erro": "não autorizado"}, status=401)
 
     if "ponto_tipo" in payload:
-        return JsonResponse({"erro": "campo nao suportado: ponto_tipo"}, status=400)
+        return JsonResponse({"erro": "campo não suportado: ponto_tipo"}, status=400)
 
     try:
         sensor = SessaoCalibracao.normalizar_sensor(payload.get("sensor"))
     except ValueError:
-        return JsonResponse({"erro": "campo invalido: sensor"}, status=400)
+        return JsonResponse({"erro": "campo inválido: sensor"}, status=400)
 
     ponto = _obter_ponto_unico_calibracao(reservatorio)
     if ponto is None:
-        return JsonResponse({"erro": "ponto de monitoramento invalido"}, status=400)
+        return JsonResponse({"erro": "ponto de monitoramento inválido"}, status=400)
 
     sessao = SessaoCalibracao.obter_ativa(ponto=ponto, sensor=sensor)
     if sessao is None:
-        return JsonResponse({"erro": "sessao de calibracao inativa"}, status=409)
+        return JsonResponse({"erro": "sessão de calibração inativa"}, status=409)
 
     sinais_brutos = payload.get("raw")
     if sinais_brutos is None:
@@ -904,7 +904,7 @@ def esp32_calibracao_amostra(request):
     if sinais_brutos is None:
         sinais_brutos = {}
     if not isinstance(sinais_brutos, dict):
-        return JsonResponse({"erro": "campo invalido: raw"}, status=400)
+        return JsonResponse({"erro": "campo inválido: raw"}, status=400)
 
     device_id = payload.get("device_id")
     if isinstance(device_id, str) and device_id.strip():
@@ -1055,7 +1055,7 @@ def _nome_curto_ponto(ponto):
 def _obter_ponto_calibracao_por_post(request, reservatorio):
     ponto = _obter_ponto_unico_calibracao(reservatorio)
     if ponto is None:
-        messages.error(request, "Ponto de calibracao nao encontrado.")
+        messages.error(request, "Ponto de calibração não encontrado.")
         return None
     return ponto
 
@@ -1377,10 +1377,10 @@ def _obter_sessao_calibracao_pronta(*, ponto, sensor):
 
     resumo = _resumo_sessao_calibracao(ponto=ponto, sensor=sensor)
     if not resumo["estabilidade_sensor"]["estavel"]:
-        return sessao, resumo, "A estabilidade do sensor ainda nao esta pronta para confirmar a calibracao."
+        return sessao, resumo, "A estabilidade do sensor ainda não está pronta para confirmar a calibração."
 
     if _sensor_exige_estabilidade_temperatura(sensor) and not resumo["estabilidade_temperatura"]["estavel"]:
-        return sessao, resumo, "A temperatura ainda nao esta estavel para confirmar a calibracao."
+        return sessao, resumo, "A temperatura ainda não está estável para confirmar a calibração."
 
     return sessao, resumo, None
 
@@ -1498,7 +1498,7 @@ def _resumo_alerta_sonoro_reservatorio(reservatorio):
         )
 
     if teste_ativo:
-        rotulo = "Teste em execucao"
+        rotulo = "Teste em execução"
         classe_status = "status-atencao"
     elif silenciado_permanente:
         rotulo = "Silenciado permanentemente"

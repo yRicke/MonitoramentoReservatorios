@@ -1,7 +1,7 @@
 {% extends "blocos/base.html" %}
 {% load static l10n %}
 
-{% block title %}Reservatorio {{ reservatorio.nome }}{% endblock %}
+{% block title %}Reservatório {{ reservatorio.nome }}{% endblock %}
 
 {% block content %}
 <section class="message-wrap">
@@ -16,7 +16,7 @@
     <div class="detail-hero-copy">
         <h2>{{ reservatorio.nome|upper }}</h2>
         <p class="index-hero-subtitle">
-            Visualize o status atual, as ultimas medicoes e o historico completo deste reservatorio.
+            Visualize o status atual, as últimas medições e o histórico completo deste reservatório.
         </p>
         <p class="detail-status">
             <span>Status:</span>
@@ -36,18 +36,18 @@
     <article class="panel detail-actions-card">
         <div class="detail-actions-head">
             <div class="detail-actions-copy">
-                <p class="detail-metric-kicker">Acoes</p>
-                <h3>Atalhos do reservatorio</h3>
+                <p class="detail-metric-kicker">Ações</p>
+                <h3>Atalhos do reservatório</h3>
                 <p class="status-meta">
-                    Gerencie este reservatorio e abra as opcoes do alerta sonoro.
+                    Gerencie este reservatório e abra as opções do alerta sonoro.
                 </p>
             </div>
         </div>
         <div class="detail-action-links">
-            <a class="btn-edit" href="{% url 'reservatorio_editar' reservatorio.id %}">Editar reservatorio</a>
-            <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatorio</a>
+            <a class="btn-edit" href="{% url 'reservatorio_editar' reservatorio.id %}">Editar reservatório</a>
+            <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatório</a>
             <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Calibrar</a>
-            <a class="btn-secondary" href="{% url 'reservatorio_alerta_sonoro_opcoes' reservatorio.id %}">Opcoes do alerta</a>
+            <a class="btn-secondary" href="{% url 'reservatorio_alerta_sonoro_opcoes' reservatorio.id %}">Opções do alerta</a>
         </div>
     </article>
 </section>

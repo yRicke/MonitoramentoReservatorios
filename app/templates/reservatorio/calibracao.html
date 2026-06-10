@@ -1,6 +1,6 @@
 {% extends "blocos/base.html" %}
 
-{% block title %}Calibracao {{ reservatorio.nome }}{% endblock %}
+{% block title %}Calibração {{ reservatorio.nome }}{% endblock %}
 
 {% block content %}
 <section class="message-wrap">
@@ -13,13 +13,13 @@
 
 <section class="detail-hero calibration-hero">
     <div class="detail-hero-copy">
-        <h2>CALIBRACAO {{ reservatorio.nome|upper }}</h2>
+        <h2>CALIBRAÇÃO {{ reservatorio.nome|upper }}</h2>
         <p class="index-hero-subtitle">
             Escolha abaixo o sensor que deseja calibrar.
         </p>
     </div>
     <div class="detail-hero-actions">
-        <a class="btn-secondary" href="{% url 'reservatorio_detalhe' reservatorio.id %}">Voltar ao reservatorio</a>
+        <a class="btn-secondary" href="{% url 'reservatorio_detalhe' reservatorio.id %}">Voltar ao reservatório</a>
     </div>
 </section>
 
@@ -32,7 +32,7 @@
             href="{% url 'reservatorio_calibracao_sensor' reservatorio.id sensor.id %}">
             <strong>{{ sensor.nome }}</strong>
             <span>{{ sensor.descricao }}</span>
-            <span>Acessar configuracao de calibracao.</span>
+            <span>Acessar configuração de calibração.</span>
         </a>
         {% endfor %}
     </div>

@@ -34,7 +34,7 @@ def processar_leitura_esp32(request_body):
     reservatorio.garantir_pontos_monitoramento()
     ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
     if ponto is None:
-        raise IngestaoLeituraErro("ponto de monitoramento invÃ¡lido")
+        raise IngestaoLeituraErro("ponto de monitoramento inválido")
 
     temperatura = ponto.aplicar_calibracao_temperatura(temperatura_bruta)
     tds = _resolver_tds(payload, sinais_brutos, temperatura)
