@@ -255,6 +255,34 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         self.assertIsNotNone(reservatorio.alerta_sonoro_teste_ate)
         self.assertTrue(reservatorio.alerta_sonoro_teste_ativo)
 
+    def test_pagina_opcoes_alerta_sonoro_exibe_controles(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio alerta opcoes")
+
+        response = self.client.get(
+            reverse("reservatorio_alerta_sonoro_opcoes", args=[reservatorio.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Opcoes do alerta sonoro")
+        self.assertContains(response, "Testar alerta sonoro")
+        self.assertContains(response, "Voltar aos detalhes")
+
+    def test_acoes_alerta_sonoro_retorna_para_pagina_de_opcoes_quando_solicitado(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio alerta redirect")
+
+        resposta = self.client.post(
+            reverse("reservatorio_alerta_sonoro_testar", args=[reservatorio.id]),
+            {"destino": "opcoes"},
+        )
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertEqual(
+            resposta.url,
+            reverse("reservatorio_alerta_sonoro_opcoes", args=[reservatorio.id]),
+        )
+
 
 class CalibrationFlowTests(BaseAppTestCase):
     def test_calibracao_sessao_iniciar_e_status_funcionam_na_rota_nova(self):

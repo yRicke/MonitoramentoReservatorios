@@ -1,0 +1,83 @@
+{% extends "blocos/base.html" %}
+{% load static %}
+
+{% block title %}Alerta sonoro {{ reservatorio.nome }}{% endblock %}
+
+{% block content %}
+<section class="message-wrap">
+    {% if messages %}
+    {% for message in messages %}
+    <p class="message {{ message.tags }}">{{ message }}</p>
+    {% endfor %}
+    {% endif %}
+</section>
+
+<section class="detail-hero">
+    <div class="detail-hero-copy">
+        <h2>ALERTA SONORO {{ reservatorio.nome|upper }}</h2>
+        <p class="index-hero-subtitle">
+            Controle os testes e os silenciamentos da buzina deste reservatorio em um fluxo separado das acoes gerais.
+        </p>
+        <p class="detail-status">
+            <span>Status:</span>
+            <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
+        </p>
+        <p class="detail-status detail-sound-status">
+            <span>Alerta sonoro:</span>
+            <strong class="status-text {{ alerta_sonoro.classe_status }}">{{ alerta_sonoro.rotulo }}</strong>
+        </p>
+    </div>
+    <div class="detail-hero-actions">
+        <a class="btn-secondary" href="{% url 'reservatorio_detalhe' reservatorio.id %}">Voltar aos detalhes</a>
+    </div>
+</section>
+
+<section class="detail-actions-grid">
+    <article class="panel detail-actions-card">
+        <div class="detail-actions-head">
+            <div class="detail-actions-copy">
+                <p class="detail-metric-kicker">Operacao</p>
+                <h3>Opcoes do alerta sonoro</h3>
+                <p class="status-meta">
+                    Use o teste para validar a ligacao fisica e os silenciamentos para controlar o comportamento da buzina.
+                </p>
+            </div>
+        </div>
+        <div class="detail-action-links">
+            <form method="post" action="{% url 'reservatorio_alerta_sonoro_testar' reservatorio.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="destino" value="opcoes">
+                <button
+                    class="btn-secondary {% if alerta_sonoro.teste_ativo %}is-busy{% endif %}"
+                    type="submit"
+                    data-alerta-teste-button
+                    data-alerta-teste-default-label="Testar alerta sonoro"
+                    data-alerta-teste-busy-label="Testando alerta sonoro..."
+                    {% if alerta_sonoro.teste_ativo %}data-alerta-teste-restante-ms="{{ alerta_sonoro.teste_restante_ms }}"{% endif %}
+                    {% if alerta_sonoro.teste_ativo %}disabled{% endif %}
+                >
+                    {{ alerta_sonoro.texto_acao_teste }}
+                </button>
+            </form>
+
+            {% if alerta_sonoro.em_perigo and not alerta_sonoro.silenciado_permanente %}
+            <form method="post" action="{% url 'reservatorio_alerta_sonoro_alternar' reservatorio.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="destino" value="opcoes">
+                <button class="btn-secondary" type="submit">{{ alerta_sonoro.texto_acao }}</button>
+            </form>
+            {% endif %}
+
+            <form method="post" action="{% url 'reservatorio_alerta_sonoro_permanente_alternar' reservatorio.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="destino" value="opcoes">
+                <button class="btn-secondary" type="submit">{{ alerta_sonoro.texto_acao_permanente }}</button>
+            </form>
+        </div>
+    </article>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/alerta-sonoro-teste.js' %}?v=20260610-alerta-teste-1"></script>
+{% endblock %}

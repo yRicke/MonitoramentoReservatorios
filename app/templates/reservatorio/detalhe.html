@@ -29,34 +29,27 @@
     </div>
     <div class="detail-hero-actions">
         <a class="btn-secondary" href="{% url 'index' %}">Voltar</a>
-        <a class="btn-edit" href="{% url 'reservatorio_editar' reservatorio.id %}">Editar reservatorio</a>
-        <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatorio</a>
-        <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Calibrar</a>
-        <form method="post" action="{% url 'reservatorio_alerta_sonoro_testar' reservatorio.id %}">
-            {% csrf_token %}
-            <button
-                class="btn-secondary {% if alerta_sonoro.teste_ativo %}is-busy{% endif %}"
-                type="submit"
-                data-alerta-teste-button
-                data-alerta-teste-default-label="Testar alerta sonoro"
-                data-alerta-teste-busy-label="Testando alerta sonoro..."
-                {% if alerta_sonoro.teste_ativo %}data-alerta-teste-restante-ms="{{ alerta_sonoro.teste_restante_ms }}"{% endif %}
-                {% if alerta_sonoro.teste_ativo %}disabled{% endif %}
-            >
-                {{ alerta_sonoro.texto_acao_teste }}
-            </button>
-        </form>
-        {% if alerta_sonoro.em_perigo and not alerta_sonoro.silenciado_permanente %}
-        <form method="post" action="{% url 'reservatorio_alerta_sonoro_alternar' reservatorio.id %}">
-            {% csrf_token %}
-            <button class="btn-secondary" type="submit">{{ alerta_sonoro.texto_acao }}</button>
-        </form>
-        {% endif %}
-        <form method="post" action="{% url 'reservatorio_alerta_sonoro_permanente_alternar' reservatorio.id %}">
-            {% csrf_token %}
-            <button class="btn-secondary" type="submit">{{ alerta_sonoro.texto_acao_permanente }}</button>
-        </form>
     </div>
+</section>
+
+<section class="detail-actions-grid">
+    <article class="panel detail-actions-card">
+        <div class="detail-actions-head">
+            <div class="detail-actions-copy">
+                <p class="detail-metric-kicker">Acoes</p>
+                <h3>Atalhos do reservatorio</h3>
+                <p class="status-meta">
+                    Gerencie este reservatorio e abra as opcoes do alerta sonoro.
+                </p>
+            </div>
+        </div>
+        <div class="detail-action-links">
+            <a class="btn-edit" href="{% url 'reservatorio_editar' reservatorio.id %}">Editar reservatorio</a>
+            <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatorio</a>
+            <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Calibrar</a>
+            <a class="btn-secondary" href="{% url 'reservatorio_alerta_sonoro_opcoes' reservatorio.id %}">Opcoes do alerta</a>
+        </div>
+    </article>
 </section>
 
 {% include "reservatorio/_detalhe_status_metricas.html" %}
@@ -72,5 +65,4 @@
 {% block extra_scripts %}
 <script src="{% static 'js/vendor/apexcharts.min.js' %}?v=3.54.1"></script>
 <script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260325-apex11"></script>
-<script src="{% static 'js/alerta-sonoro-teste.js' %}?v=20260610-alerta-teste-1"></script>
 {% endblock %}

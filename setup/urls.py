@@ -35,6 +35,11 @@ urlpatterns = [
         name="reservatorio_relatorio",
     ),
     path(
+        'reservatorios/<int:reservatorio_id>/alerta-sonoro/opcoes/',
+        views.reservatorio_alerta_sonoro_opcoes,
+        name="reservatorio_alerta_sonoro_opcoes",
+    ),
+    path(
         'reservatorios/<int:reservatorio_id>/alerta-sonoro/',
         views.reservatorio_alerta_sonoro_alternar,
         name="reservatorio_alerta_sonoro_alternar",

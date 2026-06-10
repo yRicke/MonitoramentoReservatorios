@@ -165,6 +165,21 @@ def reservatorio_detalhe(request, reservatorio_id):
 
 @login_required(login_url="entrar")
 @require_http_methods(["GET"])
+def reservatorio_alerta_sonoro_opcoes(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        return redirect("index")
+
+    return render(
+        request,
+        "reservatorio/alerta_sonoro.html",
+        _contexto_alerta_sonoro_reservatorio(reservatorio),
+    )
+
+
+@login_required(login_url="entrar")
+@require_http_methods(["GET"])
 def reservatorio_editar(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
@@ -203,7 +218,7 @@ def reservatorio_alerta_sonoro_alternar(request, reservatorio_id):
     if reservatorio.status != Reservatorio.STATUS_PERIGO:
         reservatorio.reativar_alerta_sonoro()
         messages.info(request, "O alerta sonoro permanece desligado porque o reservatÃ³rio nÃ£o estÃ¡ em perigo.")
-        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+        return _redirect_alerta_sonoro(request, reservatorio)
 
     if reservatorio.alerta_sonoro_deve_apitar:
         reservatorio.silenciar_alerta_sonoro()
@@ -211,7 +226,7 @@ def reservatorio_alerta_sonoro_alternar(request, reservatorio_id):
     else:
         reservatorio.reativar_alerta_sonoro()
         messages.success(request, "Alerta sonoro reativado.")
-    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+    return _redirect_alerta_sonoro(request, reservatorio)
 
 
 @login_required(login_url="entrar")
@@ -228,7 +243,7 @@ def reservatorio_alerta_sonoro_permanente_alternar(request, reservatorio_id):
     else:
         reservatorio.silenciar_alerta_sonoro_permanentemente()
         messages.success(request, "Alerta sonoro silenciado permanentemente.")
-    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+    return _redirect_alerta_sonoro(request, reservatorio)
 
 
 @login_required(login_url="entrar")
@@ -241,11 +256,11 @@ def reservatorio_alerta_sonoro_testar(request, reservatorio_id):
 
     if reservatorio.alerta_sonoro_teste_ativo:
         messages.info(request, "O teste do alerta sonoro jÃ¡ estÃ¡ em andamento.")
-        return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+        return _redirect_alerta_sonoro(request, reservatorio)
 
     reservatorio.iniciar_teste_alerta_sonoro(duracao_segundos=ALERTA_SONORO_TESTE_DURACAO_SEGUNDOS)
     messages.success(request, "Teste do alerta sonoro iniciado por 5 segundos.")
-    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+    return _redirect_alerta_sonoro(request, reservatorio)
 
 
 @login_required(login_url="entrar")
@@ -1539,6 +1554,21 @@ def _contexto_detalhe_reservatorio(reservatorio):
         ),
         "alerta_sonoro": _resumo_alerta_sonoro_reservatorio(reservatorio),
     }
+
+
+def _contexto_alerta_sonoro_reservatorio(reservatorio):
+    reservatorio.garantir_pontos_monitoramento()
+    reservatorio.sincronizar_status_pelo_ponto()
+    return {
+        "reservatorio": reservatorio,
+        "alerta_sonoro": _resumo_alerta_sonoro_reservatorio(reservatorio),
+    }
+
+
+def _redirect_alerta_sonoro(request, reservatorio):
+    if request.POST.get("destino") == "opcoes":
+        return redirect("reservatorio_alerta_sonoro_opcoes", reservatorio_id=reservatorio.id)
+    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
 
 
 def _contexto_edicao_reservatorio(reservatorio):
