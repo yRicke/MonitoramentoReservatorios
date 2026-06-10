@@ -32,12 +32,16 @@
         <a class="btn-edit" href="{% url 'reservatorio_editar' reservatorio.id %}">Editar reservatorio</a>
         <a class="btn-main" href="{% url 'reservatorio_relatorio' reservatorio.id %}?download=1" target="_blank" rel="noopener">Baixar relatorio</a>
         <a class="btn-main" href="{% url 'reservatorio_calibracao' reservatorio.id %}">Calibrar</a>
-        {% if alerta_sonoro.em_perigo %}
+        {% if alerta_sonoro.em_perigo and not alerta_sonoro.silenciado_permanente %}
         <form method="post" action="{% url 'reservatorio_alerta_sonoro_alternar' reservatorio.id %}">
             {% csrf_token %}
             <button class="btn-secondary" type="submit">{{ alerta_sonoro.texto_acao }}</button>
         </form>
         {% endif %}
+        <form method="post" action="{% url 'reservatorio_alerta_sonoro_permanente_alternar' reservatorio.id %}">
+            {% csrf_token %}
+            <button class="btn-secondary" type="submit">{{ alerta_sonoro.texto_acao_permanente }}</button>
+        </form>
     </div>
 </section>
 

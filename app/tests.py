@@ -94,6 +94,7 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         self.assertEqual(reservatorio.esp32_intervalo_envio_normal_s, 60)
         self.assertEqual(reservatorio.esp32_intervalo_envio_calibracao_s, 5)
         self.assertFalse(reservatorio.alerta_sonoro_silenciado)
+        self.assertFalse(reservatorio.alerta_sonoro_silenciado_permanente)
 
         ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
         ponto_pre = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_ANTES)
@@ -219,6 +220,26 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         self.assertEqual(reativar.status_code, 302)
         reservatorio.refresh_from_db()
         self.assertFalse(reservatorio.alerta_sonoro_silenciado)
+
+    def test_alerta_sonoro_pode_ser_silenciado_permanentemente(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio alarme permanente")
+
+        silenciar = self.client.post(
+            reverse("reservatorio_alerta_sonoro_permanente_alternar", args=[reservatorio.id])
+        )
+
+        self.assertEqual(silenciar.status_code, 302)
+        reservatorio.refresh_from_db()
+        self.assertTrue(reservatorio.alerta_sonoro_silenciado_permanente)
+
+        reativar = self.client.post(
+            reverse("reservatorio_alerta_sonoro_permanente_alternar", args=[reservatorio.id])
+        )
+
+        self.assertEqual(reativar.status_code, 302)
+        reservatorio.refresh_from_db()
+        self.assertFalse(reservatorio.alerta_sonoro_silenciado_permanente)
 
 
 class CalibrationFlowTests(BaseAppTestCase):
@@ -371,6 +392,17 @@ class Esp32IngestaoTests(BaseAppTestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertTrue(payload["alerta_sonoro_ativo"])
+
+    def test_esp32_configuracao_respeita_silencio_permanente(self):
+        self.ponto.atualizar_status(status=Reservatorio.STATUS_PERIGO)
+        self.reservatorio.sincronizar_status_pelo_ponto()
+        self.reservatorio.silenciar_alerta_sonoro_permanentemente()
+
+        response = self._get_config()
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload["alerta_sonoro_ativo"])
 
     def test_esp32_configuracao_retorna_sessao_ativa(self):
         sessao = self.criar_sessao(

@@ -37,7 +37,8 @@ Sequencia no backend:
 - token de integracao do ESP32;
 - intervalo normal do ESP32;
 - intervalo de calibracao do ESP32;
-- estado de silenciamento do alerta sonoro.
+- estado de silenciamento temporario do alerta sonoro;
+- estado de silenciamento permanente do alerta sonoro.
 
 ### `PontoMonitoramento`
 - tipo canonico: `ponto_unico`;

@@ -214,6 +214,23 @@ def reservatorio_alerta_sonoro_alternar(request, reservatorio_id):
 
 
 @login_required(login_url="entrar")
+@require_http_methods(["POST"])
+def reservatorio_alerta_sonoro_permanente_alternar(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "ReservatÃ³rio nÃ£o encontrado.")
+        return redirect("index")
+
+    if reservatorio.alerta_sonoro_silenciado_permanente:
+        reservatorio.reativar_alerta_sonoro_permanente()
+        messages.success(request, "Alerta sonoro permanente reativado.")
+    else:
+        reservatorio.silenciar_alerta_sonoro_permanentemente()
+        messages.success(request, "Alerta sonoro silenciado permanentemente.")
+    return redirect("reservatorio_detalhe", reservatorio_id=reservatorio.id)
+
+
+@login_required(login_url="entrar")
 @require_http_methods(["GET"])
 def reservatorio_relatorio(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
@@ -1437,9 +1454,13 @@ def _contexto_calibracao_reservatorio(reservatorio, *, ponto_unico):
 def _resumo_alerta_sonoro_reservatorio(reservatorio):
     ativo = reservatorio.alerta_sonoro_deve_apitar
     em_perigo = reservatorio.status == Reservatorio.STATUS_PERIGO
+    silenciado_permanente = reservatorio.alerta_sonoro_silenciado_permanente
     silenciado = em_perigo and reservatorio.alerta_sonoro_silenciado
 
-    if ativo:
+    if silenciado_permanente:
+        rotulo = "Silenciado permanentemente"
+        classe_status = "status-atencao"
+    elif ativo:
         rotulo = "Apitando"
         classe_status = "status-perigo"
     elif silenciado:
@@ -1453,9 +1474,15 @@ def _resumo_alerta_sonoro_reservatorio(reservatorio):
         "ativo": ativo,
         "em_perigo": em_perigo,
         "silenciado": silenciado,
+        "silenciado_permanente": silenciado_permanente,
         "rotulo": rotulo,
         "classe_status": classe_status,
         "texto_acao": "Silenciar alerta" if ativo else "Reativar alerta",
+        "texto_acao_permanente": (
+            "Reativar alerta permanente"
+            if silenciado_permanente
+            else "Silenciar permanentemente"
+        ),
     }
 
 

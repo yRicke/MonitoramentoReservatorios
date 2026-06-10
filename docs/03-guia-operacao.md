@@ -46,6 +46,7 @@ Detalhe do reservatorio:
 - acesso para editar e calibrar.
 
 Quando o status entrar em `perigo`, a tela de detalhe permite silenciar ou reativar o alerta sonoro.
+O detalhe tambem oferece um botao de silenciamento permanente, que bloqueia a buzina ate reativacao manual.
 
 ## 6. Edicao do Reservatorio
 Na tela de edicao:
