@@ -191,7 +191,7 @@
 }
 
 .message {
-    width: fit-content;
+    width: 100%;
     max-width: 100%;
     border-radius: var(--radius-sm);
     padding: 9px 13px;
@@ -199,6 +199,7 @@
     font-weight: 700;
     background: #e9eeec;
     color: #2f3e39;
+    text-align: center;
 }
 
 .message.success {
