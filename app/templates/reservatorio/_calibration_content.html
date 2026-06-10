@@ -17,10 +17,10 @@
         Informe em quanto a media da temperatura deveria estar. O sistema usa a media estavel da sessao para ajustar a calibracao automaticamente.
     </p>
     <div class="ph-auto-grid calibration-single-grid">
-        <form class="ph-auto-card" method="post" data-calibration-form data-sensor-form="temperatura"
+        <form class="ph-auto-card calibration-form-card" method="post" data-calibration-form data-sensor-form="temperatura"
             action="{% url 'reservatorio_calibracao_temperatura_auto' reservatorio.id %}">
             {% csrf_token %}
-            <p class="ph-calibration-status {% if temperatura_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
+            <p class="ph-calibration-status calibration-status {% if temperatura_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
                 {% if temperatura_calibracao_ativa.calibrado_em %}
                 Ultima calibracao: {{ temperatura_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ temperatura_calibracao_ativa.dias }}d)
                 {% else %}
@@ -52,10 +52,10 @@
         Informe em quanto a media do TDS deveria estar. A temperatura calibrada atual continua sendo usada no calculo.
     </p>
     <div class="water-auto-grid calibration-single-grid">
-        <form class="water-auto-card" method="post" data-calibration-form data-sensor-form="tds"
+        <form class="water-auto-card calibration-form-card" method="post" data-calibration-form data-sensor-form="tds"
             action="{% url 'reservatorio_calibracao_tds_auto' reservatorio.id %}">
             {% csrf_token %}
-            <p class="water-calibration-status {% if tds_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
+            <p class="water-calibration-status calibration-status {% if tds_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
                 {% if tds_calibracao_ativa.calibrado_em %}
                 Ultima calibracao: {{ tds_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ tds_calibracao_ativa.dias }}d)
                 {% else %}
@@ -86,10 +86,10 @@
         Informe em quanto a media da turbidez deveria estar. A calibracao usa a media estavel da sessao e aplica o ajuste automaticamente.
     </p>
     <div class="water-auto-grid calibration-single-grid">
-        <form class="water-auto-card" method="post" data-calibration-form data-sensor-form="turbidez"
+        <form class="water-auto-card calibration-form-card" method="post" data-calibration-form data-sensor-form="turbidez"
             action="{% url 'reservatorio_calibracao_turbidez_auto' reservatorio.id %}">
             {% csrf_token %}
-            <p class="water-calibration-status {% if turbidez_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
+            <p class="water-calibration-status calibration-status {% if turbidez_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
                 {% if turbidez_calibracao_ativa.calibrado_em %}
                 Ultima calibracao: {{ turbidez_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ turbidez_calibracao_ativa.dias }}d)
                 {% else %}
@@ -120,9 +120,9 @@
         Use a sessao apenas para observar a tensao estabilizada em cada solucao conhecida. Depois, preencha abaixo os dois pares pH/voltagem e salve. Recomendado usar 7 e 4, ou 7 e 10.
     </p>
     <div class="ph-manual-grid calibration-single-grid">
-        <form class="ph-manual-card ph-paper-form" method="post" action="{% url 'reservatorio_calibracao_ph_auto' reservatorio.id %}">
+        <form class="ph-manual-card calibration-form-card ph-paper-form" method="post" action="{% url 'reservatorio_calibracao_ph_auto' reservatorio.id %}">
             {% csrf_token %}
-            <p class="ph-calibration-status {% if ph_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
+            <p class="ph-calibration-status calibration-status {% if ph_calibracao_ativa.vencida %}is-overdue{% else %}is-ok{% endif %}">
                 {% if ph_calibracao_ativa.calibrado_em %}
                 Ultima calibracao: {{ ph_calibracao_ativa.calibrado_em|date:"d/m/Y H:i" }} ({{ ph_calibracao_ativa.dias }}d)
                 {% else %}
@@ -157,7 +157,7 @@
         Use apenas quando precisar voltar os parametros deste sensor para o padrao inicial.
     </p>
     <form
-        class="water-auto-card"
+        class="water-auto-card calibration-form-card"
         method="post"
         action="{% url 'reservatorio_calibracao_sensor_resetar' reservatorio.id sensor_selecionado %}"
         data-confirm-reset-calibracao-sensor

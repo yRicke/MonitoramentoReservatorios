@@ -10,6 +10,8 @@
         return;
     }
 
+    let pollTimer = null;
+
     const refs = {
         status: panel.querySelector("[data-live-status]"),
         count: panel.querySelector("[data-live-count]"),
@@ -42,7 +44,7 @@
             return;
         }
 
-        target.textContent = payload.estavel ? "Estável" : "Instável";
+        target.textContent = payload.estavel ? "Estavel" : "Instavel";
         const desvio = payload.desvio_exibicao !== null && payload.desvio_exibicao !== undefined
             ? payload.desvio_exibicao
             : payload.desvio;
@@ -63,7 +65,7 @@
         if (refs.captureButton && refs.captureHint) {
             refs.captureButton.disabled = !ready;
             refs.captureHint.textContent = ready
-                ? "Sessão pronta para capturar o ponto 1."
+                ? "Sessao pronta para capturar o ponto 1."
                 : "Aguardando estabilidade do sensor e da temperatura.";
         }
 
@@ -76,7 +78,7 @@
 
         refs.confirmHints.forEach((hint) => {
             hint.textContent = ready
-                ? "Sessão pronta para confirmar a calibração."
+                ? "Sessao pronta para confirmar a calibracao."
                 : (shouldRequireTemperatureStability()
                     ? "Aguardando estabilidade do sensor e da temperatura."
                     : "Aguardando estabilidade do sensor.");
@@ -84,10 +86,12 @@
     }
 
     function render(data) {
+        panel.dataset.sessionActive = data.ativa ? "true" : "false";
+
         refs.status.textContent = data.ativa ? "Ativa" : "Inativa";
         refs.count.textContent = data.ativa
             ? data.amostras + " amostras recebidas"
-            : "Aguardando início da sessão";
+            : "Aguardando inicio da sessao";
 
         const ultima = data.ultima_amostra || null;
         if (sensor === "temperatura") {
@@ -101,7 +105,7 @@
                 ? formatNumber(data.medias.temperatura_calibrada, 2) + " C"
                 : "--";
             refs.avgMeta.textContent = data.medias
-                ? "Média da temperatura bruta " + formatNumber(data.medias.temperatura_bruta, 2) + " C"
+                ? "Media da temperatura bruta " + formatNumber(data.medias.temperatura_bruta, 2) + " C"
                 : "Sem dados suficientes";
         } else {
             const digits = sensor === "turbidez" ? 3 : 2;
@@ -121,9 +125,9 @@
                     ? formatNumber(data.medias.tensao, 3) + " V"
                     : "--";
                 refs.avgMeta.textContent = data.medias
-                    ? "ADC médio " + formatNumber(data.medias.adc, 0)
+                    ? "ADC medio " + formatNumber(data.medias.adc, 0)
                         + (data.medias.valor_calibrado !== null && data.medias.valor_calibrado !== undefined
-                            ? " | pH médio " + formatNumber(data.medias.valor_calibrado, 2)
+                            ? " | pH medio " + formatNumber(data.medias.valor_calibrado, 2)
                             : "")
                     : "Sem dados suficientes";
             } else {
@@ -134,12 +138,12 @@
                 if (sensor === "tds") {
                     refs.lastMeta.textContent = ultima
                         ? "ADC " + (ultima.adc ?? "--")
-                            + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensão " + formatNumber(ultima.tensao, 3) + " V" : "")
+                            + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensao " + formatNumber(ultima.tensao, 3) + " V" : "")
                             + (ultima.temperatura_calibrada !== null && ultima.temperatura_calibrada !== undefined ? " | Temp " + formatNumber(ultima.temperatura_calibrada, 2) + " C" : "")
                         : "Sem amostras recentes";
                 } else {
                     refs.lastMeta.textContent = ultima
-                        ? "ADC " + (ultima.adc ?? "--") + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensão " + formatNumber(ultima.tensao, 3) + " V" : "")
+                        ? "ADC " + (ultima.adc ?? "--") + (ultima.tensao !== null && ultima.tensao !== undefined ? " | Tensao " + formatNumber(ultima.tensao, 3) + " V" : "")
                         : "Sem amostras recentes";
                 }
 
@@ -149,11 +153,11 @@
 
                 if (sensor === "tds") {
                     refs.avgMeta.textContent = data.medias
-                        ? "Média nas últimas amostras | Temp " + formatNumber(data.medias.temperatura_calibrada, 2) + " C"
+                        ? "Media nas ultimas amostras | Temp " + formatNumber(data.medias.temperatura_calibrada, 2) + " C"
                         : "Sem dados suficientes";
                 } else {
                     refs.avgMeta.textContent = data.medias
-                        ? "Média do valor convertido nas últimas amostras"
+                        ? "Media do valor convertido nas ultimas amostras"
                         : "Sem dados suficientes";
                 }
             }
@@ -178,20 +182,42 @@
         updateButtons(data);
     }
 
+    function stopPolling() {
+        if (pollTimer !== null) {
+            window.clearTimeout(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function scheduleNextPoll() {
+        stopPolling();
+        pollTimer = window.setTimeout(loadStatus, 5000);
+    }
+
     async function loadStatus() {
+        stopPolling();
         try {
             const response = await fetch(statusUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } });
             if (!response.ok) {
+                if (panel.dataset.sessionActive === "true") {
+                    scheduleNextPoll();
+                }
                 return;
             }
 
             const data = await response.json();
             render(data);
+            if (data.ativa) {
+                scheduleNextPoll();
+            }
         } catch (error) {
-            // Mantém o último estado visível se o polling falhar.
+            // Mantem o ultimo estado visivel se o polling falhar.
+            if (panel.dataset.sessionActive === "true") {
+                scheduleNextPoll();
+            }
         }
     }
 
     loadStatus();
-    window.setInterval(loadStatus, 5000);
+    window.addEventListener("beforeunload", stopPolling);
 })();

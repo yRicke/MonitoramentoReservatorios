@@ -24,6 +24,7 @@
 .auth-form input:focus-visible,
 .calibration-toggle-btn:focus-visible,
 .ph-calibration-form input:focus-visible,
+.calibration-form-card input:focus-visible,
 .ph-auto-card input:focus-visible,
 .water-auto-card input:focus-visible {
     outline: 2px solid rgba(61, 110, 168, 0.34);
@@ -1012,6 +1013,12 @@
     grid-template-columns: 1fr;
 }
 
+.ph-auto-grid.calibration-single-grid,
+.ph-manual-grid.calibration-single-grid,
+.water-auto-grid.calibration-single-grid {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .chart-wrap {
     position: relative;
     min-height: 260px;
@@ -1170,6 +1177,30 @@
     margin-top: 8px;
     padding: 9px 14px;
     font-size: 14px;
+}
+
+.calibration-form-card {
+    width: 100%;
+}
+
+.calibration-status {
+    margin: 0 0 2px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.calibration-status.is-ok {
+    background: #e6f8ef;
+    color: #0f774e;
+    border: 1px solid #b9e8d2;
+}
+
+.calibration-status.is-overdue {
+    background: #fff3e8;
+    color: #a95700;
+    border: 1px solid #ffd7b1;
 }
 
 .ph-calibration-section h5 {
