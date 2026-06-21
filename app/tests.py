@@ -264,7 +264,7 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Opcoes do alerta sonoro")
+        self.assertContains(response, "Opções do alerta sonoro")
         self.assertContains(response, "Testar alerta sonoro")
         self.assertContains(response, "Voltar aos detalhes")
 
@@ -333,8 +333,8 @@ class CalibrationFlowTests(BaseAppTestCase):
         response = self.client.post(
             reverse("reservatorio_calibracao_temperatura_auto", args=[reservatorio.id]),
             {
-                "temperatura_referencia_c": "25",
-                "temperatura_inclinacao": "1.0",
+                "temperatura_referencia_c": "25,0",
+                "temperatura_inclinacao": "1,0",
             },
         )
 
@@ -364,24 +364,30 @@ class CalibrationFlowTests(BaseAppTestCase):
         ponto.refresh_from_db()
         self.assertEqual(ponto.temperatura_offset_c, 0.0)
 
-    def test_calibracao_turbidez_aceita_alvo_ate_cinco_ntu(self):
+    def test_calibracao_turbidez_aplica_reta_de_dois_pontos(self):
         self.login()
         reservatorio = self.criar_reservatorio()
         ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
-        sessao = self.criar_sessao(ponto, SessaoCalibracao.SENSOR_TURBIDEZ)
-        self.adicionar_amostras_estaveis(sessao, adc_turb=300)
 
         response = self.client.post(
             reverse("reservatorio_calibracao_turbidez_auto", args=[reservatorio.id]),
             {
-                "turbidez_alvo_ntu": "5.0",
-                "turbidez_inclinacao": "1.0",
+                "turbidez_referencia_ponto_1": "50,00",
+                "turbidez_tensao_ponto_1": "0,8",
+                "turbidez_referencia_ponto_2": "200,00",
+                "turbidez_tensao_ponto_2": "0,2",
             },
         )
 
         self.assertEqual(response.status_code, 302)
         ponto.refresh_from_db()
-        self.assertEqual(ponto.turbidez_alvo_calibracao_ntu, 5.0)
+        self.assertAlmostEqual(ponto.turbidez_alvo_calibracao_ntu, 50.0, places=3)
+        self.assertAlmostEqual(ponto.turbidez_inclinacao, -250.0, places=6)
+        self.assertAlmostEqual(ponto.turbidez_offset_ntu, 250.0, places=6)
+        _, turbidez_ponto_1 = ponto.aplicar_calibracao_agua(tds=0.0, turbidez=0.8)
+        _, turbidez_ponto_2 = ponto.aplicar_calibracao_agua(tds=0.0, turbidez=0.2)
+        self.assertAlmostEqual(turbidez_ponto_1, 50.0, places=3)
+        self.assertAlmostEqual(turbidez_ponto_2, 200.0, places=3)
 
 
 class Esp32IngestaoTests(BaseAppTestCase):

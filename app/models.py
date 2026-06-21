@@ -935,6 +935,62 @@ class PontoMonitoramento(models.Model):
         )
         return self
 
+    def atualizar_calibracao_turbidez_2_pontos(
+        self,
+        *,
+        turbidez_ponto_1_ntu,
+        turbidez_tensao_ponto_1,
+        turbidez_ponto_2_ntu,
+        turbidez_tensao_ponto_2,
+    ):
+        turbidez_ponto_1_final = self._normalizar_turbidez_alvo_calibracao(turbidez_ponto_1_ntu)
+        turbidez_ponto_2_final = self._normalizar_turbidez_alvo_calibracao(turbidez_ponto_2_ntu)
+        tensao_ponto_1_final = self._normalizar_tensao_calibracao_sensor(
+            turbidez_tensao_ponto_1,
+            campo="turbidez_tensao_ponto_1",
+        )
+        tensao_ponto_2_final = self._normalizar_tensao_calibracao_sensor(
+            turbidez_tensao_ponto_2,
+            campo="turbidez_tensao_ponto_2",
+        )
+
+        if math.isclose(
+            tensao_ponto_1_final,
+            tensao_ponto_2_final,
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        ):
+            raise ValueError(
+                "As tensoes de turbidez devem ser diferentes para recalcular a inclinacao."
+            )
+
+        inclinacao_final = self._normalizar_turbidez_inclinacao(
+            (turbidez_ponto_2_final - turbidez_ponto_1_final)
+            / (tensao_ponto_2_final - tensao_ponto_1_final)
+        )
+        offset_final = turbidez_ponto_1_final - (tensao_ponto_1_final * inclinacao_final)
+        if not math.isfinite(offset_final):
+            raise ValueError("Nao foi possivel calcular um offset valido para a turbidez.")
+
+        self.turbidez_inclinacao = inclinacao_final
+        self.turbidez_offset_ntu = offset_final
+        self.turbidez_alvo_calibracao_ntu = turbidez_ponto_1_final
+        self.turbidez_adc_calibracao = None
+        self.turbidez_calibrado_em = timezone.now()
+        self.agua_calibrado_em = self.turbidez_calibrado_em
+        self.save(
+            update_fields=[
+                "turbidez_inclinacao",
+                "turbidez_offset_ntu",
+                "turbidez_alvo_calibracao_ntu",
+                "turbidez_adc_calibracao",
+                "turbidez_calibrado_em",
+                "agua_calibrado_em",
+                "updated_at",
+            ]
+        )
+        return self
+
     def aplicar_calibracao_agua(self, *, tds, turbidez):
         tds_ajustado = (float(tds) * float(self.tds_inclinacao)) + float(self.tds_offset_ppm)
         turbidez_ajustada = (
@@ -1137,8 +1193,30 @@ class PontoMonitoramento(models.Model):
         except (TypeError, ValueError) as exc:
             raise ValueError("Alvo de turbidez inválido para calibração.") from exc
 
-        if not math.isfinite(numero) or numero < 0 or numero > 5.0:
-            raise ValueError("O alvo de turbidez da calibração deve estar entre 0 e 5.0 NTU.")
+        if not math.isfinite(numero) or numero < 0:
+            raise ValueError("O alvo de turbidez da calibração deve ser maior ou igual a 0 NTU.")
+        return numero
+
+    @staticmethod
+    def _normalizar_turbidez_inclinacao(valor):
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Inclinação de turbidez inválida para o ponto.") from exc
+
+        if not math.isfinite(numero) or math.isclose(numero, 0.0, rel_tol=0.0, abs_tol=1e-12):
+            raise ValueError("A inclinacao de turbidez deve ser diferente de zero.")
+        return numero
+
+    @staticmethod
+    def _normalizar_tensao_calibracao_sensor(valor, *, campo):
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{campo} inválida.") from exc
+
+        if not math.isfinite(numero) or numero < 0 or numero > 3.3:
+            raise ValueError(f"{campo} deve estar entre 0 e 3.3V.")
         return numero
 
     @staticmethod

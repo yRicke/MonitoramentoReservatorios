@@ -45,9 +45,10 @@ No fluxo atual da UI:
 
 ### Turbidez
 
-- usa ADC bruto estavel da sessao;
-- o operador informa o alvo em NTU;
-- a calibracao ajusta inclinacao e offset da turbidez.
+- a sessao serve para observar estabilidade da tensao;
+- a gravacao final e manual em dois pontos;
+- o operador informa dois pares `NTU/tensao`;
+- o backend recalcula a reta `NTU = m * tensao + b`.
 
 ### pH
 

@@ -532,9 +532,9 @@ def reservatorio_calibracao_temperatura_auto(request, reservatorio_id):
     temperatura_inclinacao_raw = request.POST.get("temperatura_inclinacao")
 
     try:
-        temperatura_referencia = float(temperatura_referencia_raw)
+        temperatura_referencia = _normalizar_decimal_localizado(temperatura_referencia_raw)
         temperatura_inclinacao = (
-            float(temperatura_inclinacao_raw)
+            _normalizar_decimal_localizado(temperatura_inclinacao_raw)
             if temperatura_inclinacao_raw not in (None, "")
             else None
         )
@@ -598,8 +598,8 @@ def reservatorio_calibracao_tds_auto(request, reservatorio_id):
     tds_alvo_raw = request.POST.get("tds_alvo_ppm")
     tds_inclinacao_raw = request.POST.get("tds_inclinacao")
     try:
-        tds_alvo = float(tds_alvo_raw)
-        tds_inclinacao = float(tds_inclinacao_raw)
+        tds_alvo = _normalizar_decimal_localizado(tds_alvo_raw)
+        tds_inclinacao = _normalizar_decimal_localizado(tds_inclinacao_raw)
     except (TypeError, ValueError):
         messages.error(request, "Informe TDS de referência e inclinação válidos.")
         return redirect(_url_calibracao_sensor(reservatorio, "tds"))
@@ -649,6 +649,81 @@ def reservatorio_calibracao_turbidez_auto(request, reservatorio_id):
         messages.error(request, "Reservatório não encontrado.")
         return redirect("index")
 
+    try:
+        turbidez_ponto_1 = _normalizar_valor_referencia_generico(
+            request.POST.get("turbidez_referencia_ponto_1"),
+            campo="turbidez da solução 1",
+            minimo=0.0,
+        )
+        tensao_ponto_1 = _normalizar_valor_referencia_generico(
+            request.POST.get("turbidez_tensao_ponto_1"),
+            campo="tensão da solução 1",
+            minimo=0.0,
+            maximo=ADC_TENSAO_REFERENCIA,
+        )
+        turbidez_ponto_2 = _normalizar_valor_referencia_generico(
+            request.POST.get("turbidez_referencia_ponto_2"),
+            campo="turbidez da solução 2",
+            minimo=0.0,
+        )
+        tensao_ponto_2 = _normalizar_valor_referencia_generico(
+            request.POST.get("turbidez_tensao_ponto_2"),
+            campo="tensão da solução 2",
+            minimo=0.0,
+            maximo=ADC_TENSAO_REFERENCIA,
+        )
+    except (TypeError, ValueError):
+        messages.error(request, "Preencha os dois pares de turbidez e tensão com valores válidos.")
+        return redirect(_url_calibracao_sensor(reservatorio, "turbidez"))
+
+    ponto = _obter_ponto_calibracao_por_post(request, reservatorio)
+    if ponto is None:
+        return redirect(_url_calibracao_raiz(reservatorio))
+
+    if math.isclose(turbidez_ponto_1, turbidez_ponto_2, rel_tol=0.0, abs_tol=1e-9):
+        messages.error(
+            request,
+            "As soluções de turbidez devem ter valores diferentes para recalcular a inclinação.",
+        )
+        return redirect(_url_calibracao_sensor(reservatorio, "turbidez"))
+
+    if math.isclose(tensao_ponto_1, tensao_ponto_2, rel_tol=0.0, abs_tol=1e-9):
+        messages.error(
+            request,
+            "As tensões de turbidez devem ser diferentes para recalcular a inclinação.",
+        )
+        return redirect(_url_calibracao_sensor(reservatorio, "turbidez"))
+
+    try:
+        ponto.atualizar_calibracao_turbidez_2_pontos(
+            turbidez_ponto_1_ntu=turbidez_ponto_1,
+            turbidez_tensao_ponto_1=tensao_ponto_1,
+            turbidez_ponto_2_ntu=turbidez_ponto_2,
+            turbidez_tensao_ponto_2=tensao_ponto_2,
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect(_url_calibracao_sensor(reservatorio, "turbidez"))
+
+    messages.success(
+        request,
+        (
+            f"Calibração de turbidez aplicada no ponto {_nome_curto_ponto(ponto)}: "
+            f"ponto 1 {turbidez_ponto_1:.3f} NTU/{tensao_ponto_1:.3f}V, "
+            f"ponto 2 {turbidez_ponto_2:.3f} NTU/{tensao_ponto_2:.3f}V."
+        ),
+    )
+    return redirect(_url_calibracao_sensor(reservatorio, "turbidez"))
+
+
+@login_required(login_url="entrar")
+@require_http_methods(["POST"])
+def _reservatorio_calibracao_turbidez_auto_legado(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        messages.error(request, "Reservatório não encontrado.")
+        return redirect("index")
+
     ponto = _obter_ponto_calibracao_por_post(request, reservatorio)
     if ponto is None:
         return redirect(_url_calibracao_raiz(reservatorio))
@@ -656,8 +731,8 @@ def reservatorio_calibracao_turbidez_auto(request, reservatorio_id):
     turbidez_alvo_raw = request.POST.get("turbidez_alvo_ntu")
     turbidez_inclinacao_raw = request.POST.get("turbidez_inclinacao")
     try:
-        turbidez_alvo = float(turbidez_alvo_raw)
-        turbidez_inclinacao = float(turbidez_inclinacao_raw)
+        turbidez_alvo = _normalizar_decimal_localizado(turbidez_alvo_raw)
+        turbidez_inclinacao = _normalizar_decimal_localizado(turbidez_inclinacao_raw)
     except (TypeError, ValueError):
         messages.error(request, "Informe turbidez de referência e inclinação válidas.")
         return redirect(_url_calibracao_sensor(reservatorio, "turbidez"))
@@ -883,7 +958,7 @@ def esp32_calibracao_amostra(request):
         return JsonResponse({"erro": "não autorizado"}, status=401)
 
     if "ponto_tipo" in payload:
-        return JsonResponse({"erro": "campo não suportado: ponto_tipo"}, status=400)
+        return JsonResponse({"erro": "campo nao suportado: ponto_tipo"}, status=400)
 
     try:
         sensor = SessaoCalibracao.normalizar_sensor(payload.get("sensor"))
@@ -1387,7 +1462,7 @@ def _obter_sessao_calibracao_pronta(*, ponto, sensor):
 
 def _normalizar_valor_referencia_generico(valor, *, campo, minimo=None, maximo=None):
     try:
-        numero = float(valor)
+        numero = _normalizar_decimal_localizado(valor)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{campo} inválido.") from exc
 
@@ -1400,6 +1475,12 @@ def _normalizar_valor_referencia_generico(valor, *, campo, minimo=None, maximo=N
     return numero
 
 
+def _normalizar_decimal_localizado(valor):
+    if isinstance(valor, str):
+        valor = valor.strip().replace(",", ".")
+    return float(valor)
+
+
 def _extrair_float_json(payload, campo, *, obrigatorio=False):
     valor = payload.get(campo)
     if valor is None:
@@ -1407,7 +1488,7 @@ def _extrair_float_json(payload, campo, *, obrigatorio=False):
             raise IngestaoLeituraErro(f"campo obrigatorio: {campo}")
         return None
     try:
-        numero = float(valor)
+        numero = _normalizar_decimal_localizado(valor)
     except (TypeError, ValueError) as exc:
         raise IngestaoLeituraErro(f"campo invalido: {campo}") from exc
     if not math.isfinite(numero):
