@@ -3,11 +3,11 @@
 ## 1. Ciclo normal de leitura
 
 1. O ESP32 sobe em modo AP e disponibiliza o painel local.
-2. O operador configura `reservatorio_id`, IP do Django e token.
+2. O operador configura `reservatorio_id` e IP do Django.
 3. O firmware consulta `GET /api/esp32/config/`.
 4. Em modo normal, o firmware le temperatura, ADC de TDS, ADC de turbidez e ADC de pH.
 5. A leitura e enviada para `POST /api/esp32/leituras/`.
-6. O backend valida token, normaliza o payload e resolve o `ponto_unico`.
+6. O backend valida o `reservatorio_id`, normaliza o payload e resolve o `ponto_unico`.
 7. As calibracoes salvas do ponto sao aplicadas.
 8. O status e calculado pelas regras de faixa.
 9. A leitura e persistida em `LeituraQualidade`.

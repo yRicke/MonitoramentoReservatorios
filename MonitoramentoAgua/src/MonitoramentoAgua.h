@@ -24,7 +24,6 @@ struct MonitoramentoAguaConfig {
   const char* djangoCalibrationSamplesPath;
 
   int reservatorioId;
-  const char* apiToken;
   const char* deviceId;
 
   unsigned long intervaloEnvioNormalPadraoMs;
@@ -78,7 +77,6 @@ private:
   String apSsid_;
   String apPassword_;
   String djangoHost_;
-  String apiToken_;
   String deviceId_;
   IPAddress apIP_;
   int reservatorioId_;

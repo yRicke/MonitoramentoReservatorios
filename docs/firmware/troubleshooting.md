@@ -6,17 +6,15 @@ Verifique:
 
 1. backend Django acessivel no IP configurado;
 2. `reservatorio_id` salvo no painel local;
-3. token atual do reservatorio;
-4. se o notebook esta realmente conectado ao AP do ESP32;
-5. se o firmware conseguiu consultar `/api/esp32/config/`.
+3. se o notebook esta realmente conectado ao AP do ESP32;
+4. se o firmware conseguiu consultar `/api/esp32/config/`.
 
 ## `401 nao autorizado`
 
 Possiveis causas:
 
-- token regenerado no Django e nao atualizado no painel do ESP32;
 - `reservatorio_id` apontando para outro reservatorio;
-- cabecalho `X-API-Token` vazio ou divergente.
+- `reservatorio_id` ausente ou invalido na requisicao.
 
 ## `400 campo nao suportado: ponto_tipo`
 

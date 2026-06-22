@@ -1,7 +1,6 @@
 from datetime import timedelta
 import json
 import math
-import secrets
 import statistics
 import time
 
@@ -191,21 +190,6 @@ def reservatorio_editar(request, reservatorio_id):
         "reservatorio/editar.html",
         _contexto_edicao_reservatorio(reservatorio),
     )
-
-
-@login_required(login_url="entrar")
-@require_http_methods(["POST"])
-def reservatorio_regenerar_token_esp32(request, reservatorio_id):
-    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
-    if reservatorio is None:
-        messages.error(request, "Reservatório não encontrado.")
-        return redirect("index")
-
-    reservatorio.regenerar_token_integracao_esp32()
-    messages.success(request, "Token de integração do ESP32 regenerado.")
-    return redirect("reservatorio_editar", reservatorio_id=reservatorio.id)
-
-
 @login_required(login_url="entrar")
 @require_http_methods(["POST"])
 def reservatorio_alerta_sonoro_alternar(request, reservatorio_id):
@@ -916,7 +900,6 @@ def esp32_leitura(request):
 
     reservatorio = _autenticar_esp32_reservatorio(
         reservatorio_id=payload.get("reservatorio_id"),
-        token=request.headers.get("X-API-Token", ""),
     )
     if reservatorio is None:
         return JsonResponse({"erro": "não autorizado"}, status=401)
@@ -934,7 +917,6 @@ def esp32_leitura(request):
 def esp32_configuracao(request):
     reservatorio = _autenticar_esp32_reservatorio(
         reservatorio_id=request.GET.get("reservatorio_id"),
-        token=request.headers.get("X-API-Token", ""),
     )
     if reservatorio is None:
         return JsonResponse({"erro": "não autorizado"}, status=401)
@@ -952,7 +934,6 @@ def esp32_calibracao_amostra(request):
 
     reservatorio = _autenticar_esp32_reservatorio(
         reservatorio_id=payload.get("reservatorio_id"),
-        token=request.headers.get("X-API-Token", ""),
     )
     if reservatorio is None:
         return JsonResponse({"erro": "não autorizado"}, status=401)
@@ -998,21 +979,11 @@ def esp32_calibracao_amostra(request):
     return JsonResponse({"ok": True, "amostra_id": amostra.id}, status=201)
 
 
-def _autenticar_esp32_reservatorio(*, reservatorio_id, token):
+def _autenticar_esp32_reservatorio(*, reservatorio_id):
     if reservatorio_id in (None, ""):
         return None
 
-    reservatorio = Reservatorio.obter_por_id(reservatorio_id)
-    if reservatorio is None:
-        return None
-
-    token_recebido = str(token or "")
-    token_esperado = str(reservatorio.esp32_token_integracao or "")
-    if not token_recebido or not token_esperado:
-        return None
-    if not secrets.compare_digest(token_recebido, token_esperado):
-        return None
-    return reservatorio
+    return Reservatorio.obter_por_id(reservatorio_id)
 
 
 def _montar_configuracao_esp32(reservatorio):

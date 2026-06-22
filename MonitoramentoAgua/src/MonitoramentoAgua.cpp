@@ -18,7 +18,6 @@ const char* NVS_KEY_SSID = "ssid";
 const char* NVS_KEY_PASSWORD = "pwd";
 const char* NVS_KEY_AP_IP = "ap_ip";
 const char* NVS_KEY_DJANGO_IP = "dj_ip";
-const char* NVS_KEY_TOKEN = "token";
 const char* NVS_KEY_DEVICE = "device";
 const char* NVS_KEY_RESERVATORIO = "res_id";
 const char* NVS_KEY_CACHE_NORMAL = "itv_norm";
@@ -43,7 +42,6 @@ MonitoramentoAguaConfig::MonitoramentoAguaConfig()
     djangoConfiguracaoPath("/api/esp32/config/"),
     djangoCalibrationSamplesPath("/api/esp32/calibracao/amostras/"),
     reservatorioId(0),
-    apiToken(""),
     deviceId(""),
     intervaloEnvioNormalPadraoMs(60UL * 1000UL),
     intervaloEnvioCalibracaoPadraoMs(5UL * 1000UL),
@@ -74,7 +72,6 @@ MonitoramentoAgua::MonitoramentoAgua(uint8_t ds18b20Pin)
     apSsid_(""),
     apPassword_(""),
     djangoHost_(""),
-    apiToken_(""),
     deviceId_(""),
     apIP_(192, 168, 50, 1),
     reservatorioId_(0),
@@ -114,7 +111,6 @@ void MonitoramentoAgua::begin(const MonitoramentoAguaConfig& config) {
   apSsid_ = config_.apSsid ? String(config_.apSsid) : String("MONITOR-ESP32");
   apPassword_ = config_.apPassword ? String(config_.apPassword) : String("12345678");
   djangoHost_ = config_.djangoHost ? String(config_.djangoHost) : String("192.168.50.2");
-  apiToken_ = config_.apiToken ? String(config_.apiToken) : String("");
   deviceId_ = config_.deviceId ? String(config_.deviceId) : String("");
   apIP_ = config_.apIP;
   reservatorioId_ = config_.reservatorioId;
@@ -189,14 +185,12 @@ void MonitoramentoAgua::carregarConfiguracaoSalva() {
   String senhaSalva = prefsConfig_.getString(NVS_KEY_PASSWORD, "");
   String ipSalvo = prefsConfig_.getString(NVS_KEY_AP_IP, "");
   String djangoSalvo = prefsConfig_.getString(NVS_KEY_DJANGO_IP, "");
-  String tokenSalvo = prefsConfig_.getString(NVS_KEY_TOKEN, "");
   String deviceSalvo = prefsConfig_.getString(NVS_KEY_DEVICE, "");
   int reservatorioSalvo = prefsConfig_.getInt(NVS_KEY_RESERVATORIO, 0);
 
   if (ssidSalvo.length() > 0) apSsid_ = ssidSalvo;
   if (senhaSalva.length() >= 8) apPassword_ = senhaSalva;
   if (djangoSalvo.length() > 0) djangoHost_ = djangoSalvo;
-  if (tokenSalvo.length() > 0) apiToken_ = tokenSalvo;
   if (deviceSalvo.length() > 0) deviceId_ = deviceSalvo;
   if (reservatorioSalvo > 0) reservatorioId_ = reservatorioSalvo;
 
@@ -213,7 +207,6 @@ void MonitoramentoAgua::salvarConfiguracaoSalva() {
   prefsConfig_.putString(NVS_KEY_PASSWORD, apPassword_);
   prefsConfig_.putString(NVS_KEY_AP_IP, apIP_.toString());
   prefsConfig_.putString(NVS_KEY_DJANGO_IP, djangoHost_);
-  prefsConfig_.putString(NVS_KEY_TOKEN, apiToken_);
   prefsConfig_.putString(NVS_KEY_DEVICE, deviceId_);
   prefsConfig_.putInt(NVS_KEY_RESERVATORIO, reservatorioId_);
 }
@@ -245,7 +238,7 @@ void MonitoramentoAgua::salvarCacheIntervalos() {
 }
 
 bool MonitoramentoAgua::configuracaoProntaParaEnvio() const {
-  return reservatorioId_ > 0 && djangoHost_.length() > 0 && apiToken_.length() > 0;
+  return reservatorioId_ > 0 && djangoHost_.length() > 0;
 }
 
 void MonitoramentoAgua::garantirDeviceId() {
@@ -402,14 +395,12 @@ void MonitoramentoAgua::salvarPainelConfiguracao() {
   String senha = server_.arg("senha");
   String ipEspTexto = server_.arg("ip_esp");
   String ipDjango = server_.arg("ip_django");
-  String token = server_.arg("token");
 
   reservatorioTexto.trim();
   ssid.trim();
   senha.trim();
   ipEspTexto.trim();
   ipDjango.trim();
-  token.trim();
 
   if (reservatorioTexto.length() == 0 || reservatorioTexto.toInt() <= 0) {
     server_.send(400, "text/html", montarHtmlPainel("Informe um reservatorio ID valido."));
@@ -427,10 +418,6 @@ void MonitoramentoAgua::salvarPainelConfiguracao() {
     server_.send(400, "text/html", montarHtmlPainel("Informe o IP do servidor Django."));
     return;
   }
-  if (token.length() == 0) {
-    server_.send(400, "text/html", montarHtmlPainel("Informe o token de integracao do ESP."));
-    return;
-  }
 
   IPAddress novoIp;
   if (!converterIp(ipEspTexto, novoIp)) {
@@ -443,7 +430,6 @@ void MonitoramentoAgua::salvarPainelConfiguracao() {
   apPassword_ = senha;
   apIP_ = novoIp;
   djangoHost_ = ipDjango;
-  apiToken_ = token;
 
   salvarConfiguracaoSalva();
   server_.send(200, "text/html", montarHtmlPainel("Configuracao salva. Reiniciando o ESP32..."));
@@ -527,8 +513,6 @@ String MonitoramentoAgua::montarHtmlPainel(const String& alerta) const {
   html += "<form method='post'>";
   html += "<div class='field'><div class='field-head'><label for='reservatorio_id'>Reservatorio ID</label><span class='pill pill-editavel'>Editavel</span></div>";
   html += "<input id='reservatorio_id' name='reservatorio_id' value='" + String(reservatorioId_) + "' required></div>";
-  html += "<div class='field'><div class='field-head'><label for='token'>Token de integracao</label><span class='pill pill-editavel'>Editavel</span></div>";
-  html += "<input id='token' name='token' value='" + escaparHtml(apiToken_) + "' required></div>";
   html += "<div class='field'><div class='field-head'><label for='ssid'>Nome da rede AP</label><span class='pill pill-editavel'>Editavel</span></div>";
   html += "<input id='ssid' name='ssid' value='" + escaparHtml(apSsid_) + "' required></div>";
   html += "<div class='field'><div class='field-head'><label for='senha'>Senha da rede AP e rota do painel</label><span class='pill pill-editavel'>Editavel</span></div>";
@@ -788,7 +772,6 @@ bool MonitoramentoAgua::enviarLeitura(float temperatura, int adcTds, int adcTurb
   http.setTimeout(10000);
   http.begin(montarUrlDjangoLeituras());
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-API-Token", apiToken_);
 
   String body = "{";
   body += "\"reservatorio_id\":" + String(reservatorioId_) + ",";
@@ -833,7 +816,6 @@ bool MonitoramentoAgua::enviarAmostraCalibracao(
   http.setTimeout(10000);
   http.begin(montarUrlDjangoAmostrasCalibracao());
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-API-Token", apiToken_);
 
   String body = "{";
   body += "\"reservatorio_id\":" + String(reservatorioId_) + ",";
@@ -970,7 +952,6 @@ bool MonitoramentoAgua::atualizarConfiguracaoRemota() {
   HTTPClient http;
   http.setTimeout(5000);
   http.begin(montarUrlDjangoConfiguracao());
-  http.addHeader("X-API-Token", apiToken_);
 
   int code = http.GET();
   String resposta = http.getString();

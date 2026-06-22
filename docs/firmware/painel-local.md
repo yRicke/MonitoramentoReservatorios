@@ -15,7 +15,6 @@ Padroes atuais:
 Campos editaveis:
 
 - `reservatorio_id`
-- `token`
 - `ssid`
 - `senha`
 - `ip_esp`
@@ -45,7 +44,6 @@ Configuracoes persistidas:
 - `senha`
 - `ip_esp`
 - `ip_django`
-- `token`
 - `device_id`
 - cache dos intervalos normal e calibracao
 
@@ -57,7 +55,6 @@ Ao salvar, o firmware exige:
 - SSID preenchido;
 - senha com pelo menos 8 caracteres;
 - IP do Django preenchido;
-- token preenchido;
 - IP local do ESP32 valido.
 
 Quando a validacao passa, o ESP32 salva a configuracao e reinicia.

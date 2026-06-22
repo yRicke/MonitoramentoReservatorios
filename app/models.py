@@ -9,6 +9,7 @@ from django.utils import timezone
 
 
 def gerar_token_integracao_esp32():
+    # Mantido por compatibilidade com migrações históricas que ainda referenciam esta função.
     return secrets.token_urlsafe(32)
 
 
@@ -55,11 +56,6 @@ class Reservatorio(models.Model):
     meta_ntu_turbidez = models.FloatField(default=META_PADRAO_NTU_TURBIDEZ)
     meta_celsius_temperatura = models.FloatField(default=META_PADRAO_CELSIUS_TEMPERATURA)
     meta_ph = models.FloatField(default=META_PADRAO_PH)
-    esp32_token_integracao = models.CharField(
-        max_length=128,
-        unique=True,
-        default=gerar_token_integracao_esp32,
-    )
     esp32_intervalo_envio_normal_s = models.PositiveIntegerField(
         default=ESP32_INTERVALO_ENVIO_NORMAL_PADRAO_S,
     )
@@ -440,11 +436,6 @@ class Reservatorio(models.Model):
 
     def sincronizar_status_pelo_ponto_depois(self):
         return self.sincronizar_status_pelo_ponto()
-
-    def regenerar_token_integracao_esp32(self):
-        self.esp32_token_integracao = gerar_token_integracao_esp32()
-        self.save(update_fields=["esp32_token_integracao", "updated_at"])
-        return self
 
     def silenciar_alerta_sonoro(self):
         if self.alerta_sonoro_silenciado:

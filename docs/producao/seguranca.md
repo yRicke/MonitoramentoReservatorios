@@ -5,10 +5,8 @@
 O sistema ja possui alguns controles basicos:
 
 - autenticacao web por usuario e senha do Django;
-- token individual por reservatorio para o ESP32;
-- comparacao segura do token via `compare_digest`;
 - painel do ESP32 protegido por rota com a senha do AP;
-- fluxo ativo sem dependencia de token global em `.env`.
+- identificacao do reservatorio pelo `reservatorio_id` informado pelo firmware.
 
 ## Gaps atuais confirmados
 

@@ -10,7 +10,6 @@
 ## Configuracao do ESP32
 
 - `reservatorio_id` correto.
-- token do reservatorio copiado.
 - `ip_django` correto.
 - SSID e senha do AP definidos.
 - painel salvo e ESP32 reiniciado.

@@ -1,13 +1,12 @@
 # API do ESP32
 
-## Autenticacao
+## Identificacao
 
 Todos os endpoints do ESP32 usam:
 
-- cabecalho `X-API-Token`
 - `reservatorio_id` valido
 
-O token e comparado com o token salvo no `Reservatorio` via comparacao segura.
+O backend identifica o reservatorio diretamente pelo `reservatorio_id` enviado no payload ou na query string.
 
 ## `GET /api/esp32/config/`
 
@@ -17,7 +16,6 @@ Consulta a configuracao remota do reservatorio.
 
 - metodo: `GET`
 - query obrigatoria: `reservatorio_id`
-- header obrigatorio: `X-API-Token`
 
 ### Resposta base
 

@@ -181,7 +181,7 @@
                 <h3>Dados técnicos do ESP32</h3>
             </div>
             <p class="status-meta">
-                Use estes dados no painel local do dispositivo. O token é a credencial principal de comunicação com o servidor.
+                Use estes dados no painel local do dispositivo para identificar o reservatório e acompanhar a operação do módulo.
             </p>
         </div>
 
@@ -205,13 +205,6 @@
                 </div>
                 <strong class="reservatorio-tech-display status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
             </div>
-            <div class="reservatorio-tech-item reservatorio-tech-item-full reservatorio-tech-item-readonly">
-                <div class="reservatorio-tech-headline">
-                    <span class="reservatorio-tech-label">Token de integração</span>
-                    <span class="reservatorio-tech-badge">Copiar</span>
-                </div>
-                <textarea id="esp32_token_integracao" class="reservatorio-tech-token reservatorio-tech-display" rows="4" readonly>{{ reservatorio.esp32_token_integracao }}</textarea>
-            </div>
             <div class="reservatorio-tech-item reservatorio-tech-item-readonly">
                 <div class="reservatorio-tech-headline">
                     <span class="reservatorio-tech-label">Intervalo normal</span>
@@ -230,13 +223,8 @@
 
         <div class="reservatorio-tech-note">
             <p class="edit-help">
-                Ao gerar um novo token, o anterior deixa de funcionar imediatamente. Atualize o painel local do ESP32 logo em seguida.
+                Esses dados são sincronizados com o ESP32 pelo `reservatorio_id` configurado no painel local.
             </p>
         </div>
-
-        <form class="edit-form" method="post" action="{% url 'reservatorio_regenerar_token_esp32' reservatorio.id %}">
-            {% csrf_token %}
-            <button class="btn-secondary" type="submit">Gerar novo token</button>
-        </form>
     </article>
 </aside>

@@ -10,7 +10,6 @@ Campos e responsabilidades relevantes:
 - status geral do reservatorio;
 - faixas minimas e maximas de TDS, turbidez, temperatura e pH;
 - metas antigas mantidas por compatibilidade;
-- token de integracao do ESP32;
 - intervalo de envio normal do ESP32;
 - intervalo de envio em calibracao;
 - controle de alerta sonoro: silenciado, silenciado permanente e teste em andamento.

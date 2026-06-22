@@ -90,7 +90,6 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         reservatorio = self.criar_reservatorio()
 
         self.assertEqual(reservatorio.pontos_monitoramento.count(), 1)
-        self.assertTrue(reservatorio.esp32_token_integracao)
         self.assertEqual(reservatorio.esp32_intervalo_envio_normal_s, 60)
         self.assertEqual(reservatorio.esp32_intervalo_envio_calibracao_s, 5)
         self.assertFalse(reservatorio.alerta_sonoro_silenciado)
@@ -105,17 +104,17 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         self.assertEqual(ponto_unico.id, ponto_pre.id)
         self.assertEqual(ponto_unico.id, ponto_pos.id)
 
-    def test_edicao_exibe_token_intervalos_e_permte_atualizar(self):
+    def test_edicao_exibe_campos_esp32_e_permte_atualizar(self):
         self.login()
         reservatorio = self.criar_reservatorio("Reservatorio edicao")
 
         edicao = self.client.get(reverse("reservatorio_editar", args=[reservatorio.id]))
 
         self.assertEqual(edicao.status_code, 200)
-        self.assertContains(edicao, "esp32_token_integracao")
+        self.assertContains(edicao, "Reservatório ID")
         self.assertContains(edicao, "esp32_intervalo_envio_normal_s")
         self.assertContains(edicao, "esp32_intervalo_envio_calibracao_s")
-        self.assertContains(edicao, "Gerar novo token")
+        self.assertNotContains(edicao, "Token de integração")
 
         resposta = self.client.post(
             reverse("reservatorio_atualizar", args=[reservatorio.id]),
@@ -142,34 +141,6 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         reservatorio.refresh_from_db()
         self.assertEqual(reservatorio.esp32_intervalo_envio_normal_s, 120)
         self.assertEqual(reservatorio.esp32_intervalo_envio_calibracao_s, 2)
-
-    def test_regenerar_token_invalida_imediatamente_o_anterior(self):
-        self.login()
-        reservatorio = self.criar_reservatorio("Reservatorio token")
-        token_antigo = reservatorio.esp32_token_integracao
-
-        resposta = self.client.post(
-            reverse("reservatorio_regenerar_token_esp32", args=[reservatorio.id])
-        )
-
-        self.assertEqual(resposta.status_code, 302)
-        reservatorio.refresh_from_db()
-        self.assertNotEqual(reservatorio.esp32_token_integracao, token_antigo)
-
-        config_url = reverse("esp32_configuracao")
-        antigo = self.client.get(
-            config_url,
-            {"reservatorio_id": reservatorio.id},
-            HTTP_X_API_TOKEN=token_antigo,
-        )
-        novo = self.client.get(
-            config_url,
-            {"reservatorio_id": reservatorio.id},
-            HTTP_X_API_TOKEN=reservatorio.esp32_token_integracao,
-        )
-
-        self.assertEqual(antigo.status_code, 401)
-        self.assertEqual(novo.status_code, 200)
 
     def test_relatorio_retorna_todos_os_periodos_disponiveis(self):
         self.login()
@@ -396,24 +367,17 @@ class Esp32IngestaoTests(BaseAppTestCase):
         self.reservatorio = self.criar_reservatorio("Reservatorio ESP32")
         self.ponto = self.reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
 
-    def _post_json(self, url, payload, *, token=None):
-        headers = {"content_type": "application/json"}
-        if token is not False:
-            headers["HTTP_X_API_TOKEN"] = token or self.reservatorio.esp32_token_integracao
-        return self.client.post(url, data=json.dumps(payload), **headers)
+    def _post_json(self, url, payload):
+        return self.client.post(url, data=json.dumps(payload), content_type="application/json")
 
-    def _get_config(self, *, token=None):
-        headers = {}
-        if token is not False:
-            headers["HTTP_X_API_TOKEN"] = token or self.reservatorio.esp32_token_integracao
+    def _get_config(self):
         return self.client.get(
             reverse("esp32_configuracao"),
             {"reservatorio_id": self.reservatorio.id},
-            **headers,
         )
 
-    def test_esp32_configuracao_exige_token_valido(self):
-        response = self._get_config(token=False)
+    def test_esp32_configuracao_exige_reservatorio_id_valido(self):
+        response = self.client.get(reverse("esp32_configuracao"))
 
         self.assertEqual(response.status_code, 401)
 

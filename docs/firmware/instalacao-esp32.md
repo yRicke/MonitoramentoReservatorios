@@ -29,13 +29,12 @@ O `MonitoramentoAguaConfig` define, por padrao:
 1. Gravar o exemplo `esp_reservatorio_unico`.
 2. Ligar o ESP32 e confirmar a rede AP.
 3. Abrir o painel local no navegador.
-4. Informar `reservatorio_id`, token e IP do Django.
+4. Informar `reservatorio_id` e IP do Django.
 5. Salvar e aguardar reinicio do dispositivo.
 6. Confirmar o recebimento das leituras no dashboard web.
 
 ## Comportamento importante
 
-- O firmware nao depende de token global em `.env`.
 - A configuracao estrutural fica em NVS.
 - O device id e persistido em NVS.
 - Leituras nao enviadas entram em fila offline persistida.

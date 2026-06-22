@@ -5,7 +5,6 @@
 O dashboard permite adicionar novos reservatorios. Ao criar, o model:
 
 - gera nome automaticamente se necessario;
-- gera token individual do ESP32;
 - garante a existencia do `ponto_unico`.
 
 ## Campos importantes de edicao
@@ -23,8 +22,8 @@ Na tela de edicao o operador pode ajustar:
 Tambem pode:
 
 - consultar o `reservatorio_id`;
-- copiar o token de integracao;
-- regenerar o token do ESP32.
+- consultar o status atual do reservatorio;
+- conferir os intervalos operacionais enviados ao ESP32.
 
 ## Regras operacionais
 
@@ -37,5 +36,4 @@ Tambem pode:
 Rotas operacionais disponiveis:
 
 - resetar leituras do reservatorio;
-- excluir reservatorio;
-- regenerar token de integracao do ESP32.
+- excluir reservatorio.

@@ -23,7 +23,6 @@ Hoje o repositorio implementa:
 - `1 ESP32 = 1 reservatorio`.
 - O fluxo ativo trabalha com `ponto_unico`.
 - Alias historicos como `antes_tratamento` e `depois_tratamento` ainda existem apenas para compatibilidade.
-- O token do ESP32 nasce no Django por reservatorio.
 - O payload novo nao deve enviar `ponto_tipo`.
 
 ## 4. Componentes principais
