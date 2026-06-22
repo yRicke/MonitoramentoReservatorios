@@ -878,6 +878,7 @@
     border: 1px solid #d9e2ec;
     border-radius: var(--radius-md);
     background: #fbfdff;
+    min-width: 0;
 }
 
 .reservatorio-tech-item-full {
@@ -897,6 +898,8 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
+    min-width: 0;
+    flex-wrap: wrap;
 }
 
 .reservatorio-tech-label {
@@ -905,12 +908,18 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--color-text-muted);
+    min-width: 0;
+    flex: 1 1 140px;
 }
 
 .reservatorio-tech-badge {
     background: #f1f5f9;
     border: 1px solid #d5dfe8;
     color: #54687d;
+    max-width: 100%;
+    flex: 0 1 auto;
+    white-space: normal;
+    text-align: center;
 }
 
 .reservatorio-tech-value {
@@ -921,6 +930,8 @@
 .reservatorio-tech-display {
     display: block;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     padding: 12px 14px;
     border: 1px dashed #c7d3df;
     border-radius: 14px;
@@ -931,6 +942,7 @@
     line-height: 1.4;
     box-sizing: border-box;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    overflow-wrap: anywhere;
 }
 
 .reservatorio-tech-note {
