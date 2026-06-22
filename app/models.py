@@ -35,7 +35,7 @@ class Reservatorio(models.Model):
     ESP32_INTERVALO_ENVIO_CALIBRACAO_PADRAO_S = 5
     STATUS_CHOICES = (
         (STATUS_BOM, "Bom"),
-        (STATUS_ATENCAO, "Ateno"),
+        (STATUS_ATENCAO, "Atenção"),
         (STATUS_PERIGO, "Perigo"),
     )
 
