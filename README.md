@@ -91,6 +91,9 @@ Depois disso:
 
 - tela de login: `http://127.0.0.1:8000/entrar/`
 - admin Django: `http://127.0.0.1:8000/admin/`
+- acesso via rede local/AP: `http://<ip_da_maquina>:8000/`
+
+Observacao: para uso com o AP do ESP32, o frontend agora depende apenas de assets locais do proprio Django. Isso evita travamentos por fontes externas quando a rede nao tem acesso a internet.
 
 ## Como usar com o ESP32
 
@@ -99,7 +102,7 @@ Depois disso:
 3. Grave o firmware de exemplo em `MonitoramentoAgua/examples/esp_reservatorio_unico/`.
 4. Conecte-se ao AP do ESP32.
 5. Abra o painel local em `http://<ip_do_esp>/<senha_wifi>`.
-6. Informe `reservatorio_id`, `ip_django` e token.
+6. Informe `reservatorio_id` e `ip_django`.
 7. Salve e acompanhe as leituras no dashboard.
 
 Padroes atuais do firmware:
