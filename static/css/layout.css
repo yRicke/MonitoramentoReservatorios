@@ -16,13 +16,16 @@
 }
 
 .top-nav-inner {
-    width: min(1880px, calc(100vw - 28px));
+    width: 100%;
+    max-width: 1880px;
     margin: 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 14px;
     flex-wrap: wrap;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .top-nav-left {
@@ -75,10 +78,19 @@
     align-items: center;
     gap: 10px;
     margin-left: auto;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .top-nav-right form {
     margin: 0;
+    max-width: 100%;
+}
+
+.top-nav-right .btn-sair,
+.top-nav-right .user-chip {
+    max-width: 100%;
 }
 
 .page-content {
@@ -119,6 +131,10 @@
 
     .top-nav-left {
         flex-wrap: wrap;
+    }
+
+    .top-nav-right {
+        justify-content: flex-start;
     }
 
     .main-nav {
