@@ -29,6 +29,13 @@ Campos somente leitura:
 - GPIO do buzzer
 - cadencia do alerta sonoro
 
+O painel destaca visualmente esses campos com selo de "somente leitura" para diferenciar do que pode ser editado.
+
+## Acoes rapidas do painel
+
+- `Reiniciar ESP32`: reinicia o modulo sem apagar a configuracao salva.
+- `Restaurar padrao`: limpa a configuracao local salva, apaga a fila persistida e reinicia com os padroes do firmware.
+
 ## Persistencia em NVS
 
 Configuracoes persistidas:

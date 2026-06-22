@@ -125,6 +125,8 @@ private:
   void iniciarPainelConfiguracao();
   void responderPainelConfiguracao();
   void salvarPainelConfiguracao();
+  void reiniciarPeloPainel();
+  void restaurarPadraoPeloPainel();
   String montarHtmlPainel(const String& alerta = "") const;
   static String escaparHtml(const String& valor);
   static bool converterIp(const String& texto, IPAddress& ip);

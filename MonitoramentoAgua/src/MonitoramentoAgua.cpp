@@ -384,6 +384,19 @@ void MonitoramentoAgua::responderPainelConfiguracao() {
 }
 
 void MonitoramentoAgua::salvarPainelConfiguracao() {
+  String acao = server_.arg("painel_acao");
+  acao.trim();
+
+  if (acao == "reiniciar") {
+    reiniciarPeloPainel();
+    return;
+  }
+
+  if (acao == "restaurar_padrao") {
+    restaurarPadraoPeloPainel();
+    return;
+  }
+
   String reservatorioTexto = server_.arg("reservatorio_id");
   String ssid = server_.arg("ssid");
   String senha = server_.arg("senha");
@@ -438,54 +451,119 @@ void MonitoramentoAgua::salvarPainelConfiguracao() {
   ESP.restart();
 }
 
+void MonitoramentoAgua::reiniciarPeloPainel() {
+  server_.send(200, "text/html", montarHtmlPainel("Reinicio solicitado. O ESP32 sera reiniciado em instantes."));
+  delay(1200);
+  ESP.restart();
+}
+
+void MonitoramentoAgua::restaurarPadraoPeloPainel() {
+  if (prefsConfigDisponivel_) {
+    prefsConfig_.clear();
+  }
+  if (prefsQueueDisponivel_) {
+    prefsQueue_.clear();
+  }
+
+  resetarFilaEmMemoria();
+  server_.send(
+    200,
+    "text/html",
+    montarHtmlPainel("Configuracao local apagada. O ESP32 vai voltar ao padrao de fabrica e reiniciar.")
+  );
+  delay(1200);
+  ESP.restart();
+}
+
 String MonitoramentoAgua::montarHtmlPainel(const String& alerta) const {
   String html;
   html += "<!doctype html><html><head><meta charset='utf-8'>";
   html += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
   html += "<title>Painel ESP32</title>";
   html += "<style>";
-  html += "body{font-family:Arial,sans-serif;background:#f3f6fa;color:#123;max-width:760px;margin:0 auto;padding:24px;}";
-  html += "main{background:#fff;border:1px solid #d7e0ea;border-radius:10px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.05);}";
-  html += "h1{margin:0 0 8px;font-size:24px;}p{line-height:1.5;}label{display:block;margin-top:14px;font-weight:600;}";
-  html += "input{width:100%;padding:10px 12px;margin-top:6px;border:1px solid #b8c6d8;border-radius:8px;box-sizing:border-box;}";
-  html += "button{margin-top:20px;padding:12px 16px;border:0;border-radius:8px;background:#0f4c81;color:#fff;font-weight:700;}";
-  html += ".alerta{margin:12px 0;padding:12px;border-radius:8px;background:#eaf3ff;border:1px solid #bdd6f2;}";
-  html += ".meta{font-size:14px;color:#456;}";
+  html += "body{font-family:Arial,sans-serif;background:linear-gradient(180deg,#eff6ff 0%,#f8fafc 100%);color:#17324d;max-width:900px;margin:0 auto;padding:24px;}";
+  html += "main{background:#fff;border:1px solid #d7e0ea;border-radius:20px;padding:28px;box-shadow:0 18px 50px rgba(15,76,129,.08);}";
+  html += "h1{margin:0 0 8px;font-size:30px;line-height:1.1;}p{line-height:1.6;margin:0;}";
+  html += ".intro{display:grid;gap:10px;margin-bottom:22px;}";
+  html += ".meta{font-size:14px;color:#4f657d;}";
+  html += ".alerta{margin:16px 0;padding:14px 16px;border-radius:14px;background:#eaf3ff;border:1px solid #bdd6f2;color:#163554;font-weight:600;}";
+  html += ".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}";
+  html += ".card{border:1px solid #d9e2ec;border-radius:16px;padding:18px;background:#fbfdff;display:grid;gap:14px;}";
+  html += ".card h2{margin:0;font-size:18px;}";
+  html += ".field{display:grid;gap:8px;}";
+  html += ".field-head{display:flex;justify-content:space-between;gap:12px;align-items:center;}";
+  html += "label{font-weight:700;color:#294662;}";
+  html += ".pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}";
+  html += ".pill-editavel{background:#e9f7ef;color:#1d6b45;border:1px solid #bfe0cb;}";
+  html += ".pill-info{background:#eef2f7;color:#4a6076;border:1px solid #d4dde7;}";
+  html += "input{width:100%;padding:12px 14px;border:1px solid #b8c6d8;border-radius:12px;box-sizing:border-box;background:#fff;color:#17324d;font-size:15px;}";
+  html += "input:focus{outline:none;border-color:#0f4c81;box-shadow:0 0 0 4px rgba(15,76,129,.12);}";
+  html += "input[readonly]{background:linear-gradient(180deg,#f8fafc 0%,#eef4f8 100%);border-style:dashed;border-color:#c5d2df;color:#53687d;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.8);}";
+  html += ".hint{font-size:12px;color:#5e748b;}";
+  html += ".actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}";
+  html += "button{padding:13px 16px;border:0;border-radius:12px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease;}";
+  html += "button:hover{transform:translateY(-1px);box-shadow:0 10px 18px rgba(15,76,129,.12);}";
+  html += ".btn-primary{background:#0f4c81;}";
+  html += ".btn-secondary{background:#3d5f7a;}";
+  html += ".btn-danger{background:#a33a3a;}";
+  html += ".action-note{font-size:13px;color:#5e748b;}";
+  html += "@media (max-width:640px){body{padding:16px;}main{padding:20px;}h1{font-size:26px;}}";
   html += "</style></head><body><main>";
+  html += "<section class='intro'>";
   html += "<h1>Painel de configuracao do ESP32</h1>";
   html += "<p class='meta'>Acesse este painel sempre por <strong>http://";
   html += WiFi.softAPIP().toString();
   html += "/";
   html += escaparHtml(apPassword_);
   html += "</strong>.</p>";
+  html += "<p class='meta'>Os campos com selo <strong>somente leitura</strong> exibem o estado atual do modulo e nao podem ser editados aqui.</p>";
+  html += "</section>";
   if (alerta.length() > 0) {
     html += "<div class='alerta'>" + escaparHtml(alerta) + "</div>";
   }
+  html += "<div class='grid'>";
+  html += "<section class='card'>";
+  html += "<h2>Configuracoes editaveis</h2>";
   html += "<form method='post'>";
-  html += "<label for='reservatorio_id'>Reservatorio ID</label>";
-  html += "<input id='reservatorio_id' name='reservatorio_id' value='" + String(reservatorioId_) + "' required>";
-  html += "<label for='token'>Token de integracao</label>";
-  html += "<input id='token' name='token' value='" + escaparHtml(apiToken_) + "' required>";
-  html += "<label for='ssid'>Nome da rede AP</label>";
-  html += "<input id='ssid' name='ssid' value='" + escaparHtml(apSsid_) + "' required>";
-  html += "<label for='senha'>Senha da rede AP e rota do painel</label>";
-  html += "<input id='senha' name='senha' value='" + escaparHtml(apPassword_) + "' minlength='8' required>";
-  html += "<label for='ip_esp'>IP local do ESP32</label>";
-  html += "<input id='ip_esp' name='ip_esp' value='" + apIP_.toString() + "' required>";
-  html += "<label for='ip_django'>IP do servidor Django</label>";
-  html += "<input id='ip_django' name='ip_django' value='" + escaparHtml(djangoHost_) + "' required>";
-  html += "<label for='device_id'>Device ID</label>";
-  html += "<input id='device_id' value='" + escaparHtml(deviceId_) + "' readonly>";
-  html += "<label for='cache_normal'>Ultimo intervalo normal recebido (ms)</label>";
-  html += "<input id='cache_normal' value='" + String(intervaloEnvioNormalMs_) + "' readonly>";
-  html += "<label for='cache_cal'>Ultimo intervalo de calibracao recebido (ms)</label>";
-  html += "<input id='cache_cal' value='" + String(intervaloEnvioCalibracaoMs_) + "' readonly>";
-  html += "<label for='buzzer_pin'>GPIO do buzzer</label>";
-  html += "<input id='buzzer_pin' value='" + String(buzzerPin_) + "' readonly>";
-  html += "<label for='buzzer_cadencia'>Cadencia do alerta sonoro (ms)</label>";
-  html += "<input id='buzzer_cadencia' value='" + String(alertaSonoroLigadoMs_) + " ligado / " + String(alertaSonoroDesligadoMs_) + " desligado' readonly>";
-  html += "<button type='submit'>Salvar no ESP32</button>";
-  html += "</form></main></body></html>";
+  html += "<div class='field'><div class='field-head'><label for='reservatorio_id'>Reservatorio ID</label><span class='pill pill-editavel'>Editavel</span></div>";
+  html += "<input id='reservatorio_id' name='reservatorio_id' value='" + String(reservatorioId_) + "' required></div>";
+  html += "<div class='field'><div class='field-head'><label for='token'>Token de integracao</label><span class='pill pill-editavel'>Editavel</span></div>";
+  html += "<input id='token' name='token' value='" + escaparHtml(apiToken_) + "' required></div>";
+  html += "<div class='field'><div class='field-head'><label for='ssid'>Nome da rede AP</label><span class='pill pill-editavel'>Editavel</span></div>";
+  html += "<input id='ssid' name='ssid' value='" + escaparHtml(apSsid_) + "' required></div>";
+  html += "<div class='field'><div class='field-head'><label for='senha'>Senha da rede AP e rota do painel</label><span class='pill pill-editavel'>Editavel</span></div>";
+  html += "<input id='senha' name='senha' value='" + escaparHtml(apPassword_) + "' minlength='8' required></div>";
+  html += "<div class='field'><div class='field-head'><label for='ip_esp'>IP local do ESP32</label><span class='pill pill-editavel'>Editavel</span></div>";
+  html += "<input id='ip_esp' name='ip_esp' value='" + apIP_.toString() + "' required></div>";
+  html += "<div class='field'><div class='field-head'><label for='ip_django'>IP do servidor Django</label><span class='pill pill-editavel'>Editavel</span></div>";
+  html += "<input id='ip_django' name='ip_django' value='" + escaparHtml(djangoHost_) + "' required></div>";
+  html += "<button class='btn-primary' type='submit' name='painel_acao' value='salvar'>Salvar no ESP32</button>";
+  html += "</form>";
+  html += "</section>";
+  html += "<section class='card'>";
+  html += "<h2>Informacoes do modulo</h2>";
+  html += "<div class='field'><div class='field-head'><label for='device_id'>Device ID</label><span class='pill pill-info'>Somente leitura</span></div>";
+  html += "<input id='device_id' value='" + escaparHtml(deviceId_) + "' readonly><p class='hint'>Identificador fixo do hardware usado nas integracoes.</p></div>";
+  html += "<div class='field'><div class='field-head'><label for='cache_normal'>Ultimo intervalo normal recebido (ms)</label><span class='pill pill-info'>Somente leitura</span></div>";
+  html += "<input id='cache_normal' value='" + String(intervaloEnvioNormalMs_) + "' readonly><p class='hint'>Valor enviado pelo servidor para o ciclo normal de leituras.</p></div>";
+  html += "<div class='field'><div class='field-head'><label for='cache_cal'>Ultimo intervalo de calibracao recebido (ms)</label><span class='pill pill-info'>Somente leitura</span></div>";
+  html += "<input id='cache_cal' value='" + String(intervaloEnvioCalibracaoMs_) + "' readonly><p class='hint'>Usado quando uma sessao de calibracao esta ativa.</p></div>";
+  html += "<div class='field'><div class='field-head'><label for='buzzer_pin'>GPIO do buzzer</label><span class='pill pill-info'>Somente leitura</span></div>";
+  html += "<input id='buzzer_pin' value='" + String(buzzerPin_) + "' readonly></div>";
+  html += "<div class='field'><div class='field-head'><label for='buzzer_cadencia'>Cadencia do alerta sonoro (ms)</label><span class='pill pill-info'>Somente leitura</span></div>";
+  html += "<input id='buzzer_cadencia' value='" + String(alertaSonoroLigadoMs_) + " ligado / " + String(alertaSonoroDesligadoMs_) + " desligado' readonly></div>";
+  html += "</section>";
+  html += "</div>";
+  html += "<section class='card' style='margin-top:16px;'>";
+  html += "<h2>Acoes rapidas</h2>";
+  html += "<p class='action-note'>Use reinicio para aplicar o estado atual do modulo. Restaurar padrao apaga a configuracao local e volta ao estado inicial do firmware.</p>";
+  html += "<div class='actions'>";
+  html += "<form method='post'><button class='btn-secondary' type='submit' name='painel_acao' value='reiniciar'>Reiniciar ESP32</button></form>";
+  html += "<form method='post' onsubmit=\"return confirm('Restaurar o ESP32 ao padrao? Esta acao apaga a configuracao local salva.');\">";
+  html += "<button class='btn-danger' type='submit' name='painel_acao' value='restaurar_padrao'>Restaurar padrao</button></form>";
+  html += "</div>";
+  html += "</section>";
+  html += "</main></body></html>";
   return html;
 }
 

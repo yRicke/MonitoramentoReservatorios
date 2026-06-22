@@ -185,26 +185,46 @@
             </p>
         </div>
 
+        <div class="reservatorio-tech-banner">
+            <span class="reservatorio-tech-banner-badge">Somente leitura</span>
+            <p>Esses campos existem para consulta rápida e cópia. Eles não são editados nesta tela.</p>
+        </div>
+
         <div class="reservatorio-tech-grid">
-            <div class="reservatorio-tech-item">
-                <span class="reservatorio-tech-label">Reservatório ID</span>
-                <strong class="reservatorio-tech-value">{{ reservatorio.id }}</strong>
+            <div class="reservatorio-tech-item reservatorio-tech-item-readonly">
+                <div class="reservatorio-tech-headline">
+                    <span class="reservatorio-tech-label">Reservatório ID</span>
+                    <span class="reservatorio-tech-badge">Informativo</span>
+                </div>
+                <strong class="reservatorio-tech-display">{{ reservatorio.id }}</strong>
             </div>
-            <div class="reservatorio-tech-item">
-                <span class="reservatorio-tech-label">Status atual</span>
-                <strong class="reservatorio-tech-value status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
+            <div class="reservatorio-tech-item reservatorio-tech-item-readonly">
+                <div class="reservatorio-tech-headline">
+                    <span class="reservatorio-tech-label">Status atual</span>
+                    <span class="reservatorio-tech-badge">Informativo</span>
+                </div>
+                <strong class="reservatorio-tech-display status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
             </div>
-            <div class="reservatorio-tech-item reservatorio-tech-item-full">
-                <span class="reservatorio-tech-label">Token de integração</span>
-                <textarea id="esp32_token_integracao" class="reservatorio-tech-token" rows="4" readonly>{{ reservatorio.esp32_token_integracao }}</textarea>
+            <div class="reservatorio-tech-item reservatorio-tech-item-full reservatorio-tech-item-readonly">
+                <div class="reservatorio-tech-headline">
+                    <span class="reservatorio-tech-label">Token de integração</span>
+                    <span class="reservatorio-tech-badge">Copiar</span>
+                </div>
+                <textarea id="esp32_token_integracao" class="reservatorio-tech-token reservatorio-tech-display" rows="4" readonly>{{ reservatorio.esp32_token_integracao }}</textarea>
             </div>
-            <div class="reservatorio-tech-item">
-                <span class="reservatorio-tech-label">Intervalo normal</span>
-                <strong class="reservatorio-tech-value">{{ reservatorio.esp32_intervalo_envio_normal_s }}s</strong>
+            <div class="reservatorio-tech-item reservatorio-tech-item-readonly">
+                <div class="reservatorio-tech-headline">
+                    <span class="reservatorio-tech-label">Intervalo normal</span>
+                    <span class="reservatorio-tech-badge">Informativo</span>
+                </div>
+                <strong class="reservatorio-tech-display">{{ reservatorio.esp32_intervalo_envio_normal_s }}s</strong>
             </div>
-            <div class="reservatorio-tech-item">
-                <span class="reservatorio-tech-label">Intervalo calibração</span>
-                <strong class="reservatorio-tech-value">{{ reservatorio.esp32_intervalo_envio_calibracao_s }}s</strong>
+            <div class="reservatorio-tech-item reservatorio-tech-item-readonly">
+                <div class="reservatorio-tech-headline">
+                    <span class="reservatorio-tech-label">Intervalo calibração</span>
+                    <span class="reservatorio-tech-badge">Informativo</span>
+                </div>
+                <strong class="reservatorio-tech-display">{{ reservatorio.esp32_intervalo_envio_calibracao_s }}s</strong>
             </div>
         </div>
 
