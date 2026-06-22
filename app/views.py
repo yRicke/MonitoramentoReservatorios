@@ -1704,14 +1704,18 @@ def _mapear_medias_por_reservatorio(*, reservatorio_ids, inicio_periodo):
 
 def _montar_dashboard_card_reservatorio(reservatorio, *, medias_por_chave):
     medias_ponto = medias_por_chave.get(reservatorio.id, _medias_vazias())
+    status_ponto_unico = _status_metricas_por_faixa(
+        medias_ponto,
+        reservatorio=reservatorio,
+    )
+    status_periodo = _consolidar_status_periodo(status_ponto_unico)
 
     return {
         "reservatorio": reservatorio,
         "ponto_unico": medias_ponto,
-        "status_ponto_unico": _status_metricas_por_faixa(
-            medias_ponto,
-            reservatorio=reservatorio,
-        ),
+        "status_ponto_unico": status_ponto_unico,
+        "status_periodo": status_periodo,
+        "status_periodo_label": _rotulo_status_metrica(status_periodo),
     }
 
 
@@ -1790,6 +1794,20 @@ def _status_media_ph(valor, *, minimo, maximo):
         margem_atencao=DESVIO_PH_ATENCAO,
         margem_perigo=DESVIO_PH_PERIGO,
     )
+
+
+def _consolidar_status_periodo(status_metricas):
+    if not status_metricas:
+        return STATUS_SEM_DADO
+
+    valores = list(status_metricas.values())
+    if any(valor == Reservatorio.STATUS_PERIGO for valor in valores):
+        return Reservatorio.STATUS_PERIGO
+    if any(valor == Reservatorio.STATUS_ATENCAO for valor in valores):
+        return Reservatorio.STATUS_ATENCAO
+    if any(valor == Reservatorio.STATUS_BOM for valor in valores):
+        return Reservatorio.STATUS_BOM
+    return STATUS_SEM_DADO
 
 
 def _series_leituras_por_ponto(ponto):

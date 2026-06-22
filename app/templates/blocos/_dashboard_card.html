@@ -2,10 +2,16 @@
     <section class="dashboard-card-left">
         <h2>{{ card.reservatorio.nome|upper }}</h2>
 
-        <p class="status-pill">
-            <span>Status:</span>
-            <strong class="status-text status-{{ card.reservatorio.status }}">{{ card.reservatorio.get_status_display }}</strong>
-        </p>
+        <div class="dashboard-status-stack">
+            <p class="status-pill">
+                <span>Status atual:</span>
+                <strong class="status-text status-{{ card.reservatorio.status }}">{{ card.reservatorio.get_status_display }}</strong>
+            </p>
+            <p class="status-pill status-pill-period">
+                <span>Status do período:</span>
+                <strong class="status-text status-{{ card.status_periodo }}">{{ card.status_periodo_label }}</strong>
+            </p>
+        </div>
 
         {% if card_mode == "index" %}
         <form class="dashboard-period-form" method="get" action="{% url 'index' %}">
