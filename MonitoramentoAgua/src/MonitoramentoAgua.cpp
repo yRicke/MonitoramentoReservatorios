@@ -591,8 +591,6 @@ String MonitoramentoAgua::montarHtmlPainel(const String& alerta) const {
   html += "<input id='cache_normal' value='" + String(intervaloEnvioNormalMs_) + "' readonly><p class='hint'>Valor enviado pelo servidor para o ciclo normal de leituras.</p></div>";
   html += "<div class='field'><div class='field-head'><label for='cache_cal'>Ultimo intervalo de calibracao recebido (ms)</label><span class='pill pill-info'>Somente leitura</span></div>";
   html += "<input id='cache_cal' value='" + String(intervaloEnvioCalibracaoMs_) + "' readonly><p class='hint'>Usado quando uma sessao de calibracao esta ativa.</p></div>";
-  html += "<div class='field'><div class='field-head'><label for='buzzer_pin'>GPIO do buzzer</label><span class='pill pill-info'>Somente leitura</span></div>";
-  html += "<input id='buzzer_pin' value='" + String(buzzerPin_) + "' readonly></div>";
   html += "<div class='field'><div class='field-head'><label for='buzzer_cadencia'>Cadencia do alerta sonoro (ms)</label><span class='pill pill-info'>Somente leitura</span></div>";
   html += "<input id='buzzer_cadencia' value='" + String(alertaSonoroLigadoMs_) + " ligado / " + String(alertaSonoroDesligadoMs_) + " desligado' readonly></div>";
   html += "</section>";

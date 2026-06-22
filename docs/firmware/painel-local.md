@@ -25,7 +25,6 @@ Campos somente leitura:
 - `device_id`
 - ultimo intervalo normal recebido
 - ultimo intervalo de calibracao recebido
-- GPIO do buzzer
 - cadencia do alerta sonoro
 
 O painel destaca visualmente esses campos com selo de "somente leitura" para diferenciar do que pode ser editado.
