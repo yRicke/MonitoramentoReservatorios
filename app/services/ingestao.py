@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from app.models import LeituraQualidade, PontoMonitoramento, Reservatorio
 from app.services.regras import calcular_status
+from app.services.turbidez_periodo import is_leitura_turbidez_noturna
 
 ADC_TENSAO_REFERENCIA = 3.3
 ADC_VALOR_MAXIMO = 4095
@@ -48,12 +49,15 @@ def processar_leitura_esp32(request_body):
         ph_temperatura_calibracao_c=ponto.ph_temperatura_calibracao_c,
     )
     tds, turbidez = ponto.aplicar_calibracao_agua(tds=tds, turbidez=turbidez)
+    momento_classificacao = data_hora_leitura or timezone.now()
+    ignorar_turbidez = is_leitura_turbidez_noturna(momento_classificacao)
 
     status_leitura = calcular_status(
         temperatura=temperatura,
         tds=tds,
         turbidez=turbidez,
         ph=ph,
+        ignorar_turbidez=ignorar_turbidez,
         faixa_ppm_tds_min=reservatorio.faixa_ppm_tds_min,
         faixa_ppm_tds_max=reservatorio.faixa_ppm_tds_max,
         faixa_ntu_turbidez_min=reservatorio.faixa_ntu_turbidez_min,

@@ -365,6 +365,12 @@
     color: var(--color-status-perigo);
 }
 
+.status-text.status-ignorado-noturno {
+    color: #4f6781;
+    background: #e8eef5;
+    border: 1px solid #cad7e4;
+}
+
 .detail-sound-status {
     background: rgba(238, 243, 249, 0.92);
 }
@@ -615,6 +621,10 @@
 
 .dashboard-value.status-perigo {
     color: var(--color-status-perigo);
+}
+
+.dashboard-value.status-ignorado-noturno {
+    color: #4f6781;
 }
 
 .dashboard-value.status-sem-dado {

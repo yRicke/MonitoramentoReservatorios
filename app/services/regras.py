@@ -11,6 +11,7 @@ def calcular_status(
     tds,
     turbidez,
     ph=None,
+    ignorar_turbidez=False,
     *,
     faixa_ppm_tds_min=0.0,
     faixa_ppm_tds_max=500.0,
@@ -28,13 +29,15 @@ def calcular_status(
         margem_atencao=0.0,
         margem_perigo=faixa_ppm_tds_max * (FATOR_PERIGO_TDS - 1.0),
     )
-    status_turbidez = classificar_status_por_faixa(
-        turbidez,
-        minimo=faixa_ntu_turbidez_min,
-        maximo=faixa_ntu_turbidez_max,
-        margem_atencao=0.0,
-        margem_perigo=faixa_ntu_turbidez_max * (FATOR_PERIGO_TURBIDEZ - 1.0),
-    )
+    status_turbidez = "bom"
+    if not ignorar_turbidez:
+        status_turbidez = classificar_status_por_faixa(
+            turbidez,
+            minimo=faixa_ntu_turbidez_min,
+            maximo=faixa_ntu_turbidez_max,
+            margem_atencao=0.0,
+            margem_perigo=faixa_ntu_turbidez_max * (FATOR_PERIGO_TURBIDEZ - 1.0),
+        )
     status_temperatura = classificar_status_por_faixa(
         temperatura,
         minimo=faixa_celsius_temperatura_min,
