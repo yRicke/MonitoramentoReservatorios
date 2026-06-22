@@ -25,6 +25,12 @@ Consulta a configuracao remota do reservatorio.
   "poll_configuracao_ms": 2000,
   "intervalo_normal_ms": 60000,
   "intervalo_calibracao_ms": 5000,
+  "normal_qtd_amostras_tds": 60,
+  "normal_atraso_amostra_tds_ms": 5,
+  "normal_qtd_amostras_turbidez": 60,
+  "normal_atraso_amostra_turbidez_ms": 10,
+  "normal_qtd_amostras_ph": 60,
+  "normal_atraso_amostra_ph_ms": 5,
   "alerta_sonoro_ativo": false,
   "alerta_sonoro_intervalo_ligado_ms": 500,
   "alerta_sonoro_intervalo_desligado_ms": 500,
@@ -40,6 +46,12 @@ Consulta a configuracao remota do reservatorio.
   "poll_configuracao_ms": 2000,
   "intervalo_normal_ms": 60000,
   "intervalo_calibracao_ms": 5000,
+  "normal_qtd_amostras_tds": 60,
+  "normal_atraso_amostra_tds_ms": 5,
+  "normal_qtd_amostras_turbidez": 60,
+  "normal_atraso_amostra_turbidez_ms": 10,
+  "normal_qtd_amostras_ph": 60,
+  "normal_atraso_amostra_ph_ms": 5,
   "alerta_sonoro_ativo": true,
   "alerta_sonoro_intervalo_ligado_ms": 500,
   "alerta_sonoro_intervalo_desligado_ms": 500,
@@ -51,6 +63,8 @@ Consulta a configuracao remota do reservatorio.
   "expira_em": "2026-06-20T12:00:00-03:00"
 }
 ```
+
+Os campos de amostragem normal e de calibracao sao calculados proporcionalmente ao intervalo configurado, preservando os padroes operacionais de cada sensor.
 
 ## `POST /api/esp32/leituras/`
 

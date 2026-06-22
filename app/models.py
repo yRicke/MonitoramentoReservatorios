@@ -7,6 +7,8 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from app.services.amostragem_esp32 import construir_plano_amostragem_calibracao
+
 
 def gerar_token_integracao_esp32():
     # Mantido por compatibilidade com migrações históricas que ainda referenciam esta função.
@@ -1346,14 +1348,28 @@ class SessaoCalibracao(models.Model):
         cls.encerrar_ativas_do_ponto(ponto)
         agora = timezone.now()
         duracao_final = duracao_segundos or cls.DURACAO_PADRAO_SEGUNDOS
+        intervalo_envio_final = intervalo_envio_ms or cls.INTERVALO_ENVIO_PADRAO_MS
+        plano_amostragem = construir_plano_amostragem_calibracao(
+            sensor=sensor_final,
+            intervalo_envio_ms=intervalo_envio_final,
+        )
+
         return cls.objects.create(
             ponto=ponto,
             sensor=sensor_final,
             status=cls.STATUS_ATIVA,
             iniciada_por=iniciada_por,
-            intervalo_envio_ms=intervalo_envio_ms or cls.INTERVALO_ENVIO_PADRAO_MS,
-            qtd_amostras=qtd_amostras or cls.QTD_AMOSTRAS_PADRAO,
-            atraso_amostra_ms=atraso_amostra_ms or cls.ATRASO_AMOSTRA_PADRAO_MS,
+            intervalo_envio_ms=intervalo_envio_final,
+            qtd_amostras=(
+                int(qtd_amostras)
+                if qtd_amostras is not None
+                else plano_amostragem["qtd_amostras"]
+            ),
+            atraso_amostra_ms=(
+                int(atraso_amostra_ms)
+                if atraso_amostra_ms is not None
+                else plano_amostragem["atraso_amostra_ms"]
+            ),
             expira_em=agora + timedelta(seconds=duracao_final),
         )
 

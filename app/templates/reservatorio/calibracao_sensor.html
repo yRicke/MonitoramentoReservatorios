@@ -33,7 +33,7 @@
                 {% if sensor_selecionado == "ph" or sensor_selecionado == "turbidez" %}
                 Inicie a sessao para acompanhar a tensao do sensor em tempo real, esperar estabilizar e anotar os valores antes de preencher a calibracao manual.
                 {% else %}
-                Inicie a sessao para o ESP32 enviar amostras deste sensor a cada 5 segundos sem misturar com o historico normal.
+                Inicie a sessao para o ESP32 enviar amostras deste sensor no intervalo configurado para calibracao, sem misturar com o historico normal.
                 {% endif %}
             </p>
         </div>

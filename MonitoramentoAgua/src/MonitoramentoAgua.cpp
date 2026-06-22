@@ -22,6 +22,12 @@ const char* NVS_KEY_DEVICE = "device";
 const char* NVS_KEY_RESERVATORIO = "res_id";
 const char* NVS_KEY_CACHE_NORMAL = "itv_norm";
 const char* NVS_KEY_CACHE_CAL = "itv_cal";
+const char* NVS_KEY_NORM_TDS_QTD = "n_tds_q";
+const char* NVS_KEY_NORM_TDS_DLY = "n_tds_d";
+const char* NVS_KEY_NORM_TRB_QTD = "n_trb_q";
+const char* NVS_KEY_NORM_TRB_DLY = "n_trb_d";
+const char* NVS_KEY_NORM_PH_QTD = "n_ph_q";
+const char* NVS_KEY_NORM_PH_DLY = "n_ph_d";
 
 const char* NVS_KEY_META_INI = "meta_ini";
 const char* NVS_KEY_META_FIM = "meta_fim";
@@ -56,9 +62,12 @@ MonitoramentoAguaConfig::MonitoramentoAguaConfig()
     qtdAmostrasPh(60),
     qtdAmostrasTds(60),
     qtdAmostrasTurbidez(60),
+    atrasoAmostraPhPadraoMs(5),
+    atrasoAmostraTdsPadraoMs(5),
+    atrasoAmostraTurbidezPadraoMs(10),
     qtdAmostrasCalibracaoPadrao(80),
     atrasoAmostraCalibracaoPadraoMs(50),
-    maxAmostrasFiltro(80),
+    maxAmostrasFiltro(240),
     serialBaud(115200) {
 }
 
@@ -92,6 +101,12 @@ MonitoramentoAgua::MonitoramentoAgua(uint8_t ds18b20Pin)
     sensorCalibracaoAtivo_(""),
     qtdAmostrasCalibracao_(0),
     atrasoAmostraCalibracaoMs_(0),
+    qtdAmostrasNormalTds_(0),
+    qtdAmostrasNormalTurbidez_(0),
+    qtdAmostrasNormalPh_(0),
+    atrasoAmostraNormalTdsMs_(0),
+    atrasoAmostraNormalTurbidezMs_(0),
+    atrasoAmostraNormalPhMs_(0),
     buzzerPin_(-1),
     sessaoCalibracaoId_(0),
     alertaSonoroLigadoMs_(0),
@@ -121,6 +136,12 @@ void MonitoramentoAgua::begin(const MonitoramentoAguaConfig& config) {
   alertaSonoroDesligadoMs_ = config_.alertaSonoroDesligadoPadraoMs;
   qtdAmostrasCalibracao_ = config_.qtdAmostrasCalibracaoPadrao;
   atrasoAmostraCalibracaoMs_ = config_.atrasoAmostraCalibracaoPadraoMs;
+  qtdAmostrasNormalTds_ = config_.qtdAmostrasTds;
+  qtdAmostrasNormalTurbidez_ = config_.qtdAmostrasTurbidez;
+  qtdAmostrasNormalPh_ = config_.qtdAmostrasPh;
+  atrasoAmostraNormalTdsMs_ = config_.atrasoAmostraTdsPadraoMs;
+  atrasoAmostraNormalTurbidezMs_ = config_.atrasoAmostraTurbidezPadraoMs;
+  atrasoAmostraNormalPhMs_ = config_.atrasoAmostraPhPadraoMs;
   buzzerPin_ = config_.buzzerPin;
 
   prefsConfigDisponivel_ = prefsConfig_.begin(NVS_NAMESPACE_CONFIG, false);
@@ -128,7 +149,7 @@ void MonitoramentoAgua::begin(const MonitoramentoAguaConfig& config) {
     Serial.println("Falha ao abrir NVS de configuracao.");
   } else {
     carregarConfiguracaoSalva();
-    carregarCacheIntervalos();
+    carregarCacheOperacao();
   }
 
   prefsQueueDisponivel_ = prefsQueue_.begin(NVS_NAMESPACE_QUEUE, false);
@@ -211,7 +232,7 @@ void MonitoramentoAgua::salvarConfiguracaoSalva() {
   prefsConfig_.putInt(NVS_KEY_RESERVATORIO, reservatorioId_);
 }
 
-void MonitoramentoAgua::carregarCacheIntervalos() {
+void MonitoramentoAgua::carregarCacheOperacao() {
   if (!prefsConfigDisponivel_) return;
 
   unsigned long normalSalvo = prefsConfig_.getULong(
@@ -229,12 +250,50 @@ void MonitoramentoAgua::carregarCacheIntervalos() {
   if (calibracaoSalva >= 1000UL) {
     intervaloEnvioCalibracaoMs_ = calibracaoSalva;
   }
+
+  qtdAmostrasNormalTds_ = prefsConfig_.getInt(
+    NVS_KEY_NORM_TDS_QTD,
+    config_.qtdAmostrasTds
+  );
+  qtdAmostrasNormalTurbidez_ = prefsConfig_.getInt(
+    NVS_KEY_NORM_TRB_QTD,
+    config_.qtdAmostrasTurbidez
+  );
+  qtdAmostrasNormalPh_ = prefsConfig_.getInt(
+    NVS_KEY_NORM_PH_QTD,
+    config_.qtdAmostrasPh
+  );
+  atrasoAmostraNormalTdsMs_ = prefsConfig_.getInt(
+    NVS_KEY_NORM_TDS_DLY,
+    config_.atrasoAmostraTdsPadraoMs
+  );
+  atrasoAmostraNormalTurbidezMs_ = prefsConfig_.getInt(
+    NVS_KEY_NORM_TRB_DLY,
+    config_.atrasoAmostraTurbidezPadraoMs
+  );
+  atrasoAmostraNormalPhMs_ = prefsConfig_.getInt(
+    NVS_KEY_NORM_PH_DLY,
+    config_.atrasoAmostraPhPadraoMs
+  );
+
+  if (qtdAmostrasNormalTds_ <= 0) qtdAmostrasNormalTds_ = config_.qtdAmostrasTds;
+  if (qtdAmostrasNormalTurbidez_ <= 0) qtdAmostrasNormalTurbidez_ = config_.qtdAmostrasTurbidez;
+  if (qtdAmostrasNormalPh_ <= 0) qtdAmostrasNormalPh_ = config_.qtdAmostrasPh;
+  if (atrasoAmostraNormalTdsMs_ <= 0) atrasoAmostraNormalTdsMs_ = config_.atrasoAmostraTdsPadraoMs;
+  if (atrasoAmostraNormalTurbidezMs_ <= 0) atrasoAmostraNormalTurbidezMs_ = config_.atrasoAmostraTurbidezPadraoMs;
+  if (atrasoAmostraNormalPhMs_ <= 0) atrasoAmostraNormalPhMs_ = config_.atrasoAmostraPhPadraoMs;
 }
 
-void MonitoramentoAgua::salvarCacheIntervalos() {
+void MonitoramentoAgua::salvarCacheOperacao() {
   if (!prefsConfigDisponivel_) return;
   prefsConfig_.putULong(NVS_KEY_CACHE_NORMAL, intervaloEnvioNormalMs_);
   prefsConfig_.putULong(NVS_KEY_CACHE_CAL, intervaloEnvioCalibracaoMs_);
+  prefsConfig_.putInt(NVS_KEY_NORM_TDS_QTD, qtdAmostrasNormalTds_);
+  prefsConfig_.putInt(NVS_KEY_NORM_TRB_QTD, qtdAmostrasNormalTurbidez_);
+  prefsConfig_.putInt(NVS_KEY_NORM_PH_QTD, qtdAmostrasNormalPh_);
+  prefsConfig_.putInt(NVS_KEY_NORM_TDS_DLY, atrasoAmostraNormalTdsMs_);
+  prefsConfig_.putInt(NVS_KEY_NORM_TRB_DLY, atrasoAmostraNormalTurbidezMs_);
+  prefsConfig_.putInt(NVS_KEY_NORM_PH_DLY, atrasoAmostraNormalPhMs_);
 }
 
 bool MonitoramentoAgua::configuracaoProntaParaEnvio() const {
@@ -966,6 +1025,36 @@ bool MonitoramentoAgua::atualizarConfiguracaoRemota() {
   long intervaloNormal = extrairCampoJsonLong(resposta, "intervalo_normal_ms", (long)intervaloEnvioNormalMs_);
   long intervaloCalibracao = extrairCampoJsonLong(resposta, "intervalo_calibracao_ms", (long)intervaloEnvioCalibracaoMs_);
   long pollConfiguracao = extrairCampoJsonLong(resposta, "poll_configuracao_ms", (long)intervaloPollConfiguracaoMs_);
+  long normalQtdTds = extrairCampoJsonLong(
+    resposta,
+    "normal_qtd_amostras_tds",
+    (long)qtdAmostrasNormalTds_
+  );
+  long normalAtrasoTdsMs = extrairCampoJsonLong(
+    resposta,
+    "normal_atraso_amostra_tds_ms",
+    (long)atrasoAmostraNormalTdsMs_
+  );
+  long normalQtdTurbidez = extrairCampoJsonLong(
+    resposta,
+    "normal_qtd_amostras_turbidez",
+    (long)qtdAmostrasNormalTurbidez_
+  );
+  long normalAtrasoTurbidezMs = extrairCampoJsonLong(
+    resposta,
+    "normal_atraso_amostra_turbidez_ms",
+    (long)atrasoAmostraNormalTurbidezMs_
+  );
+  long normalQtdPh = extrairCampoJsonLong(
+    resposta,
+    "normal_qtd_amostras_ph",
+    (long)qtdAmostrasNormalPh_
+  );
+  long normalAtrasoPhMs = extrairCampoJsonLong(
+    resposta,
+    "normal_atraso_amostra_ph_ms",
+    (long)atrasoAmostraNormalPhMs_
+  );
   bool alertaSonoroAtivo = extrairCampoJsonBool(resposta, "alerta_sonoro_ativo", false);
   long alertaSonoroLigadoMs = extrairCampoJsonLong(
     resposta,
@@ -981,12 +1070,18 @@ bool MonitoramentoAgua::atualizarConfiguracaoRemota() {
   if (intervaloNormal >= 1000L) intervaloEnvioNormalMs_ = (unsigned long)intervaloNormal;
   if (intervaloCalibracao >= 1000L) intervaloEnvioCalibracaoMs_ = (unsigned long)intervaloCalibracao;
   if (pollConfiguracao >= 1000L) intervaloPollConfiguracaoMs_ = (unsigned long)pollConfiguracao;
+  if (normalQtdTds > 0L) qtdAmostrasNormalTds_ = (int)normalQtdTds;
+  if (normalAtrasoTdsMs > 0L) atrasoAmostraNormalTdsMs_ = (int)normalAtrasoTdsMs;
+  if (normalQtdTurbidez > 0L) qtdAmostrasNormalTurbidez_ = (int)normalQtdTurbidez;
+  if (normalAtrasoTurbidezMs > 0L) atrasoAmostraNormalTurbidezMs_ = (int)normalAtrasoTurbidezMs;
+  if (normalQtdPh > 0L) qtdAmostrasNormalPh_ = (int)normalQtdPh;
+  if (normalAtrasoPhMs > 0L) atrasoAmostraNormalPhMs_ = (int)normalAtrasoPhMs;
   atualizarAlertaSonoroRemoto(
     alertaSonoroAtivo,
     alertaSonoroLigadoMs >= 50L ? (unsigned long)alertaSonoroLigadoMs : alertaSonoroLigadoMs_,
     alertaSonoroDesligadoMs >= 50L ? (unsigned long)alertaSonoroDesligadoMs : alertaSonoroDesligadoMs_
   );
-  salvarCacheIntervalos();
+  salvarCacheOperacao();
 
   String modo = extrairCampoJsonString(resposta, "modo");
   if (modo != "calibracao") {
@@ -1064,17 +1159,17 @@ void MonitoramentoAgua::executarCicloLeituraNormal() {
 
   int adcTurbidez = lerAdcFiltradoRobusto(
     config_.turbidityPin,
-    config_.qtdAmostrasTurbidez,
-    10,
+    qtdAmostrasNormalTurbidez_,
+    atrasoAmostraNormalTurbidezMs_,
     false
   );
   int adcTDS = lerAdcFiltradoRobusto(
     config_.tdsPin,
-    config_.qtdAmostrasTds,
-    5,
+    qtdAmostrasNormalTds_,
+    atrasoAmostraNormalTdsMs_,
     true
   );
-  int adcPh = lerAdcPhFiltradoRobusto(config_.qtdAmostrasPh, 5);
+  int adcPh = lerAdcPhFiltradoRobusto(qtdAmostrasNormalPh_, atrasoAmostraNormalPhMs_);
 
   unsigned long firmwareTsMs = millis();
   enfileirarLeitura(temp, adcTDS, adcTurbidez, adcPh, firmwareTsMs);

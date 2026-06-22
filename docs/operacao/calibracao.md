@@ -24,8 +24,8 @@ No fluxo atual da UI:
 - TTL da sessao: `10 minutos`
 - janela de estabilidade: `30 amostras`
 - `poll` de configuracao do ESP32: `2 segundos`
-- amostragem padrao do firmware na sessao: `80 amostras`
-- atraso padrao entre amostras: `50 ms`
+- a quantidade de amostras do firmware na sessao escala proporcionalmente ao intervalo configurado de calibracao, usando `80 amostras` como base para `5 segundos`
+- atraso padrao entre amostras de calibracao analogica: `50 ms`
 - envio padrao em calibracao: `5 segundos`
 
 ## Regras por sensor

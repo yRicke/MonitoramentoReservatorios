@@ -32,6 +32,7 @@ from app.services.ingestao import (
     calcular_turbidez_por_adc,
     processar_leitura_esp32,
 )
+from app.services.amostragem_esp32 import construir_plano_amostragem_normal
 from app.services.regras import (
     DESVIO_PH_ATENCAO,
     DESVIO_PH_PERIGO,
@@ -991,12 +992,21 @@ def _montar_configuracao_esp32(reservatorio):
     ponto = _obter_ponto_unico_calibracao(reservatorio)
     sessao = SessaoCalibracao.obter_ativa(ponto=ponto) if ponto is not None else None
     alerta_sonoro = _resumo_alerta_sonoro_reservatorio(reservatorio)
+    plano_normal = construir_plano_amostragem_normal(
+        intervalo_envio_ms=int(reservatorio.esp32_intervalo_envio_normal_s) * 1000,
+    )
 
     payload = {
         "server_epoch_ms": int(timezone.now().timestamp() * 1000),
         "poll_configuracao_ms": ESP32_CONFIG_POLL_INTERVALO_MS,
         "intervalo_normal_ms": int(reservatorio.esp32_intervalo_envio_normal_s) * 1000,
         "intervalo_calibracao_ms": int(reservatorio.esp32_intervalo_envio_calibracao_s) * 1000,
+        "normal_qtd_amostras_tds": plano_normal["tds"]["qtd_amostras"],
+        "normal_atraso_amostra_tds_ms": plano_normal["tds"]["atraso_amostra_ms"],
+        "normal_qtd_amostras_turbidez": plano_normal["turbidez"]["qtd_amostras"],
+        "normal_atraso_amostra_turbidez_ms": plano_normal["turbidez"]["atraso_amostra_ms"],
+        "normal_qtd_amostras_ph": plano_normal["ph"]["qtd_amostras"],
+        "normal_atraso_amostra_ph_ms": plano_normal["ph"]["atraso_amostra_ms"],
         "alerta_sonoro_ativo": alerta_sonoro["ativo"],
         "alerta_sonoro_intervalo_ligado_ms": ALERTA_SONORO_INTERVALO_LIGADO_MS,
         "alerta_sonoro_intervalo_desligado_ms": ALERTA_SONORO_INTERVALO_DESLIGADO_MS,

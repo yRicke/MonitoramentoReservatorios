@@ -41,6 +41,9 @@ struct MonitoramentoAguaConfig {
   int qtdAmostrasPh;
   int qtdAmostrasTds;
   int qtdAmostrasTurbidez;
+  int atrasoAmostraPhPadraoMs;
+  int atrasoAmostraTdsPadraoMs;
+  int atrasoAmostraTurbidezPadraoMs;
   int qtdAmostrasCalibracaoPadrao;
   int atrasoAmostraCalibracaoPadraoMs;
   int maxAmostrasFiltro;
@@ -57,7 +60,7 @@ public:
 
 private:
   static const int FILA_MAX_LEITURAS = 180;
-  static const int MAX_AMOSTRAS_FILTRO_ABSOLUTO = 80;
+  static const int MAX_AMOSTRAS_FILTRO_ABSOLUTO = 240;
 
   struct LeituraPendente {
     float temperatura;
@@ -100,6 +103,12 @@ private:
   String sensorCalibracaoAtivo_;
   int qtdAmostrasCalibracao_;
   int atrasoAmostraCalibracaoMs_;
+  int qtdAmostrasNormalTds_;
+  int qtdAmostrasNormalTurbidez_;
+  int qtdAmostrasNormalPh_;
+  int atrasoAmostraNormalTdsMs_;
+  int atrasoAmostraNormalTurbidezMs_;
+  int atrasoAmostraNormalPhMs_;
   int buzzerPin_;
   long sessaoCalibracaoId_;
   unsigned long alertaSonoroLigadoMs_;
@@ -112,8 +121,8 @@ private:
 
   void carregarConfiguracaoSalva();
   void salvarConfiguracaoSalva();
-  void carregarCacheIntervalos();
-  void salvarCacheIntervalos();
+  void carregarCacheOperacao();
+  void salvarCacheOperacao();
   bool configuracaoProntaParaEnvio() const;
   void garantirDeviceId();
 

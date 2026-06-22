@@ -256,6 +256,30 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
 
 
 class CalibrationFlowTests(BaseAppTestCase):
+    def test_calibracao_sessao_iniciar_ajusta_plano_ao_intervalo_configurado(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio calibracao proporcional")
+        reservatorio.esp32_intervalo_envio_calibracao_s = 1
+        reservatorio.save(update_fields=["esp32_intervalo_envio_calibracao_s", "updated_at"])
+
+        iniciar = self.client.post(
+            reverse(
+                "reservatorio_calibracao_sessao_iniciar",
+                args=[reservatorio.id, "tds"],
+            )
+        )
+
+        self.assertEqual(iniciar.status_code, 302)
+        ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+        sessao = SessaoCalibracao.obter_ativa(
+            ponto=ponto,
+            sensor=SessaoCalibracao.SENSOR_TDS,
+        )
+        self.assertIsNotNone(sessao)
+        self.assertEqual(sessao.intervalo_envio_ms, 1000)
+        self.assertEqual(sessao.qtd_amostras, 16)
+        self.assertEqual(sessao.atraso_amostra_ms, 50)
+
     def test_calibracao_sessao_iniciar_e_status_funcionam_na_rota_nova(self):
         self.login()
         reservatorio = self.criar_reservatorio()
@@ -390,10 +414,29 @@ class Esp32IngestaoTests(BaseAppTestCase):
         self.assertEqual(payload["poll_configuracao_ms"], 2000)
         self.assertEqual(payload["intervalo_normal_ms"], 60000)
         self.assertEqual(payload["intervalo_calibracao_ms"], 5000)
+        self.assertEqual(payload["normal_qtd_amostras_tds"], 60)
+        self.assertEqual(payload["normal_atraso_amostra_tds_ms"], 5)
+        self.assertEqual(payload["normal_qtd_amostras_turbidez"], 60)
+        self.assertEqual(payload["normal_atraso_amostra_turbidez_ms"], 10)
+        self.assertEqual(payload["normal_qtd_amostras_ph"], 60)
+        self.assertEqual(payload["normal_atraso_amostra_ph_ms"], 5)
         self.assertFalse(payload["alerta_sonoro_ativo"])
         self.assertEqual(payload["alerta_sonoro_intervalo_ligado_ms"], 500)
         self.assertEqual(payload["alerta_sonoro_intervalo_desligado_ms"], 500)
         self.assertIn("server_epoch_ms", payload)
+
+    def test_esp32_configuracao_ajusta_plano_normal_ao_intervalo_configurado(self):
+        self.reservatorio.esp32_intervalo_envio_normal_s = 120
+        self.reservatorio.save(update_fields=["esp32_intervalo_envio_normal_s", "updated_at"])
+
+        response = self._get_config()
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["intervalo_normal_ms"], 120000)
+        self.assertEqual(payload["normal_qtd_amostras_tds"], 120)
+        self.assertEqual(payload["normal_qtd_amostras_turbidez"], 120)
+        self.assertEqual(payload["normal_qtd_amostras_ph"], 120)
 
     def test_esp32_configuracao_ativa_alerta_sonoro_em_status_perigo(self):
         self.ponto.atualizar_status(status=Reservatorio.STATUS_PERIGO)
