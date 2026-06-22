@@ -50,6 +50,14 @@
                             value="{{ reservatorio.faixa_celsius_temperatura_max|unlocalize }}" required>
                     </div>
                 </div>
+                <div class="sensor-rule-note" aria-label="Regras de status da temperatura">
+                    <strong>Como o status é calculado</strong>
+                    <ul class="sensor-rule-list">
+                        <li><span>Bom</span><span>Dentro da faixa configurada.</span></li>
+                        <li><span>Atenção</span><span>Saiu da faixa configurada.</span></li>
+                        <li><span>Perigo</span><span>Ultrapassou a faixa em mais de 10 C.</span></li>
+                    </ul>
+                </div>
             </section>
 
             <section class="reservatorio-edit-section">
@@ -71,6 +79,14 @@
                         <input id="faixa_ppm_tds_max" name="faixa_ppm_tds_max" type="number" step="0.01" min="0.01"
                             value="{{ reservatorio.faixa_ppm_tds_max|unlocalize }}" required>
                     </div>
+                </div>
+                <div class="sensor-rule-note" aria-label="Regras de status do TDS">
+                    <strong>Como o status é calculado</strong>
+                    <ul class="sensor-rule-list">
+                        <li><span>Bom</span><span>Dentro da faixa configurada.</span></li>
+                        <li><span>Atenção</span><span>Saiu da faixa configurada.</span></li>
+                        <li><span>Perigo</span><span>Ultrapassou a faixa em mais de 25% para cima ou para baixo.</span></li>
+                    </ul>
                 </div>
             </section>
 
@@ -94,6 +110,14 @@
                             value="{{ reservatorio.faixa_ntu_turbidez_max|unlocalize }}" required>
                     </div>
                 </div>
+                <div class="sensor-rule-note" aria-label="Regras de status da turbidez">
+                    <strong>Como o status é calculado</strong>
+                    <ul class="sensor-rule-list">
+                        <li><span>Bom</span><span>Dentro da faixa configurada.</span></li>
+                        <li><span>Atenção</span><span>Saiu da faixa configurada.</span></li>
+                        <li><span>Perigo</span><span>Ultrapassou a faixa em mais de 50 NTU.</span></li>
+                    </ul>
+                </div>
             </section>
 
             <section class="reservatorio-edit-section">
@@ -115,6 +139,14 @@
                         <input id="faixa_ph_max" name="faixa_ph_max" type="number" step="0.01" min="0" max="14"
                             value="{{ reservatorio.faixa_ph_max|unlocalize }}" required>
                     </div>
+                </div>
+                <div class="sensor-rule-note" aria-label="Regras de status do pH">
+                    <strong>Como o status é calculado</strong>
+                    <ul class="sensor-rule-list">
+                        <li><span>Bom</span><span>Dentro da faixa configurada.</span></li>
+                        <li><span>Atenção</span><span>Saiu da faixa configurada.</span></li>
+                        <li><span>Perigo</span><span>Ultrapassou a faixa em mais de 1.5 pH.</span></li>
+                    </ul>
                 </div>
             </section>
 

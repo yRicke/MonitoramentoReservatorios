@@ -35,12 +35,10 @@ from app.services.ingestao import (
 )
 from app.services.amostragem_esp32 import construir_plano_amostragem_normal
 from app.services.regras import (
-    DESVIO_PH_ATENCAO,
     DESVIO_PH_PERIGO,
-    DESVIO_TEMPERATURA_ATENCAO,
     DESVIO_TEMPERATURA_PERIGO,
+    DESVIO_TURBIDEZ_PERIGO,
     FATOR_PERIGO_TDS,
-    FATOR_PERIGO_TURBIDEZ,
     classificar_status_por_faixa,
 )
 from app.services.turbidez_periodo import (
@@ -324,6 +322,11 @@ def reservatorio_atualizar(request, reservatorio_id):
     except IntegrityError:
         messages.error(request, "Já existe reservatório com este nome.")
         return redirect("reservatorio_editar", reservatorio_id=reservatorio.id)
+
+    ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+    if ponto_unico is not None:
+        ponto_unico.reclassificar_ultima_leitura()
+    reservatorio.sincronizar_status_pelo_ponto()
 
     messages.success(request, "Reservatório atualizado.")
     return redirect("reservatorio_editar", reservatorio_id=reservatorio.id)
@@ -1786,7 +1789,7 @@ def _status_media_temperatura(valor, *, minimo, maximo):
         valor,
         minimo=minimo,
         maximo=maximo,
-        margem_atencao=DESVIO_TEMPERATURA_ATENCAO,
+        margem_atencao=0.0,
         margem_perigo=DESVIO_TEMPERATURA_PERIGO,
     )
 
@@ -1800,7 +1803,9 @@ def _status_media_tds(valor, *, minimo, maximo):
         minimo=minimo,
         maximo=maximo,
         margem_atencao=0.0,
-        margem_perigo=maximo * (FATOR_PERIGO_TDS - 1.0),
+        margem_perigo=0.0,
+        margem_perigo_inferior=abs(minimo) * FATOR_PERIGO_TDS,
+        margem_perigo_superior=abs(maximo) * FATOR_PERIGO_TDS,
     )
 
 
@@ -1813,7 +1818,7 @@ def _status_media_turbidez(valor, *, minimo, maximo):
         minimo=minimo,
         maximo=maximo,
         margem_atencao=0.0,
-        margem_perigo=maximo * (FATOR_PERIGO_TURBIDEZ - 1.0),
+        margem_perigo=DESVIO_TURBIDEZ_PERIGO,
     )
 
 
@@ -1825,7 +1830,7 @@ def _status_media_ph(valor, *, minimo, maximo):
         valor,
         minimo=minimo,
         maximo=maximo,
-        margem_atencao=DESVIO_PH_ATENCAO,
+        margem_atencao=0.0,
         margem_perigo=DESVIO_PH_PERIGO,
     )
 

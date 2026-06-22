@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from app.services.amostragem_esp32 import construir_plano_amostragem_calibracao
+from app.services.regras import calcular_status_reservatorio
 
 
 def gerar_token_integracao_esp32():
@@ -737,6 +738,35 @@ class PontoMonitoramento(models.Model):
         self.modelo_versao = (modelo_versao or "").strip()
         self.save(update_fields=["status_atual", "confianca_status", "modelo_versao", "updated_at"])
         return self
+
+    def reclassificar_ultima_leitura(self):
+        ultima_leitura = (
+            LeituraQualidade.objects.filter(ponto=self)
+            .order_by("-data_hora", "-id")
+            .first()
+        )
+        if ultima_leitura is None:
+            return None
+
+        status_recalculado = calcular_status_reservatorio(
+            reservatorio=self.reservatorio,
+            temperatura=ultima_leitura.temperatura,
+            tds=ultima_leitura.tds,
+            turbidez=ultima_leitura.turbidez,
+            ph=ultima_leitura.ph,
+            data_hora=ultima_leitura.data_hora,
+        )
+
+        if ultima_leitura.status_leitura != status_recalculado:
+            ultima_leitura.status_leitura = status_recalculado
+            ultima_leitura.save(update_fields=["status_leitura"])
+
+        self.atualizar_status(
+            status=status_recalculado,
+            confianca=ultima_leitura.confianca,
+            modelo_versao=ultima_leitura.modelo_versao,
+        )
+        return ultima_leitura
 
     def atualizar_calibracao_temperatura(
         self,

@@ -14,6 +14,7 @@ from app.models import (
     Reservatorio,
     SessaoCalibracao,
 )
+from app.services.regras import calcular_status
 from app.views import PERIODOS_DISPONIVEIS
 
 
@@ -92,6 +93,100 @@ class AuthTests(BaseAppTestCase):
         self.assertEqual(response.url, reverse("index"))
 
 
+class RegrasStatusTests(TestCase):
+    def test_tds_usa_perigo_com_25_porcento_da_faixa(self):
+        self.assertEqual(
+            calcular_status(
+                temperatura=25.0,
+                tds=530.0,
+                turbidez=1.0,
+                ph=7.0,
+                faixa_ppm_tds_min=100.0,
+                faixa_ppm_tds_max=500.0,
+            ),
+            Reservatorio.STATUS_ATENCAO,
+        )
+        self.assertEqual(
+            calcular_status(
+                temperatura=25.0,
+                tds=626.0,
+                turbidez=1.0,
+                ph=7.0,
+                faixa_ppm_tds_min=100.0,
+                faixa_ppm_tds_max=500.0,
+            ),
+            Reservatorio.STATUS_PERIGO,
+        )
+
+    def test_turbidez_temperatura_e_ph_usam_novas_margens_de_perigo(self):
+        self.assertEqual(
+            calcular_status(
+                temperatura=35.0,
+                tds=120.0,
+                turbidez=3.0,
+                ph=7.0,
+                faixa_celsius_temperatura_min=10.0,
+                faixa_celsius_temperatura_max=30.0,
+            ),
+            Reservatorio.STATUS_ATENCAO,
+        )
+        self.assertEqual(
+            calcular_status(
+                temperatura=41.0,
+                tds=120.0,
+                turbidez=3.0,
+                ph=7.0,
+                faixa_celsius_temperatura_min=10.0,
+                faixa_celsius_temperatura_max=30.0,
+            ),
+            Reservatorio.STATUS_PERIGO,
+        )
+        self.assertEqual(
+            calcular_status(
+                temperatura=25.0,
+                tds=120.0,
+                turbidez=40.0,
+                ph=7.0,
+                faixa_ntu_turbidez_min=0.0,
+                faixa_ntu_turbidez_max=5.0,
+            ),
+            Reservatorio.STATUS_ATENCAO,
+        )
+        self.assertEqual(
+            calcular_status(
+                temperatura=25.0,
+                tds=120.0,
+                turbidez=56.0,
+                ph=7.0,
+                faixa_ntu_turbidez_min=0.0,
+                faixa_ntu_turbidez_max=5.0,
+            ),
+            Reservatorio.STATUS_PERIGO,
+        )
+        self.assertEqual(
+            calcular_status(
+                temperatura=25.0,
+                tds=120.0,
+                turbidez=1.0,
+                ph=8.8,
+                faixa_ph_min=6.0,
+                faixa_ph_max=8.0,
+            ),
+            Reservatorio.STATUS_ATENCAO,
+        )
+        self.assertEqual(
+            calcular_status(
+                temperatura=25.0,
+                tds=120.0,
+                turbidez=1.0,
+                ph=9.6,
+                faixa_ph_min=6.0,
+                faixa_ph_max=8.0,
+            ),
+            Reservatorio.STATUS_PERIGO,
+        )
+
+
 class ReservatorioPontoUnicoTests(BaseAppTestCase):
     def test_criar_reservatorio_garante_ponto_unico_e_campos_esp32(self):
         reservatorio = self.criar_reservatorio()
@@ -148,6 +243,56 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         reservatorio.refresh_from_db()
         self.assertEqual(reservatorio.esp32_intervalo_envio_normal_s, 120)
         self.assertEqual(reservatorio.esp32_intervalo_envio_calibracao_s, 2)
+
+    def test_edicao_exibe_regras_de_status_em_cada_card_de_faixa(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio regras visuais")
+
+        response = self.client.get(reverse("reservatorio_editar", args=[reservatorio.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ultrapassou a faixa em mais de 25%")
+        self.assertContains(response, "Ultrapassou a faixa em mais de 50 NTU")
+        self.assertContains(response, "Ultrapassou a faixa em mais de 10 C")
+        self.assertContains(response, "Ultrapassou a faixa em mais de 1.5 pH")
+
+    def test_edicao_reclassifica_ultima_leitura_e_sincroniza_status_ao_salvar_faixas(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio reclassificacao imediata")
+        ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+        leitura = ponto.registrar_leitura(
+            temperatura=24.0,
+            tds=120.0,
+            turbidez=60.0,
+            ph=7.0,
+            status_leitura=Reservatorio.STATUS_PERIGO,
+        )
+        reservatorio.sincronizar_status_pelo_ponto()
+
+        response = self.client.post(
+            reverse("reservatorio_atualizar", args=[reservatorio.id]),
+            {
+                "nome": reservatorio.nome,
+                "faixa_ppm_tds_min": str(reservatorio.faixa_ppm_tds_min),
+                "faixa_ppm_tds_max": str(reservatorio.faixa_ppm_tds_max),
+                "faixa_ntu_turbidez_min": "0",
+                "faixa_ntu_turbidez_max": "70",
+                "faixa_celsius_temperatura_min": str(reservatorio.faixa_celsius_temperatura_min),
+                "faixa_celsius_temperatura_max": str(reservatorio.faixa_celsius_temperatura_max),
+                "faixa_ph_min": str(reservatorio.faixa_ph_min),
+                "faixa_ph_max": str(reservatorio.faixa_ph_max),
+                "esp32_intervalo_envio_normal_s": str(reservatorio.esp32_intervalo_envio_normal_s),
+                "esp32_intervalo_envio_calibracao_s": str(reservatorio.esp32_intervalo_envio_calibracao_s),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        leitura.refresh_from_db()
+        ponto.refresh_from_db()
+        reservatorio.refresh_from_db()
+        self.assertEqual(leitura.status_leitura, Reservatorio.STATUS_BOM)
+        self.assertEqual(ponto.status_atual, Reservatorio.STATUS_BOM)
+        self.assertEqual(reservatorio.status, Reservatorio.STATUS_BOM)
 
     def test_relatorio_retorna_todos_os_periodos_disponiveis(self):
         self.login()
@@ -643,7 +788,7 @@ class Esp32IngestaoTests(BaseAppTestCase):
                     "reservatorio_id": self.reservatorio.id,
                     "temperatura": 24.0,
                     "tds": 120.0,
-                    "turbidez": 20.0,
+                    "turbidez": 60.0,
                     "ph": 7.1,
                     "raw": {
                         "firmware_ts_ms": 5000,
@@ -669,7 +814,7 @@ class Esp32IngestaoTests(BaseAppTestCase):
                     "reservatorio_id": self.reservatorio.id,
                     "temperatura": 24.0,
                     "tds": 120.0,
-                    "turbidez": 20.0,
+                    "turbidez": 60.0,
                     "ph": 7.1,
                     "raw": {
                         "firmware_ts_ms": 5000,
