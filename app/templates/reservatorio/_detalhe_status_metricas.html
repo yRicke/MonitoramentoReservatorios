@@ -1,6 +1,11 @@
 <section class="detail-metrics-grid" aria-label="Medições mais recentes por sensor">
     {% for metrica in metricas_recentes %}
-    <article class="panel detail-metric-card">
+    <article
+        class="panel detail-metric-card"
+        data-metric-card="{{ metrica.id }}"
+        data-metric-unit="{{ metrica.unidade }}"
+        data-metric-decimals="{{ metrica.casas }}"
+    >
         <div class="detail-metric-card-head">
             <span class="detail-metric-kicker">Última medição</span>
             <h4>{{ metrica.nome }}</h4>
@@ -8,16 +13,18 @@
 
         <div class="detail-metric-points">
             <div class="detail-metric-point">
-                <strong class="detail-metric-value">
+                <strong class="detail-metric-value" data-metric-value>
                     {% if metrica.ponto_unico.valor is not None %}
                     {{ metrica.ponto_unico.valor|floatformat:metrica.casas }}{% if metrica.unidade %} {{ metrica.unidade }}{% endif %}
                     {% else %}
                     --
                     {% endif %}
                 </strong>
-                <span class="detail-metric-status status-text status-{{ metrica.ponto_unico.status }}">{{ metrica.ponto_unico.status_label }}</span>
+                <span class="detail-metric-status status-text status-{{ metrica.ponto_unico.status }}" data-metric-status>{{ metrica.ponto_unico.status_label }}</span>
                 {% if metrica.ponto_unico.data_hora %}
-                <small>{{ metrica.ponto_unico.data_hora }}</small>
+                <small data-metric-time>{{ metrica.ponto_unico.data_hora }}</small>
+                {% else %}
+                <small data-metric-time hidden></small>
                 {% endif %}
             </div>
         </div>

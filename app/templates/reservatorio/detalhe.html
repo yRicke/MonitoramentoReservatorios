@@ -4,6 +4,13 @@
 {% block title %}Reservatório {{ reservatorio.nome }}{% endblock %}
 
 {% block content %}
+<div
+    id="reservatorioLivePanel"
+    data-status-url="{% url 'reservatorio_detalhe_status' reservatorio.id %}"
+    data-status-cursor="{{ detalhe_status_cursor }}"
+    data-poll-interval-ms="{{ detalhe_poll_interval_ms }}"
+></div>
+
 <section class="message-wrap">
     {% if messages %}
     {% for message in messages %}
@@ -20,11 +27,11 @@
         </p>
         <p class="detail-status">
             <span>Status:</span>
-            <strong class="status-text status-{{ reservatorio.status }}">{{ reservatorio.get_status_display }}</strong>
+            <strong class="status-text status-{{ reservatorio.status }}" data-reservatorio-status>{{ reservatorio.get_status_display }}</strong>
         </p>
         <p class="detail-status detail-sound-status">
             <span>Alerta sonoro:</span>
-            <strong class="status-text {{ alerta_sonoro.classe_status }}">{{ alerta_sonoro.rotulo }}</strong>
+            <strong class="status-text {{ alerta_sonoro.classe_status }}" data-alerta-status>{{ alerta_sonoro.rotulo }}</strong>
         </p>
     </div>
     <div class="detail-hero-actions">
@@ -64,5 +71,5 @@
 
 {% block extra_scripts %}
 <script src="{% static 'js/vendor/apexcharts.min.js' %}?v=3.54.1"></script>
-<script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260325-apex11"></script>
+<script src="{% static 'js/reservatorio-detalhe.js' %}?v=20260622-live-detail-1"></script>
 {% endblock %}

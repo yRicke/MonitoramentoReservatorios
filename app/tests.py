@@ -390,6 +390,56 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
             [False, True],
         )
 
+    def test_detalhe_status_retorna_payload_live(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio detalhe live")
+        ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+        ponto.registrar_leitura(
+            temperatura=23.0,
+            tds=140.0,
+            turbidez=2.0,
+            ph=7.2,
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+
+        response = self.client.get(
+            reverse("reservatorio_detalhe_status", args=[reservatorio.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("cursor", payload)
+        self.assertIn("metricas_recentes", payload)
+        self.assertIn("series", payload)
+        self.assertEqual(payload["reservatorio"]["status"], Reservatorio.STATUS_BOM)
+        self.assertEqual(len(payload["metricas_recentes"]), 4)
+        self.assertEqual(len(payload["series"]["temperatura"]), 1)
+
+    def test_detalhe_status_muda_cursor_quando_chega_nova_leitura(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio detalhe cursor")
+        ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+
+        primeira = self.client.get(
+            reverse("reservatorio_detalhe_status", args=[reservatorio.id])
+        ).json()
+
+        ponto.registrar_leitura(
+            temperatura=24.0,
+            tds=150.0,
+            turbidez=3.0,
+            ph=7.0,
+            status_leitura=Reservatorio.STATUS_BOM,
+        )
+        reservatorio.sincronizar_status_pelo_ponto()
+
+        segunda = self.client.get(
+            reverse("reservatorio_detalhe_status", args=[reservatorio.id])
+        ).json()
+
+        self.assertNotEqual(primeira["cursor"], segunda["cursor"])
+        self.assertEqual(len(segunda["series"]["tds"]), 1)
+
     def test_calibracao_turbidez_orienta_mesma_luz_ambiente(self):
         self.login()
         reservatorio = self.criar_reservatorio("Reservatorio calibracao luz")

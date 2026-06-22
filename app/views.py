@@ -74,6 +74,8 @@ TTL_SESSAO_CALIBRACAO_SEGUNDOS = 10 * 60
 LIMITE_AMOSTRAS_STATUS_CALIBRACAO = 30
 CALIBRACAO_STATUS_LONG_POLL_MAX_MS = 15 * 1000
 CALIBRACAO_STATUS_LONG_POLL_SLEEP_MS = 0.2
+DETALHE_STATUS_LONG_POLL_MAX_MS = 90 * 1000
+DETALHE_STATUS_LONG_POLL_SLEEP_MS = 0.25
 DESVIO_MAXIMO_ESTAVEL_TEMPERATURA = 0.2
 DESVIO_MAXIMO_ESTAVEL_TDS_ADC = 20.0
 DESVIO_MAXIMO_ESTAVEL_TURBIDEZ_ADC = 20.0
@@ -169,6 +171,31 @@ def reservatorio_detalhe(request, reservatorio_id):
 
 @login_required(login_url="entrar")
 @require_http_methods(["GET"])
+def reservatorio_detalhe_status(request, reservatorio_id):
+    reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
+    if reservatorio is None:
+        return JsonResponse({"erro": "reservatorio nao encontrado"}, status=404)
+
+    reservatorio.garantir_pontos_monitoramento()
+    cursor = str(request.GET.get("cursor") or "").strip()
+    wait_ms = _normalizar_wait_status_detalhe_ms(
+        request.GET.get("wait_ms"),
+        intervalo_padrao_ms=int(reservatorio.esp32_intervalo_envio_normal_s) * 1000,
+    )
+    if cursor and wait_ms > 0:
+        _aguardar_atualizacao_detalhe_reservatorio(
+            reservatorio_id=reservatorio.id,
+            cursor_atual=cursor,
+            wait_ms=wait_ms,
+        )
+
+    reservatorio.refresh_from_db()
+    contexto = _contexto_detalhe_reservatorio(reservatorio)
+    return JsonResponse(_payload_status_detalhe_reservatorio(contexto), status=200)
+
+
+@login_required(login_url="entrar")
+@require_http_methods(["GET"])
 def reservatorio_alerta_sonoro_opcoes(request, reservatorio_id):
     reservatorio = Reservatorio.obter_por_id(reservatorio_id, usuario=request.user)
     if reservatorio is None:
@@ -195,6 +222,8 @@ def reservatorio_editar(request, reservatorio_id):
         "reservatorio/editar.html",
         _contexto_edicao_reservatorio(reservatorio),
     )
+
+
 @login_required(login_url="entrar")
 @require_http_methods(["POST"])
 def reservatorio_alerta_sonoro_alternar(request, reservatorio_id):
@@ -1383,6 +1412,71 @@ def _aguardar_atualizacao_status_calibracao(*, ponto, sensor, cursor_atual, wait
         time.sleep(CALIBRACAO_STATUS_LONG_POLL_SLEEP_MS)
 
 
+def _cursor_detalhe_reservatorio(*, reservatorio, ponto):
+    reservatorio_atualizado = (
+        timezone.localtime(reservatorio.updated_at).isoformat()
+        if reservatorio.updated_at
+        else ""
+    )
+    ponto_atualizado = (
+        timezone.localtime(ponto.updated_at).isoformat()
+        if ponto is not None and ponto.updated_at
+        else ""
+    )
+    ultima_leitura = _ultima_leitura_qualidade_por_ponto(ponto)
+    if ultima_leitura is None:
+        ultima_leitura_cursor = "sem-leitura"
+    else:
+        ultima_leitura_cursor = ":".join(
+            [
+                str(ultima_leitura.id),
+                timezone.localtime(ultima_leitura.data_hora).isoformat(),
+                ultima_leitura.status_leitura,
+            ]
+        )
+
+    return ":".join(
+        [
+            "detalhe",
+            str(reservatorio.id),
+            reservatorio_atualizado,
+            ponto_atualizado,
+            ultima_leitura_cursor,
+            reservatorio.status,
+            "1" if reservatorio.alerta_sonoro_silenciado else "0",
+            "1" if reservatorio.alerta_sonoro_silenciado_permanente else "0",
+        ]
+    )
+
+
+def _cursor_detalhe_reservatorio_atual(*, reservatorio_id):
+    reservatorio = Reservatorio.objects.filter(id=reservatorio_id).first()
+    if reservatorio is None:
+        return f"reservatorio-inexistente:{reservatorio_id}"
+
+    reservatorio.garantir_pontos_monitoramento()
+    ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+    return _cursor_detalhe_reservatorio(reservatorio=reservatorio, ponto=ponto)
+
+
+def _normalizar_wait_status_detalhe_ms(valor, *, intervalo_padrao_ms):
+    try:
+        wait_ms = int(valor)
+    except (TypeError, ValueError):
+        wait_ms = int(intervalo_padrao_ms or 0)
+
+    wait_ms = max(0, wait_ms)
+    return min(wait_ms, DETALHE_STATUS_LONG_POLL_MAX_MS)
+
+
+def _aguardar_atualizacao_detalhe_reservatorio(*, reservatorio_id, cursor_atual, wait_ms):
+    prazo_final = time.monotonic() + (wait_ms / 1000.0)
+    while time.monotonic() < prazo_final:
+        if _cursor_detalhe_reservatorio_atual(reservatorio_id=reservatorio_id) != cursor_atual:
+            return
+        time.sleep(DETALHE_STATUS_LONG_POLL_SLEEP_MS)
+
+
 def _temperatura_bruta_para_calibracao(ponto):
     sessao = SessaoCalibracao.obter_ativa(ponto=ponto, sensor=SessaoCalibracao.SENSOR_TEMPERATURA)
     if sessao is None:
@@ -1609,6 +1703,10 @@ def _contexto_detalhe_reservatorio(reservatorio):
 
     ponto_unico = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
     series = _series_leituras_por_ponto(ponto_unico)
+    detalhe_status_cursor = _cursor_detalhe_reservatorio(
+        reservatorio=reservatorio,
+        ponto=ponto_unico,
+    )
 
     return {
         **_contexto_calibracao_reservatorio(
@@ -1624,6 +1722,11 @@ def _contexto_detalhe_reservatorio(reservatorio):
             ponto_unico=ponto_unico,
         ),
         "alerta_sonoro": _resumo_alerta_sonoro_reservatorio(reservatorio),
+        "detalhe_status_cursor": detalhe_status_cursor,
+        "detalhe_poll_interval_ms": max(
+            1000,
+            int(reservatorio.esp32_intervalo_envio_normal_s) * 1000,
+        ),
     }
 
 
@@ -1633,6 +1736,25 @@ def _contexto_alerta_sonoro_reservatorio(reservatorio):
     return {
         "reservatorio": reservatorio,
         "alerta_sonoro": _resumo_alerta_sonoro_reservatorio(reservatorio),
+    }
+
+
+def _payload_status_detalhe_reservatorio(contexto):
+    return {
+        "cursor": contexto["detalhe_status_cursor"],
+        "poll_interval_ms": contexto["detalhe_poll_interval_ms"],
+        "reservatorio": {
+            "status": contexto["reservatorio"].status,
+            "status_label": contexto["reservatorio"].get_status_display(),
+        },
+        "alerta_sonoro": contexto["alerta_sonoro"],
+        "metricas_recentes": contexto["metricas_recentes"],
+        "series": {
+            "tds": contexto["tds_series"],
+            "temperatura": contexto["temperatura_series"],
+            "turbidez": contexto["turbidez_series"],
+            "ph": contexto["ph_series"],
+        },
     }
 
 

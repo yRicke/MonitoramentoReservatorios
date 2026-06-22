@@ -43,6 +43,13 @@ const CHARTS_CONFIG = [
 ];
 
 const chartInstances = new Map();
+const STATUS_CLASS_POOL = [
+    "status-bom",
+    "status-atencao",
+    "status-perigo",
+    "status-sem-dado",
+    "status-ignorado-noturno",
+];
 let resizeTimer = null;
 
 function getJsonScriptData(id) {
@@ -57,6 +64,14 @@ function getJsonScriptData(id) {
         console.error(`Falha ao parsear ${id}`, error);
         return [];
     }
+}
+
+function setJsonScriptData(id, value) {
+    const element = document.getElementById(id);
+    if (!element) {
+        return;
+    }
+    element.textContent = JSON.stringify(value ?? []);
 }
 
 function normalizePoints(rawSeries) {
@@ -495,6 +510,160 @@ function formatPointDateLabel(point) {
     return String(point.x ?? "-");
 }
 
+function replaceStatusClasses(element, nextClassName) {
+    if (!element) {
+        return;
+    }
+
+    STATUS_CLASS_POOL.forEach((className) => element.classList.remove(className));
+    if (nextClassName) {
+        element.classList.add(nextClassName);
+    }
+}
+
+function renderLiveMetricCard(metric) {
+    if (!metric || !metric.id) {
+        return;
+    }
+
+    const card = document.querySelector(`[data-metric-card="${metric.id}"]`);
+    if (!card) {
+        return;
+    }
+
+    const valueEl = card.querySelector("[data-metric-value]");
+    const statusEl = card.querySelector("[data-metric-status]");
+    const timeEl = card.querySelector("[data-metric-time]");
+    const decimals = Number(card.dataset.metricDecimals || 0);
+    const unit = card.dataset.metricUnit || "";
+    const point = metric.ponto_unico || {};
+
+    if (valueEl) {
+        if (point.valor === null || point.valor === undefined || Number.isNaN(Number(point.valor))) {
+            valueEl.textContent = "--";
+        } else {
+            valueEl.textContent = `${Number(point.valor).toFixed(decimals)}${unit ? ` ${unit}` : ""}`;
+        }
+    }
+
+    if (statusEl) {
+        statusEl.textContent = point.status_label || "Sem dado";
+        replaceStatusClasses(statusEl, point.status ? `status-${point.status}` : "status-sem-dado");
+    }
+
+    if (timeEl) {
+        if (point.data_hora) {
+            timeEl.hidden = false;
+            timeEl.textContent = point.data_hora;
+        } else {
+            timeEl.hidden = true;
+            timeEl.textContent = "";
+        }
+    }
+}
+
+function renderLiveReservatorioPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+        return;
+    }
+
+    const reservatorioStatusEl = document.querySelector("[data-reservatorio-status]");
+    if (reservatorioStatusEl && payload.reservatorio) {
+        reservatorioStatusEl.textContent = payload.reservatorio.status_label || "Sem dado";
+        replaceStatusClasses(
+            reservatorioStatusEl,
+            payload.reservatorio.status ? `status-${payload.reservatorio.status}` : "status-sem-dado",
+        );
+    }
+
+    const alertaStatusEl = document.querySelector("[data-alerta-status]");
+    if (alertaStatusEl && payload.alerta_sonoro) {
+        alertaStatusEl.textContent = payload.alerta_sonoro.rotulo || "Desligado";
+        replaceStatusClasses(alertaStatusEl, payload.alerta_sonoro.classe_status || "status-sem-dado");
+    }
+
+    if (Array.isArray(payload.metricas_recentes)) {
+        payload.metricas_recentes.forEach(renderLiveMetricCard);
+    }
+
+    if (payload.series && typeof payload.series === "object") {
+        setJsonScriptData("tds-series-data", payload.series.tds);
+        setJsonScriptData("temperatura-series-data", payload.series.temperatura);
+        setJsonScriptData("turbidez-series-data", payload.series.turbidez);
+        setJsonScriptData("ph-series-data", payload.series.ph);
+        renderAllCharts();
+    }
+}
+
+function initDetailLiveUpdates() {
+    const panel = document.getElementById("reservatorioLivePanel");
+    if (!panel) {
+        return;
+    }
+
+    const statusUrl = panel.dataset.statusUrl;
+    if (!statusUrl) {
+        return;
+    }
+
+    let statusCursor = panel.dataset.statusCursor || "";
+    let pollIntervalMs = Number(panel.dataset.pollIntervalMs || 60000);
+    let pollTimer = null;
+
+    function stopPolling() {
+        if (pollTimer !== null) {
+            window.clearTimeout(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function scheduleNextPoll(immediate = false) {
+        stopPolling();
+        pollTimer = window.setTimeout(loadStatus, immediate ? 0 : Math.max(500, pollIntervalMs));
+    }
+
+    async function loadStatus() {
+        stopPolling();
+        try {
+            const requestUrl = new URL(statusUrl, window.location.origin);
+            if (statusCursor) {
+                requestUrl.searchParams.set("cursor", statusCursor);
+                requestUrl.searchParams.set("wait_ms", String(pollIntervalMs));
+            }
+
+            const response = await fetch(requestUrl.toString(), {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            });
+            if (!response.ok) {
+                scheduleNextPoll(false);
+                return;
+            }
+
+            const payload = await response.json();
+            if (payload.cursor) {
+                statusCursor = payload.cursor;
+                panel.dataset.statusCursor = statusCursor;
+            }
+            if (
+                payload.poll_interval_ms !== null
+                && payload.poll_interval_ms !== undefined
+                && !Number.isNaN(Number(payload.poll_interval_ms))
+            ) {
+                pollIntervalMs = Number(payload.poll_interval_ms);
+                panel.dataset.pollIntervalMs = String(pollIntervalMs);
+            }
+
+            renderLiveReservatorioPayload(payload);
+            scheduleNextPoll(true);
+        } catch (error) {
+            scheduleNextPoll(false);
+        }
+    }
+
+    loadStatus();
+    window.addEventListener("beforeunload", stopPolling);
+}
+
 function initTopToggle() {
     const toggleButtons = document.querySelectorAll("[data-toggle-target]");
     toggleButtons.forEach((button) => {
@@ -571,6 +740,7 @@ function handleResize() {
 
 function initPage() {
     renderAllCharts();
+    initDetailLiveUpdates();
     initTopToggle();
     initCalibrationToggle();
 }
