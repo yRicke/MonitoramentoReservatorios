@@ -4,6 +4,8 @@
         return;
     }
 
+    const numberFormatters = new Map();
+
     const statusUrl = panel.dataset.statusUrl;
     const sensor = panel.dataset.sensor || "";
     if (!statusUrl || !sensor) {
@@ -36,7 +38,21 @@
         if (value === null || value === undefined || Number.isNaN(Number(value))) {
             return "--";
         }
-        return Number(value).toFixed(digits);
+        return getNumberFormatter(digits).format(Number(value));
+    }
+
+    function getNumberFormatter(digits) {
+        const key = Number(digits) || 0;
+        if (!numberFormatters.has(key)) {
+            numberFormatters.set(
+                key,
+                new Intl.NumberFormat("pt-BR", {
+                    minimumFractionDigits: key,
+                    maximumFractionDigits: key,
+                }),
+            );
+        }
+        return numberFormatters.get(key);
     }
 
     function renderStability(target, metaTarget, payload, unit) {

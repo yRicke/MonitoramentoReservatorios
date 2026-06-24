@@ -1,3 +1,5 @@
+{% load monitoramento_formatos %}
+
 <section class="detail-metrics-grid" aria-label="Medições mais recentes por sensor">
     {% for metrica in metricas_recentes %}
     <article
@@ -15,7 +17,7 @@
             <div class="detail-metric-point">
                 <strong class="detail-metric-value" data-metric-value>
                     {% if metrica.ponto_unico.valor is not None %}
-                    {{ metrica.ponto_unico.valor|floatformat:metrica.casas }}{% if metrica.unidade %} {{ metrica.unidade }}{% endif %}
+                    {{ metrica.ponto_unico.valor|decimal_br:metrica.casas }}{% if metrica.unidade %} {{ metrica.unidade }}{% endif %}
                     {% else %}
                     --
                     {% endif %}

@@ -294,6 +294,38 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         self.assertEqual(ponto.status_atual, Reservatorio.STATUS_BOM)
         self.assertEqual(reservatorio.status, Reservatorio.STATUS_BOM)
 
+    def test_edicao_aceita_virgula_nos_campos_decimais(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio virgula")
+
+        response = self.client.post(
+            reverse("reservatorio_atualizar", args=[reservatorio.id]),
+            {
+                "nome": reservatorio.nome,
+                "faixa_ppm_tds_min": "10,50",
+                "faixa_ppm_tds_max": "200,75",
+                "faixa_ntu_turbidez_min": "0,25",
+                "faixa_ntu_turbidez_max": "1,50",
+                "faixa_celsius_temperatura_min": "10,25",
+                "faixa_celsius_temperatura_max": "30,50",
+                "faixa_ph_min": "6,10",
+                "faixa_ph_max": "8,40",
+                "esp32_intervalo_envio_normal_s": "120",
+                "esp32_intervalo_envio_calibracao_s": "2",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        reservatorio.refresh_from_db()
+        self.assertAlmostEqual(reservatorio.faixa_ppm_tds_min, 10.50, places=2)
+        self.assertAlmostEqual(reservatorio.faixa_ppm_tds_max, 200.75, places=2)
+        self.assertAlmostEqual(reservatorio.faixa_ntu_turbidez_min, 0.25, places=2)
+        self.assertAlmostEqual(reservatorio.faixa_ntu_turbidez_max, 1.50, places=2)
+        self.assertAlmostEqual(reservatorio.faixa_celsius_temperatura_min, 10.25, places=2)
+        self.assertAlmostEqual(reservatorio.faixa_celsius_temperatura_max, 30.50, places=2)
+        self.assertAlmostEqual(reservatorio.faixa_ph_min, 6.10, places=2)
+        self.assertAlmostEqual(reservatorio.faixa_ph_max, 8.40, places=2)
+
     def test_relatorio_retorna_todos_os_periodos_disponiveis(self):
         self.login()
         reservatorio = self.criar_reservatorio("Reservatorio relatorio")
@@ -671,6 +703,91 @@ class CalibrationFlowTests(BaseAppTestCase):
         _, turbidez_ponto_2 = ponto.aplicar_calibracao_agua(tds=0.0, turbidez=0.2)
         self.assertAlmostEqual(turbidez_ponto_1, 50.0, places=3)
         self.assertAlmostEqual(turbidez_ponto_2, 200.0, places=3)
+
+    def test_calibracao_sensor_recarrega_ultima_calibracao_manual_nos_campos(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio calib manual")
+        ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+
+        self.client.post(
+            reverse("reservatorio_calibracao_turbidez_auto", args=[reservatorio.id]),
+            {
+                "turbidez_referencia_ponto_1": "12,50",
+                "turbidez_tensao_ponto_1": "2,345",
+                "turbidez_referencia_ponto_2": "48,75",
+                "turbidez_tensao_ponto_2": "1,210",
+            },
+        )
+        self.client.post(
+            reverse("reservatorio_calibracao_ph_auto", args=[reservatorio.id]),
+            {
+                "ph_solucao_ponto_1": "7,00",
+                "ph_tensao_ponto_1": "2,390",
+                "ph_solucao_ponto_2": "4,00",
+                "ph_tensao_ponto_2": "3,080",
+            },
+        )
+
+        ponto.refresh_from_db()
+        self.assertAlmostEqual(ponto.turbidez_referencia_calibracao_ponto_2_ntu, 48.75, places=2)
+        self.assertAlmostEqual(ponto.ph_tensao_calibracao_ponto_2_v, 3.080, places=3)
+
+        turbidez_page = self.client.get(
+            reverse("reservatorio_calibracao_sensor", args=[reservatorio.id, "turbidez"])
+        )
+        ph_page = self.client.get(
+            reverse("reservatorio_calibracao_sensor", args=[reservatorio.id, "ph"])
+        )
+
+        self.assertContains(turbidez_page, 'value="12,50"', count=1)
+        self.assertContains(turbidez_page, 'value="2,345"', count=1)
+        self.assertContains(turbidez_page, 'value="48,75"', count=1)
+        self.assertContains(turbidez_page, 'value="1,210"', count=1)
+        self.assertContains(ph_page, 'value="7,00"', count=1)
+        self.assertContains(ph_page, 'value="2,390"', count=1)
+        self.assertContains(ph_page, 'value="4,00"', count=1)
+        self.assertContains(ph_page, 'value="3,080"', count=1)
+
+    def test_calibracao_sensor_infere_referencias_manualmente_salvas_quando_campo_explicito_esta_vazio(self):
+        self.login()
+        reservatorio = self.criar_reservatorio("Reservatorio calib inferida")
+        ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
+        ponto.atualizar_calibracao_turbidez_2_pontos(
+            turbidez_ponto_1_ntu=12.5,
+            turbidez_tensao_ponto_1=2.345,
+            turbidez_ponto_2_ntu=48.75,
+            turbidez_tensao_ponto_2=1.210,
+        )
+        ponto.atualizar_calibracao_ph(
+            ph_voltagem_referencia_7=2.39,
+            ph_inclinacao=0.23,
+            ph_solucao_ponto_1=7.0,
+            ph_tensao_ponto_1=2.39,
+            ph_solucao_ponto_2=4.0,
+            ph_tensao_ponto_2=3.08,
+        )
+        ponto.ph_solucao_calibracao_ponto_1 = None
+        ponto.ph_solucao_calibracao_ponto_2 = None
+        ponto.turbidez_referencia_calibracao_ponto_2_ntu = None
+        ponto.save(
+            update_fields=[
+                "ph_solucao_calibracao_ponto_1",
+                "ph_solucao_calibracao_ponto_2",
+                "turbidez_referencia_calibracao_ponto_2_ntu",
+                "updated_at",
+            ]
+        )
+
+        turbidez_page = self.client.get(
+            reverse("reservatorio_calibracao_sensor", args=[reservatorio.id, "turbidez"])
+        )
+        ph_page = self.client.get(
+            reverse("reservatorio_calibracao_sensor", args=[reservatorio.id, "ph"])
+        )
+
+        self.assertContains(turbidez_page, 'value="48,75"', count=1)
+        self.assertContains(ph_page, 'value="7,00"', count=1)
+        self.assertContains(ph_page, 'value="4,00"', count=1)
 
 
 class Esp32IngestaoTests(BaseAppTestCase):

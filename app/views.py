@@ -34,6 +34,10 @@ from app.services.ingestao import (
     processar_leitura_esp32,
 )
 from app.services.amostragem_esp32 import construir_plano_amostragem_normal
+from app.services.numeros import (
+    formatar_decimal_br,
+    normalizar_decimal_localizado as parse_decimal_localizado,
+)
 from app.services.regras import (
     DESVIO_PH_PERIGO,
     DESVIO_TEMPERATURA_PERIGO,
@@ -597,7 +601,8 @@ def reservatorio_calibracao_temperatura_auto(request, reservatorio_id):
         request,
         (
             f"Calibração de temperatura aplicada no ponto {_nome_curto_ponto(ponto)}: "
-            f"média {temperatura_bruta:.2f}C -> referência {temperatura_referencia:.2f}C."
+            f"média {formatar_decimal_br(temperatura_bruta, 2)}C -> "
+            f"referência {formatar_decimal_br(temperatura_referencia, 2)}C."
         ),
     )
     return redirect(_url_calibracao_sensor(reservatorio, "temperatura"))
@@ -658,7 +663,8 @@ def reservatorio_calibracao_tds_auto(request, reservatorio_id):
         request,
         (
             f"Calibração de TDS aplicada no ponto {_nome_curto_ponto(ponto)}: "
-            f"média base {tds_base_ppm:.2f} ppm, alvo {tds_alvo:.2f} ppm."
+            f"média base {formatar_decimal_br(tds_base_ppm, 2)} ppm, "
+            f"alvo {formatar_decimal_br(tds_alvo, 2)} ppm."
         ),
     )
     return redirect(_url_calibracao_sensor(reservatorio, "tds"))
@@ -732,8 +738,10 @@ def reservatorio_calibracao_turbidez_auto(request, reservatorio_id):
         request,
         (
             f"Calibração de turbidez aplicada no ponto {_nome_curto_ponto(ponto)}: "
-            f"ponto 1 {turbidez_ponto_1:.3f} NTU/{tensao_ponto_1:.3f}V, "
-            f"ponto 2 {turbidez_ponto_2:.3f} NTU/{tensao_ponto_2:.3f}V."
+            f"ponto 1 {formatar_decimal_br(turbidez_ponto_1, 3)} NTU/"
+            f"{formatar_decimal_br(tensao_ponto_1, 3)}V, "
+            f"ponto 2 {formatar_decimal_br(turbidez_ponto_2, 3)} NTU/"
+            f"{formatar_decimal_br(tensao_ponto_2, 3)}V."
         ),
     )
     return redirect(_url_calibracao_sensor(reservatorio, "turbidez"))
@@ -790,7 +798,8 @@ def _reservatorio_calibracao_turbidez_auto_legado(request, reservatorio_id):
         request,
         (
             f"Calibração de turbidez aplicada no ponto {_nome_curto_ponto(ponto)}: "
-            f"média base {turbidez_base_ntu:.3f} NTU, alvo {turbidez_alvo:.3f} NTU."
+            f"média base {formatar_decimal_br(turbidez_base_ntu, 3)} NTU, "
+            f"alvo {formatar_decimal_br(turbidez_alvo, 3)} NTU."
         ),
     )
     return redirect(_url_calibracao_sensor(reservatorio, "turbidez"))
@@ -853,6 +862,10 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
         ponto.atualizar_calibracao_ph(
             ph_voltagem_referencia_7=ph7_equivalente,
             ph_inclinacao=ph_inclinacao,
+            ph_solucao_ponto_1=ph_solucao_ponto_1,
+            ph_tensao_ponto_1=tensao_ponto_1,
+            ph_solucao_ponto_2=ph_solucao_ponto_2,
+            ph_tensao_ponto_2=tensao_ponto_2,
         )
     except ValueError as exc:
         messages.error(request, str(exc))
@@ -862,8 +875,10 @@ def reservatorio_calibracao_ph_auto(request, reservatorio_id):
         request,
         (
             f"Calibração de pH aplicada no ponto {_nome_curto_ponto(ponto)}: "
-            f"ponto 1 {ph_solucao_ponto_1:.2f}/{tensao_ponto_1:.3f}V, "
-            f"ponto 2 {ph_solucao_ponto_2:.2f}/{tensao_ponto_2:.3f}V."
+            f"ponto 1 {formatar_decimal_br(ph_solucao_ponto_1, 2)}/"
+            f"{formatar_decimal_br(tensao_ponto_1, 3)}V, "
+            f"ponto 2 {formatar_decimal_br(ph_solucao_ponto_2, 2)}/"
+            f"{formatar_decimal_br(tensao_ponto_2, 3)}V."
         ),
     )
     return redirect(_url_calibracao_sensor(reservatorio, "ph"))
@@ -1560,9 +1575,7 @@ def _normalizar_valor_referencia_generico(valor, *, campo, minimo=None, maximo=N
 
 
 def _normalizar_decimal_localizado(valor):
-    if isinstance(valor, str):
-        valor = valor.strip().replace(",", ".")
-    return float(valor)
+    return parse_decimal_localizado(valor)
 
 
 def _extrair_float_json(payload, campo, *, obrigatorio=False):
@@ -1646,7 +1659,200 @@ def _contexto_calibracao_reservatorio(reservatorio, *, ponto_unico):
         "tds_calibracao": _resumo_calibracao_tds(ponto_unico),
         "turbidez_calibracao": _resumo_calibracao_turbidez(ponto_unico),
         "ph_calibracao": _resumo_calibracao_ph(ponto_unico),
+        "calibracao_form_defaults": _calibracao_form_defaults(
+            reservatorio=reservatorio,
+            ponto=ponto_unico,
+        ),
     }
+
+
+def _calibracao_form_defaults(*, reservatorio, ponto):
+    return {
+        "temperatura_referencia_c": _valor_calibracao(
+            ponto,
+            "temperatura_valor_referencia_c",
+            reservatorio.meta_celsius_temperatura,
+        ),
+        "temperatura_inclinacao": _valor_calibracao(
+            ponto,
+            "temperatura_inclinacao",
+            PontoMonitoramento.TEMPERATURA_INCLINACAO_PADRAO,
+        ),
+        "tds_alvo_ppm": _valor_calibracao(
+            ponto,
+            "tds_alvo_calibracao_ppm",
+            PontoMonitoramento.TDS_ALVO_CALIBRACAO_PADRAO,
+        ),
+        "tds_inclinacao": _valor_calibracao(
+            ponto,
+            "tds_inclinacao",
+            PontoMonitoramento.TDS_INCLINACAO_PADRAO,
+        ),
+        "turbidez_referencia_ponto_1": _valor_calibracao(
+            ponto,
+            "turbidez_alvo_calibracao_ntu",
+            PontoMonitoramento.TURBIDEZ_ALVO_CALIBRACAO_PADRAO,
+        ),
+        "turbidez_tensao_ponto_1": _tensao_calibracao_turbidez_ponto_1(ponto),
+        "turbidez_referencia_ponto_2": _referencia_calibracao_turbidez_ponto_2(
+            reservatorio=reservatorio,
+            ponto=ponto,
+        ),
+        "turbidez_tensao_ponto_2": _tensao_calibracao_turbidez_ponto_2(
+            reservatorio=reservatorio,
+            ponto=ponto,
+        ),
+        "ph_solucao_ponto_1": _solucao_calibracao_ph_por_ponto(
+            ponto,
+            campo_solucao="ph_solucao_calibracao_ponto_1",
+            campo_tensao="ph_tensao_calibracao_ponto_1_v",
+            padrao=7.0,
+        ),
+        "ph_tensao_ponto_1": _tensao_calibracao_ph_por_ponto(
+            ponto,
+            campo_tensao="ph_tensao_calibracao_ponto_1_v",
+            campo_solucao="ph_solucao_calibracao_ponto_1",
+            padrao_solucao=7.0,
+        ),
+        "ph_solucao_ponto_2": _solucao_calibracao_ph_por_ponto(
+            ponto,
+            campo_solucao="ph_solucao_calibracao_ponto_2",
+            campo_tensao="ph_tensao_calibracao_ponto_2_v",
+            padrao=4.0,
+        ),
+        "ph_tensao_ponto_2": _tensao_calibracao_ph_por_ponto(
+            ponto,
+            campo_tensao="ph_tensao_calibracao_ponto_2_v",
+            campo_solucao="ph_solucao_calibracao_ponto_2",
+            padrao_solucao=4.0,
+        ),
+    }
+
+
+def _valor_calibracao(ponto, atributo, padrao):
+    if ponto is None:
+        return padrao
+
+    valor = getattr(ponto, atributo, None)
+    return padrao if valor is None else valor
+
+
+def _referencia_calibracao_turbidez_ponto_2(*, reservatorio, ponto):
+    referencia_salva = _valor_calibracao(ponto, "turbidez_referencia_calibracao_ponto_2_ntu", None)
+    if referencia_salva is not None:
+        return referencia_salva
+
+    tensao_salva = _valor_calibracao(ponto, "turbidez_tensao_calibracao_ponto_2_v", None)
+    if tensao_salva is not None:
+        referencia_inferida = _ntu_turbidez_por_calibracao(
+            inclinacao=ponto.turbidez_inclinacao,
+            offset=ponto.turbidez_offset_ntu,
+            tensao=tensao_salva,
+        )
+        if referencia_inferida is not None:
+            return referencia_inferida
+    return reservatorio.meta_ntu_turbidez
+
+
+def _tensao_calibracao_turbidez_ponto_1(ponto):
+    if ponto is None:
+        return None
+    tensao_salva = _valor_calibracao(ponto, "turbidez_tensao_calibracao_ponto_1_v", None)
+    if tensao_salva is not None:
+        return tensao_salva
+    return _tensao_turbidez_por_reta(
+        inclinacao=ponto.turbidez_inclinacao,
+        offset=ponto.turbidez_offset_ntu,
+        ntu=ponto.turbidez_alvo_calibracao_ntu,
+    )
+
+
+def _tensao_calibracao_turbidez_ponto_2(*, reservatorio, ponto):
+    if ponto is None:
+        return None
+    tensao_salva = _valor_calibracao(ponto, "turbidez_tensao_calibracao_ponto_2_v", None)
+    if tensao_salva is not None:
+        return tensao_salva
+    return _tensao_turbidez_por_reta(
+        inclinacao=ponto.turbidez_inclinacao,
+        offset=ponto.turbidez_offset_ntu,
+        ntu=_referencia_calibracao_turbidez_ponto_2(reservatorio=reservatorio, ponto=ponto),
+    )
+
+
+def _tensao_turbidez_por_reta(*, inclinacao, offset, ntu):
+    if inclinacao is None or offset is None or ntu is None:
+        return None
+    if math.isclose(float(inclinacao), 0.0, rel_tol=0.0, abs_tol=1e-12):
+        return None
+    tensao = (float(ntu) - float(offset)) / float(inclinacao)
+    if not math.isfinite(tensao) or tensao < 0 or tensao > ADC_TENSAO_REFERENCIA:
+        return None
+    return tensao
+
+
+def _ntu_turbidez_por_calibracao(*, inclinacao, offset, tensao):
+    if inclinacao is None or offset is None or tensao is None:
+        return None
+    ntu = (float(tensao) * float(inclinacao)) + float(offset)
+    if not math.isfinite(ntu) or ntu < 0:
+        return None
+    return ntu
+
+
+def _solucao_calibracao_ph_por_ponto(ponto, *, campo_solucao, campo_tensao, padrao):
+    solucao_salva = _valor_calibracao(ponto, campo_solucao, None)
+    if solucao_salva is not None:
+        return solucao_salva
+
+    tensao_salva = _valor_calibracao(ponto, campo_tensao, None)
+    if tensao_salva is not None:
+        solucao_inferida = _solucao_ph_por_calibracao(
+            ph_voltagem_referencia_7=ponto.ph_voltagem_referencia_7,
+            ph_inclinacao=ponto.ph_inclinacao,
+            tensao=tensao_salva,
+        )
+        if solucao_inferida is not None:
+            return solucao_inferida
+    return padrao
+
+
+def _tensao_calibracao_ph_por_ponto(ponto, *, campo_tensao, campo_solucao, padrao_solucao):
+    if ponto is None:
+        return None
+    tensao_salva = _valor_calibracao(ponto, campo_tensao, None)
+    if tensao_salva is not None:
+        return tensao_salva
+    return _tensao_ph_por_calibracao(
+        ph_voltagem_referencia_7=ponto.ph_voltagem_referencia_7,
+        ph_inclinacao=ponto.ph_inclinacao,
+        ph_solucao=_solucao_calibracao_ph_por_ponto(
+            ponto,
+            campo_solucao=campo_solucao,
+            campo_tensao=campo_tensao,
+            padrao=padrao_solucao,
+        ),
+    )
+
+
+def _tensao_ph_por_calibracao(*, ph_voltagem_referencia_7, ph_inclinacao, ph_solucao):
+    if ph_voltagem_referencia_7 is None or ph_inclinacao is None or ph_solucao is None:
+        return None
+    tensao = float(ph_voltagem_referencia_7) + (float(ph_inclinacao) * (7.0 - float(ph_solucao)))
+    if not math.isfinite(tensao) or tensao < 0 or tensao > ADC_TENSAO_REFERENCIA:
+        return None
+    return tensao
+
+
+def _solucao_ph_por_calibracao(*, ph_voltagem_referencia_7, ph_inclinacao, tensao):
+    if ph_voltagem_referencia_7 is None or ph_inclinacao is None or tensao is None:
+        return None
+    if math.isclose(float(ph_inclinacao), 0.0, rel_tol=0.0, abs_tol=1e-12):
+        return None
+    ph = 7.0 + ((float(ph_voltagem_referencia_7) - float(tensao)) / float(ph_inclinacao))
+    if not math.isfinite(ph) or ph < 0 or ph > 14:
+        return None
+    return ph
 
 
 def _resumo_alerta_sonoro_reservatorio(reservatorio):

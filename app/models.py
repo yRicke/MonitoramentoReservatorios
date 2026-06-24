@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from app.services.amostragem_esp32 import construir_plano_amostragem_calibracao
+from app.services.numeros import normalizar_decimal_localizado, normalizar_inteiro_localizado
 from app.services.regras import calcular_status_reservatorio
 
 
@@ -517,7 +518,7 @@ class Reservatorio(models.Model):
             return float(padrao)
 
         try:
-            numero = float(meta)
+            numero = normalizar_decimal_localizado(meta)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{campo} inválida para reservatório.") from exc
 
@@ -539,7 +540,7 @@ class Reservatorio(models.Model):
             return int(padrao)
 
         try:
-            numero = int(valor)
+            numero = normalizar_inteiro_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{campo} invalido para reservatorio.") from exc
 
@@ -596,7 +597,7 @@ class Reservatorio(models.Model):
             numero = float(padrao)
         else:
             try:
-                numero = float(valor)
+                numero = normalizar_decimal_localizado(valor)
             except (TypeError, ValueError) as exc:
                 raise ValueError(f"{campo} inválida para reservatório.") from exc
 
@@ -686,12 +687,19 @@ class PontoMonitoramento(models.Model):
     ph_voltagem_referencia_7 = models.FloatField(default=PH_VOLTAGEM_REFERENCIA_7_PADRAO)
     ph_inclinacao = models.FloatField(default=PH_INCLINACAO_PADRAO)
     ph_temperatura_calibracao_c = models.FloatField(default=PH_TEMPERATURA_CALIBRACAO_PADRAO)
+    ph_solucao_calibracao_ponto_1 = models.FloatField(null=True, blank=True)
+    ph_tensao_calibracao_ponto_1_v = models.FloatField(null=True, blank=True)
+    ph_solucao_calibracao_ponto_2 = models.FloatField(null=True, blank=True)
+    ph_tensao_calibracao_ponto_2_v = models.FloatField(null=True, blank=True)
     ph_calibrado_em = models.DateTimeField(null=True, blank=True)
     tds_inclinacao = models.FloatField(default=TDS_INCLINACAO_PADRAO)
     tds_offset_ppm = models.FloatField(default=0.0)
     tds_calibrado_em = models.DateTimeField(null=True, blank=True)
     turbidez_inclinacao = models.FloatField(default=TURBIDEZ_INCLINACAO_PADRAO)
     turbidez_offset_ntu = models.FloatField(default=0.0)
+    turbidez_referencia_calibracao_ponto_2_ntu = models.FloatField(null=True, blank=True)
+    turbidez_tensao_calibracao_ponto_1_v = models.FloatField(null=True, blank=True)
+    turbidez_tensao_calibracao_ponto_2_v = models.FloatField(null=True, blank=True)
     turbidez_calibrado_em = models.DateTimeField(null=True, blank=True)
     tds_alvo_calibracao_ppm = models.FloatField(default=TDS_ALVO_CALIBRACAO_PADRAO)
     turbidez_alvo_calibracao_ntu = models.FloatField(default=TURBIDEZ_ALVO_CALIBRACAO_PADRAO)
@@ -814,6 +822,10 @@ class PontoMonitoramento(models.Model):
         ph_voltagem_referencia_7=None,
         ph_inclinacao=None,
         temperatura_calibracao_c=None,
+        ph_solucao_ponto_1=None,
+        ph_tensao_ponto_1=None,
+        ph_solucao_ponto_2=None,
+        ph_tensao_ponto_2=None,
     ):
         campos_para_salvar = []
 
@@ -833,6 +845,37 @@ class PontoMonitoramento(models.Model):
                 campo="ph_temperatura_calibracao_c",
             )
             campos_para_salvar.append("ph_temperatura_calibracao_c")
+
+        if (
+            ph_solucao_ponto_1 is not None
+            and ph_tensao_ponto_1 is not None
+            and ph_solucao_ponto_2 is not None
+            and ph_tensao_ponto_2 is not None
+        ):
+            self.ph_solucao_calibracao_ponto_1 = self._normalizar_ph_solucao_calibracao(
+                ph_solucao_ponto_1,
+                campo="ph_solucao_calibracao_ponto_1",
+            )
+            self.ph_tensao_calibracao_ponto_1_v = self._normalizar_tensao_calibracao_sensor(
+                ph_tensao_ponto_1,
+                campo="ph_tensao_calibracao_ponto_1_v",
+            )
+            self.ph_solucao_calibracao_ponto_2 = self._normalizar_ph_solucao_calibracao(
+                ph_solucao_ponto_2,
+                campo="ph_solucao_calibracao_ponto_2",
+            )
+            self.ph_tensao_calibracao_ponto_2_v = self._normalizar_tensao_calibracao_sensor(
+                ph_tensao_ponto_2,
+                campo="ph_tensao_calibracao_ponto_2_v",
+            )
+            campos_para_salvar.extend(
+                [
+                    "ph_solucao_calibracao_ponto_1",
+                    "ph_tensao_calibracao_ponto_1_v",
+                    "ph_solucao_calibracao_ponto_2",
+                    "ph_tensao_calibracao_ponto_2_v",
+                ]
+            )
 
         if not campos_para_salvar:
             return self
@@ -939,6 +982,9 @@ class PontoMonitoramento(models.Model):
             turbidez_alvo_final - (float(turbidez_base_ntu) * turbidez_inclinacao_final)
         )
         self.turbidez_alvo_calibracao_ntu = turbidez_alvo_final
+        self.turbidez_referencia_calibracao_ponto_2_ntu = None
+        self.turbidez_tensao_calibracao_ponto_1_v = None
+        self.turbidez_tensao_calibracao_ponto_2_v = None
         self.turbidez_adc_calibracao = self._normalizar_adc_calibracao(
             turbidez_adc,
             campo="turbidez_adc_calibracao",
@@ -950,6 +996,9 @@ class PontoMonitoramento(models.Model):
                 "turbidez_inclinacao",
                 "turbidez_offset_ntu",
                 "turbidez_alvo_calibracao_ntu",
+                "turbidez_referencia_calibracao_ponto_2_ntu",
+                "turbidez_tensao_calibracao_ponto_1_v",
+                "turbidez_tensao_calibracao_ponto_2_v",
                 "turbidez_adc_calibracao",
                 "turbidez_calibrado_em",
                 "agua_calibrado_em",
@@ -998,6 +1047,9 @@ class PontoMonitoramento(models.Model):
         self.turbidez_inclinacao = inclinacao_final
         self.turbidez_offset_ntu = offset_final
         self.turbidez_alvo_calibracao_ntu = turbidez_ponto_1_final
+        self.turbidez_referencia_calibracao_ponto_2_ntu = turbidez_ponto_2_final
+        self.turbidez_tensao_calibracao_ponto_1_v = tensao_ponto_1_final
+        self.turbidez_tensao_calibracao_ponto_2_v = tensao_ponto_2_final
         self.turbidez_adc_calibracao = None
         self.turbidez_calibrado_em = timezone.now()
         self.agua_calibrado_em = self.turbidez_calibrado_em
@@ -1006,6 +1058,9 @@ class PontoMonitoramento(models.Model):
                 "turbidez_inclinacao",
                 "turbidez_offset_ntu",
                 "turbidez_alvo_calibracao_ntu",
+                "turbidez_referencia_calibracao_ponto_2_ntu",
+                "turbidez_tensao_calibracao_ponto_1_v",
+                "turbidez_tensao_calibracao_ponto_2_v",
                 "turbidez_adc_calibracao",
                 "turbidez_calibrado_em",
                 "agua_calibrado_em",
@@ -1074,6 +1129,9 @@ class PontoMonitoramento(models.Model):
             self.turbidez_inclinacao = self.TURBIDEZ_INCLINACAO_PADRAO
             self.turbidez_offset_ntu = 0.0
             self.turbidez_alvo_calibracao_ntu = self.TURBIDEZ_ALVO_CALIBRACAO_PADRAO
+            self.turbidez_referencia_calibracao_ponto_2_ntu = None
+            self.turbidez_tensao_calibracao_ponto_1_v = None
+            self.turbidez_tensao_calibracao_ponto_2_v = None
             self.turbidez_adc_calibracao = None
             self.turbidez_calibrado_em = None
             self._sincronizar_data_calibracao_agua()
@@ -1082,6 +1140,9 @@ class PontoMonitoramento(models.Model):
                     "turbidez_inclinacao",
                     "turbidez_offset_ntu",
                     "turbidez_alvo_calibracao_ntu",
+                    "turbidez_referencia_calibracao_ponto_2_ntu",
+                    "turbidez_tensao_calibracao_ponto_1_v",
+                    "turbidez_tensao_calibracao_ponto_2_v",
                     "turbidez_adc_calibracao",
                     "turbidez_calibrado_em",
                     "agua_calibrado_em",
@@ -1094,12 +1155,20 @@ class PontoMonitoramento(models.Model):
             self.ph_voltagem_referencia_7 = self.PH_VOLTAGEM_REFERENCIA_7_PADRAO
             self.ph_inclinacao = self.PH_INCLINACAO_PADRAO
             self.ph_temperatura_calibracao_c = self.PH_TEMPERATURA_CALIBRACAO_PADRAO
+            self.ph_solucao_calibracao_ponto_1 = None
+            self.ph_tensao_calibracao_ponto_1_v = None
+            self.ph_solucao_calibracao_ponto_2 = None
+            self.ph_tensao_calibracao_ponto_2_v = None
             self.ph_calibrado_em = None
             self.save(
                 update_fields=[
                     "ph_voltagem_referencia_7",
                     "ph_inclinacao",
                     "ph_temperatura_calibracao_c",
+                    "ph_solucao_calibracao_ponto_1",
+                    "ph_tensao_calibracao_ponto_1_v",
+                    "ph_solucao_calibracao_ponto_2",
+                    "ph_tensao_calibracao_ponto_2_v",
                     "ph_calibrado_em",
                     "updated_at",
                 ]
@@ -1157,7 +1226,7 @@ class PontoMonitoramento(models.Model):
     @staticmethod
     def _normalizar_ph_voltagem_referencia_7(valor):
         try:
-            numero = float(valor)
+            numero = normalizar_decimal_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError("Calibração pH7 inválida para o ponto.") from exc
 
@@ -1168,7 +1237,7 @@ class PontoMonitoramento(models.Model):
     @staticmethod
     def _normalizar_ph_inclinacao(valor):
         try:
-            numero = float(valor)
+            numero = normalizar_decimal_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError("Inclinação de pH inválida para o ponto.") from exc
 
@@ -1179,7 +1248,7 @@ class PontoMonitoramento(models.Model):
     @staticmethod
     def _normalizar_temperatura_inclinacao(valor):
         try:
-            numero = float(valor)
+            numero = normalizar_decimal_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError("Inclinação de temperatura inválida para o ponto.") from exc
 
@@ -1190,7 +1259,7 @@ class PontoMonitoramento(models.Model):
     @staticmethod
     def _normalizar_temperatura_calibracao(valor, *, campo):
         try:
-            numero = float(valor)
+            numero = normalizar_decimal_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{campo} inválida para calibração.") from exc
 
@@ -1201,7 +1270,7 @@ class PontoMonitoramento(models.Model):
     @staticmethod
     def _normalizar_tds_alvo_calibracao(valor):
         try:
-            numero = float(valor)
+            numero = normalizar_decimal_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError("Alvo de TDS inválido para calibração.") from exc
 
@@ -1212,7 +1281,7 @@ class PontoMonitoramento(models.Model):
     @staticmethod
     def _normalizar_turbidez_alvo_calibracao(valor):
         try:
-            numero = float(valor)
+            numero = normalizar_decimal_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError("Alvo de turbidez inválido para calibração.") from exc
 
@@ -1223,7 +1292,7 @@ class PontoMonitoramento(models.Model):
     @staticmethod
     def _normalizar_turbidez_inclinacao(valor):
         try:
-            numero = float(valor)
+            numero = normalizar_decimal_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError("Inclinação de turbidez inválida para o ponto.") from exc
 
@@ -1234,7 +1303,7 @@ class PontoMonitoramento(models.Model):
     @staticmethod
     def _normalizar_tensao_calibracao_sensor(valor, *, campo):
         try:
-            numero = float(valor)
+            numero = normalizar_decimal_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{campo} inválida.") from exc
 
@@ -1245,7 +1314,7 @@ class PontoMonitoramento(models.Model):
     @staticmethod
     def _normalizar_inclinacao_sensor(valor, *, campo):
         try:
-            numero = float(valor)
+            numero = normalizar_decimal_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{campo} inválida.") from exc
         if not math.isfinite(numero) or numero <= 0:
@@ -1253,11 +1322,21 @@ class PontoMonitoramento(models.Model):
         return numero
 
     @staticmethod
+    def _normalizar_ph_solucao_calibracao(valor, *, campo):
+        try:
+            numero = normalizar_decimal_localizado(valor)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{campo} inválida.") from exc
+        if not math.isfinite(numero) or numero < 0 or numero > 14:
+            raise ValueError(f"{campo} deve estar entre 0 e 14.")
+        return numero
+
+    @staticmethod
     def _normalizar_adc_calibracao(valor, *, campo):
         if valor is None:
             return None
         try:
-            numero = int(valor)
+            numero = normalizar_inteiro_localizado(valor)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{campo} inválido.") from exc
         if numero < 0:

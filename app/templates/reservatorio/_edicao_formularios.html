@@ -1,4 +1,4 @@
-{% load l10n %}
+{% load l10n monitoramento_formatos %}
 
 <div class="reservatorio-edit-main">
     <article class="panel reservatorio-edit-panel">
@@ -41,13 +41,13 @@
                 <div class="reservatorio-edit-fields">
                     <div class="form-field">
                         <label for="faixa_celsius_temperatura_min">Faixa mínima (C)</label>
-                        <input id="faixa_celsius_temperatura_min" name="faixa_celsius_temperatura_min" type="number" step="0.01"
-                            value="{{ reservatorio.faixa_celsius_temperatura_min|unlocalize }}" required>
+                        <input id="faixa_celsius_temperatura_min" name="faixa_celsius_temperatura_min" type="text" inputmode="decimal"
+                            value="{{ reservatorio.faixa_celsius_temperatura_min|decimal_br:2 }}" required>
                     </div>
                     <div class="form-field">
                         <label for="faixa_celsius_temperatura_max">Faixa máxima (C)</label>
-                        <input id="faixa_celsius_temperatura_max" name="faixa_celsius_temperatura_max" type="number" step="0.01"
-                            value="{{ reservatorio.faixa_celsius_temperatura_max|unlocalize }}" required>
+                        <input id="faixa_celsius_temperatura_max" name="faixa_celsius_temperatura_max" type="text" inputmode="decimal"
+                            value="{{ reservatorio.faixa_celsius_temperatura_max|decimal_br:2 }}" required>
                     </div>
                 </div>
                 <div class="sensor-rule-note" aria-label="Regras de status da temperatura">
@@ -71,13 +71,13 @@
                 <div class="reservatorio-edit-fields">
                     <div class="form-field">
                         <label for="faixa_ppm_tds_min">Faixa mínima (ppm)</label>
-                        <input id="faixa_ppm_tds_min" name="faixa_ppm_tds_min" type="number" step="0.01" min="0"
-                            value="{{ reservatorio.faixa_ppm_tds_min|unlocalize }}" required>
+                        <input id="faixa_ppm_tds_min" name="faixa_ppm_tds_min" type="text" inputmode="decimal"
+                            value="{{ reservatorio.faixa_ppm_tds_min|decimal_br:2 }}" required>
                     </div>
                     <div class="form-field">
                         <label for="faixa_ppm_tds_max">Faixa máxima (ppm)</label>
-                        <input id="faixa_ppm_tds_max" name="faixa_ppm_tds_max" type="number" step="0.01" min="0.01"
-                            value="{{ reservatorio.faixa_ppm_tds_max|unlocalize }}" required>
+                        <input id="faixa_ppm_tds_max" name="faixa_ppm_tds_max" type="text" inputmode="decimal"
+                            value="{{ reservatorio.faixa_ppm_tds_max|decimal_br:2 }}" required>
                     </div>
                 </div>
                 <div class="sensor-rule-note" aria-label="Regras de status do TDS">
@@ -101,13 +101,13 @@
                 <div class="reservatorio-edit-fields">
                     <div class="form-field">
                         <label for="faixa_ntu_turbidez_min">Faixa mínima (NTU)</label>
-                        <input id="faixa_ntu_turbidez_min" name="faixa_ntu_turbidez_min" type="number" step="0.01" min="0"
-                            value="{{ reservatorio.faixa_ntu_turbidez_min|unlocalize }}" required>
+                        <input id="faixa_ntu_turbidez_min" name="faixa_ntu_turbidez_min" type="text" inputmode="decimal"
+                            value="{{ reservatorio.faixa_ntu_turbidez_min|decimal_br:2 }}" required>
                     </div>
                     <div class="form-field">
                         <label for="faixa_ntu_turbidez_max">Faixa máxima (NTU)</label>
-                        <input id="faixa_ntu_turbidez_max" name="faixa_ntu_turbidez_max" type="number" step="0.01" min="0.01"
-                            value="{{ reservatorio.faixa_ntu_turbidez_max|unlocalize }}" required>
+                        <input id="faixa_ntu_turbidez_max" name="faixa_ntu_turbidez_max" type="text" inputmode="decimal"
+                            value="{{ reservatorio.faixa_ntu_turbidez_max|decimal_br:2 }}" required>
                     </div>
                 </div>
                 <div class="sensor-rule-note" aria-label="Regras de status da turbidez">
@@ -131,13 +131,13 @@
                 <div class="reservatorio-edit-fields">
                     <div class="form-field">
                         <label for="faixa_ph_min">Faixa mínima</label>
-                        <input id="faixa_ph_min" name="faixa_ph_min" type="number" step="0.01" min="0" max="14"
-                            value="{{ reservatorio.faixa_ph_min|unlocalize }}" required>
+                        <input id="faixa_ph_min" name="faixa_ph_min" type="text" inputmode="decimal"
+                            value="{{ reservatorio.faixa_ph_min|decimal_br:2 }}" required>
                     </div>
                     <div class="form-field">
                         <label for="faixa_ph_max">Faixa máxima</label>
-                        <input id="faixa_ph_max" name="faixa_ph_max" type="number" step="0.01" min="0" max="14"
-                            value="{{ reservatorio.faixa_ph_max|unlocalize }}" required>
+                        <input id="faixa_ph_max" name="faixa_ph_max" type="text" inputmode="decimal"
+                            value="{{ reservatorio.faixa_ph_max|decimal_br:2 }}" required>
                     </div>
                 </div>
                 <div class="sensor-rule-note" aria-label="Regras de status do pH">

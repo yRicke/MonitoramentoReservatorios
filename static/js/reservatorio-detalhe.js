@@ -50,6 +50,7 @@ const STATUS_CLASS_POOL = [
     "status-sem-dado",
     "status-ignorado-noturno",
 ];
+const NUMBER_FORMATTERS = new Map();
 let resizeTimer = null;
 
 function getJsonScriptData(id) {
@@ -72,6 +73,27 @@ function setJsonScriptData(id, value) {
         return;
     }
     element.textContent = JSON.stringify(value ?? []);
+}
+
+function formatNumber(value, digits = 0) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return "--";
+    }
+    return getNumberFormatter(digits).format(Number(value));
+}
+
+function getNumberFormatter(digits) {
+    const key = Number(digits) || 0;
+    if (!NUMBER_FORMATTERS.has(key)) {
+        NUMBER_FORMATTERS.set(
+            key,
+            new Intl.NumberFormat("pt-BR", {
+                minimumFractionDigits: key,
+                maximumFractionDigits: key,
+            }),
+        );
+    }
+    return NUMBER_FORMATTERS.get(key);
 }
 
 function normalizePoints(rawSeries) {
@@ -214,7 +236,7 @@ function updateLastReadingText(config, series) {
     }
 
     const point = series[series.length - 1];
-    target.textContent = `Última leitura: ${point.y.toFixed(config.decimals)} ${config.yLabel} em ${formatPointDateLabel(point)}`;
+    target.textContent = `Última leitura: ${formatNumber(point.y, config.decimals)} ${config.yLabel} em ${formatPointDateLabel(point)}`;
 }
 
 function formatDateLabel(timestampMs) {
@@ -384,7 +406,7 @@ function createApexOptions(config, series) {
                 },
             },
             labels: {
-                formatter: (value) => Number(value).toFixed(config.decimals),
+                formatter: (value) => formatNumber(value, config.decimals),
                 style: {
                     colors: "#60756d",
                     fontSize: "11px",
@@ -410,7 +432,7 @@ function createApexOptions(config, series) {
                 formatter: (value, opts) => {
                     const point = opts?.w?.config?.series?.[opts.seriesIndex]?.data?.[opts.dataPointIndex];
                     const suffix = config.highlightNight && point?.night ? " | Leitura noturna" : "";
-                    return `${Number(value).toFixed(config.decimals)} ${config.yLabel}${suffix}`;
+                    return `${formatNumber(value, config.decimals)} ${config.yLabel}${suffix}`;
                 },
             },
         },
@@ -542,7 +564,7 @@ function renderLiveMetricCard(metric) {
         if (point.valor === null || point.valor === undefined || Number.isNaN(Number(point.valor))) {
             valueEl.textContent = "--";
         } else {
-            valueEl.textContent = `${Number(point.valor).toFixed(decimals)}${unit ? ` ${unit}` : ""}`;
+            valueEl.textContent = `${formatNumber(point.valor, decimals)}${unit ? ` ${unit}` : ""}`;
         }
     }
 

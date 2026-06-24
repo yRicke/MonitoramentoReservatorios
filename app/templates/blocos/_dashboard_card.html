@@ -1,3 +1,5 @@
+{% load monitoramento_formatos %}
+
 <article class="dashboard-card">
     <section class="dashboard-card-left">
         <h2>{{ card.reservatorio.nome|upper }}</h2>
@@ -64,25 +66,25 @@
                 <tr>
                     <th scope="row">Temperatura (celsius)</th>
                     <td class="dashboard-value status-{{ card.status_ponto_unico.temperatura }}">
-                        {% if card.ponto_unico.temperatura is not None %}{{ card.ponto_unico.temperatura|floatformat:2 }}{% else %}--{% endif %}
+                        {% if card.ponto_unico.temperatura is not None %}{{ card.ponto_unico.temperatura|decimal_br:2 }}{% else %}--{% endif %}
                     </td>
                 </tr>
                 <tr>
                     <th scope="row">TDS (ppm)</th>
                     <td class="dashboard-value status-{{ card.status_ponto_unico.tds }}">
-                        {% if card.ponto_unico.tds is not None %}{{ card.ponto_unico.tds|floatformat:2 }}{% else %}--{% endif %}
+                        {% if card.ponto_unico.tds is not None %}{{ card.ponto_unico.tds|decimal_br:2 }}{% else %}--{% endif %}
                     </td>
                 </tr>
                 <tr>
                     <th scope="row">Turbidez (ntu)</th>
                     <td class="dashboard-value status-{{ card.status_ponto_unico.turbidez }}">
-                        {% if card.ponto_unico.turbidez is not None %}{{ card.ponto_unico.turbidez|floatformat:2 }}{% else %}--{% endif %}
+                        {% if card.ponto_unico.turbidez is not None %}{{ card.ponto_unico.turbidez|decimal_br:2 }}{% else %}--{% endif %}
                     </td>
                 </tr>
                 <tr>
                     <th scope="row">pH</th>
                     <td class="dashboard-value status-{{ card.status_ponto_unico.ph }}">
-                        {% if card.ponto_unico.ph is not None %}{{ card.ponto_unico.ph|floatformat:2 }}{% else %}--{% endif %}
+                        {% if card.ponto_unico.ph is not None %}{{ card.ponto_unico.ph|decimal_br:2 }}{% else %}--{% endif %}
                     </td>
                 </tr>
             </tbody>

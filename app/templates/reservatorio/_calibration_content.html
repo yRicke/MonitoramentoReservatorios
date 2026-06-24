@@ -1,4 +1,4 @@
-{% load l10n %}
+{% load l10n monitoramento_formatos %}
 
 <div class="calibration-step-kicker">Passo 3</div>
 <h3>{{ titulo_calibracao_ativa }}</h3>
@@ -33,7 +33,7 @@
             <label for="temperatura_referencia_ativa">A média da temperatura deveria estar em (C)</label>
             <input id="temperatura_referencia_ativa" name="temperatura_referencia_c" type="text"
                 inputmode="decimal" placeholder="25,00"
-                value="{{ ponto_calibracao.temperatura_valor_referencia_c|default:reservatorio.meta_celsius_temperatura|floatformat:2 }}"
+                value="{{ calibracao_form_defaults.temperatura_referencia_c|decimal_br:2 }}"
                 required>
             <details class="calibration-advanced">
                 <summary>Ajustes avançados</summary>
@@ -42,7 +42,7 @@
                 </p>
                 <label for="temperatura_inclinacao_ativa">Inclinação atual</label>
                 <input id="temperatura_inclinacao_ativa" name="temperatura_inclinacao" type="text"
-                    inputmode="decimal" placeholder="1,00" value="{{ ponto_calibracao.temperatura_inclinacao|floatformat:3 }}" required>
+                    inputmode="decimal" placeholder="1,00" value="{{ calibracao_form_defaults.temperatura_inclinacao|decimal_br:3 }}" required>
             </details>
             <button class="btn-main" type="submit" data-confirm-button disabled>Salvar calibração</button>
             <p class="status-meta" data-confirm-hint>Aguardando estabilidade do sensor.</p>
@@ -68,7 +68,7 @@
             </p>
             <label for="tds_alvo_ativo">A média do TDS deveria estar em (ppm)</label>
             <input id="tds_alvo_ativo" name="tds_alvo_ppm" type="text"
-                inputmode="decimal" placeholder="40,00" value="{{ ponto_calibracao.tds_alvo_calibracao_ppm|floatformat:2 }}" required>
+                inputmode="decimal" placeholder="40,00" value="{{ calibracao_form_defaults.tds_alvo_ppm|decimal_br:2 }}" required>
             <details class="calibration-advanced">
                 <summary>Ajustes avançados</summary>
                 <p class="status-meta">
@@ -76,7 +76,7 @@
                 </p>
                 <label for="tds_inclinacao_ativa">Inclinação atual</label>
                 <input id="tds_inclinacao_ativa" name="tds_inclinacao" type="text"
-                    inputmode="decimal" placeholder="1,00" value="{{ ponto_calibracao.tds_inclinacao|floatformat:3 }}" required>
+                    inputmode="decimal" placeholder="1,00" value="{{ calibracao_form_defaults.tds_inclinacao|decimal_br:3 }}" required>
             </details>
             <button class="btn-main" type="submit" data-confirm-button disabled>Salvar calibração</button>
             <p class="status-meta" data-confirm-hint>Aguardando estabilidade do sensor e da temperatura.</p>
@@ -112,13 +112,15 @@
                 <label for="turbidez_referencia_ponto_1">NTU da solução 1 conhecida</label>
                 <label for="turbidez_tensao_ponto_1">Tensão da solução 1 (V)</label>
                 <input id="turbidez_referencia_ponto_1" name="turbidez_referencia_ponto_1" type="text" inputmode="decimal" placeholder="50,00"
-                    value="{{ ponto_calibracao.turbidez_alvo_calibracao_ntu|floatformat:2 }}" required>
-                <input id="turbidez_tensao_ponto_1" name="turbidez_tensao_ponto_1" type="text" inputmode="decimal" placeholder="2,500" required>
+                    value="{{ calibracao_form_defaults.turbidez_referencia_ponto_1|decimal_br:2 }}" required>
+                <input id="turbidez_tensao_ponto_1" name="turbidez_tensao_ponto_1" type="text" inputmode="decimal" placeholder="2,500"
+                    value="{{ calibracao_form_defaults.turbidez_tensao_ponto_1|decimal_br:3 }}" required>
                 <label for="turbidez_referencia_ponto_2">NTU da solução 2 conhecida</label>
                 <label for="turbidez_tensao_ponto_2">Tensão da solução 2 (V)</label>
                 <input id="turbidez_referencia_ponto_2" name="turbidez_referencia_ponto_2" type="text" inputmode="decimal" placeholder="200,00"
-                    value="{{ reservatorio.meta_ntu_turbidez|floatformat:2 }}" required>
-                <input id="turbidez_tensao_ponto_2" name="turbidez_tensao_ponto_2" type="text" inputmode="decimal" placeholder="1,000" required>
+                    value="{{ calibracao_form_defaults.turbidez_referencia_ponto_2|decimal_br:2 }}" required>
+                <input id="turbidez_tensao_ponto_2" name="turbidez_tensao_ponto_2" type="text" inputmode="decimal" placeholder="1,000"
+                    value="{{ calibracao_form_defaults.turbidez_tensao_ponto_2|decimal_br:3 }}" required>
             </div>
             <p class="status-meta">
                 O sistema ajusta a reta de turbidez a partir dos dois pontos informados e passa a aplicar `NTU = m * tensão + b` nas leituras novas.
@@ -149,12 +151,16 @@
             <div class="ph-paper-entry-grid">
                 <label for="ph_solucao_ponto_1">pH da solução 1 conhecida</label>
                 <label for="ph_tensao_ponto_1">Tensão da solução 1 (V)</label>
-                <input id="ph_solucao_ponto_1" name="ph_solucao_ponto_1" type="text" inputmode="decimal" value="7,00" required>
-                <input id="ph_tensao_ponto_1" name="ph_tensao_ponto_1" type="text" inputmode="decimal" placeholder="2,390" required>
+                <input id="ph_solucao_ponto_1" name="ph_solucao_ponto_1" type="text" inputmode="decimal"
+                    value="{{ calibracao_form_defaults.ph_solucao_ponto_1|decimal_br:2 }}" required>
+                <input id="ph_tensao_ponto_1" name="ph_tensao_ponto_1" type="text" inputmode="decimal" placeholder="2,390"
+                    value="{{ calibracao_form_defaults.ph_tensao_ponto_1|decimal_br:3 }}" required>
                 <label for="ph_solucao_ponto_2">pH da solução 2 conhecida</label>
                 <label for="ph_tensao_ponto_2">Tensão da solução 2 (V)</label>
-                <input id="ph_solucao_ponto_2" name="ph_solucao_ponto_2" type="text" inputmode="decimal" value="4,00" required>
-                <input id="ph_tensao_ponto_2" name="ph_tensao_ponto_2" type="text" inputmode="decimal" placeholder="3,080" required>
+                <input id="ph_solucao_ponto_2" name="ph_solucao_ponto_2" type="text" inputmode="decimal"
+                    value="{{ calibracao_form_defaults.ph_solucao_ponto_2|decimal_br:2 }}" required>
+                <input id="ph_tensao_ponto_2" name="ph_tensao_ponto_2" type="text" inputmode="decimal" placeholder="3,080"
+                    value="{{ calibracao_form_defaults.ph_tensao_ponto_2|decimal_br:3 }}" required>
             </div>
             <p class="status-meta">
                 O sistema ajusta a reta do eletrodo a partir dos dois pontos informados e preserva a temperatura de calibração atual.
