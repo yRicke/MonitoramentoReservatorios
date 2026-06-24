@@ -28,8 +28,6 @@ const CHARTS_CONFIG = [
         yLabel: "ntu",
         color: "#3b82f6",
         decimals: 3,
-        highlightNight: true,
-        nightMarkerColor: "#173a63",
     },
     {
         chartId: "chartPH",
@@ -48,7 +46,6 @@ const STATUS_CLASS_POOL = [
     "status-atencao",
     "status-perigo",
     "status-sem-dado",
-    "status-ignorado-noturno",
 ];
 const NUMBER_FORMATTERS = new Map();
 let resizeTimer = null;
@@ -138,7 +135,6 @@ function normalizePoints(rawSeries) {
             x: xValue,
             y: Number(y.toFixed(4)),
             label,
-            night: item.night === true,
         });
     }
 
@@ -153,7 +149,6 @@ function mergeAdjacentEqualLabels(series) {
     const merged = [];
     let currentLabel = series[0].x;
     let currentDateLabel = series[0].label || null;
-    let currentNight = series[0].night === true;
     let sum = series[0].y;
     let count = 1;
 
@@ -163,7 +158,6 @@ function mergeAdjacentEqualLabels(series) {
             sum += point.y;
             count += 1;
             currentDateLabel = point.label || currentDateLabel;
-            currentNight = currentNight || point.night === true;
             continue;
         }
 
@@ -171,12 +165,10 @@ function mergeAdjacentEqualLabels(series) {
             x: currentLabel,
             y: Number((sum / count).toFixed(4)),
             label: currentDateLabel,
-            night: currentNight,
         });
 
         currentLabel = point.x;
         currentDateLabel = point.label || null;
-        currentNight = point.night === true;
         sum = point.y;
         count = 1;
     }
@@ -185,7 +177,6 @@ function mergeAdjacentEqualLabels(series) {
         x: currentLabel,
         y: Number((sum / count).toFixed(4)),
         label: currentDateLabel,
-        night: currentNight,
     });
 
     return merged;
@@ -378,7 +369,6 @@ function createApexOptions(config, series) {
         markers: {
             size: 3.2,
             strokeWidth: 0.8,
-            discrete: buildDiscreteMarkers(config, series),
             hover: {
                 size: 5,
             },
@@ -429,40 +419,13 @@ function createApexOptions(config, series) {
                 },
             },
             y: {
-                formatter: (value, opts) => {
-                    const point = opts?.w?.config?.series?.[opts.seriesIndex]?.data?.[opts.dataPointIndex];
-                    const suffix = config.highlightNight && point?.night ? " | Leitura noturna" : "";
-                    return `${formatNumber(value, config.decimals)} ${config.yLabel}${suffix}`;
-                },
+                formatter: (value) => `${formatNumber(value, config.decimals)} ${config.yLabel}`,
             },
         },
         noData: {
             text: "Sem dados",
         },
     };
-}
-
-function buildDiscreteMarkers(config, series) {
-    if (!config.highlightNight) {
-        return [];
-    }
-
-    return series
-        .map((point, dataPointIndex) => {
-            if (!point.night) {
-                return null;
-            }
-
-            return {
-                seriesIndex: 0,
-                dataPointIndex,
-                size: 4.8,
-                fillColor: config.nightMarkerColor,
-                strokeColor: "#ffffff",
-                shape: "circle",
-            };
-        })
-        .filter(Boolean);
 }
 
 function destroyChartIfExists(chartId) {

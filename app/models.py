@@ -762,7 +762,6 @@ class PontoMonitoramento(models.Model):
             tds=ultima_leitura.tds,
             turbidez=ultima_leitura.turbidez,
             ph=ultima_leitura.ph,
-            data_hora=ultima_leitura.data_hora,
         )
 
         if ultima_leitura.status_leitura != status_recalculado:

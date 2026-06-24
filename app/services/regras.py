@@ -1,5 +1,3 @@
-from app.services.turbidez_periodo import is_leitura_turbidez_noturna
-
 FATOR_PERIGO_TDS = 0.25
 DESVIO_TURBIDEZ_PERIGO = 50.0
 DESVIO_TEMPERATURA_PERIGO = 10.0
@@ -11,7 +9,6 @@ def calcular_status(
     tds,
     turbidez,
     ph=None,
-    ignorar_turbidez=False,
     *,
     faixa_ppm_tds_min=0.0,
     faixa_ppm_tds_max=500.0,
@@ -31,15 +28,13 @@ def calcular_status(
         margem_perigo_inferior=abs(faixa_ppm_tds_min) * FATOR_PERIGO_TDS,
         margem_perigo_superior=abs(faixa_ppm_tds_max) * FATOR_PERIGO_TDS,
     )
-    status_turbidez = "bom"
-    if not ignorar_turbidez:
-        status_turbidez = classificar_status_por_faixa(
-            turbidez,
-            minimo=faixa_ntu_turbidez_min,
-            maximo=faixa_ntu_turbidez_max,
-            margem_atencao=0.0,
-            margem_perigo=DESVIO_TURBIDEZ_PERIGO,
-        )
+    status_turbidez = classificar_status_por_faixa(
+        turbidez,
+        minimo=faixa_ntu_turbidez_min,
+        maximo=faixa_ntu_turbidez_max,
+        margem_atencao=0.0,
+        margem_perigo=DESVIO_TURBIDEZ_PERIGO,
+    )
     status_temperatura = classificar_status_por_faixa(
         temperatura,
         minimo=faixa_celsius_temperatura_min,
@@ -72,14 +67,12 @@ def calcular_status_reservatorio(
     tds,
     turbidez,
     ph=None,
-    data_hora=None,
 ):
     return calcular_status(
         temperatura=temperatura,
         tds=tds,
         turbidez=turbidez,
         ph=ph,
-        ignorar_turbidez=is_leitura_turbidez_noturna(data_hora),
         faixa_ppm_tds_min=reservatorio.faixa_ppm_tds_min,
         faixa_ppm_tds_max=reservatorio.faixa_ppm_tds_max,
         faixa_ntu_turbidez_min=reservatorio.faixa_ntu_turbidez_min,

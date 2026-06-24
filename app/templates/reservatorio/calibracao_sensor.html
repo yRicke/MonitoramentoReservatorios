@@ -33,9 +33,6 @@
             <p class="status-meta calibration-page-intro">
                 {% if sensor_selecionado == "ph" or sensor_selecionado == "turbidez" %}
                 Inicie a sessão para acompanhar a tensão do sensor em tempo real, esperar estabilizar e anotar os valores antes de preencher a calibração manual.
-                {% if sensor_selecionado == "turbidez" %}
-                Mantenha a mesma luz ambiente do local real de operação durante essa coleta.
-                {% endif %}
                 {% else %}
                 Inicie a sessão para o ESP32 enviar amostras deste sensor no intervalo configurado para calibração, sem misturar com o histórico normal.
                 {% endif %}

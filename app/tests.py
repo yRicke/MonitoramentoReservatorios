@@ -1,6 +1,5 @@
 import json
-from datetime import datetime, timedelta
-from unittest.mock import patch
+from datetime import timedelta
 
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -41,12 +40,6 @@ class BaseAppTestCase(TestCase):
             iniciada_por=self.usuario,
             intervalo_envio_ms=intervalo_envio_ms,
             duracao_segundos=30 * 60,
-        )
-
-    def aware_datetime(self, year, month, day, hour, minute=0, second=0):
-        return timezone.make_aware(
-            datetime(year, month, day, hour, minute, second),
-            timezone.get_current_timezone(),
         )
 
     def adicionar_amostras_estaveis(
@@ -350,78 +343,6 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         )
         self.assertIn("ponto_unico", response.context["relatorio_periodos_cards"][0])
 
-    def test_dashboard_ignora_turbidez_noturna_na_media_do_periodo(self):
-        self.login()
-        reservatorio = self.criar_reservatorio("Reservatorio media turbidez")
-        ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
-        ponto.registrar_leitura(
-            temperatura=20.0,
-            tds=100.0,
-            turbidez=1.0,
-            ph=7.0,
-            status_leitura=Reservatorio.STATUS_BOM,
-            data_hora=self.aware_datetime(2026, 6, 22, 14, 0),
-        )
-        ponto.registrar_leitura(
-            temperatura=24.0,
-            tds=300.0,
-            turbidez=20.0,
-            ph=7.4,
-            status_leitura=Reservatorio.STATUS_PERIGO,
-            data_hora=self.aware_datetime(2026, 6, 22, 20, 0),
-        )
-
-        response = self.client.get(reverse("index"))
-
-        self.assertEqual(response.status_code, 200)
-        card = response.context["dashboard_cards"][0]
-        self.assertAlmostEqual(card["ponto_unico"]["turbidez"], 1.0, places=3)
-        self.assertAlmostEqual(card["ponto_unico"]["tds"], 200.0, places=3)
-        self.assertEqual(card["status_ponto_unico"]["turbidez"], Reservatorio.STATUS_BOM)
-        self.assertEqual(card["status_periodo"], Reservatorio.STATUS_BOM)
-
-    def test_detalhe_mostra_turbidez_noturna_com_status_neutro_e_serie_marcada(self):
-        self.login()
-        reservatorio = self.criar_reservatorio("Reservatorio turbidez noturna")
-        ponto = reservatorio.obter_ponto_monitoramento(PontoMonitoramento.TIPO_UNICO)
-        ponto.registrar_leitura(
-            temperatura=21.0,
-            tds=120.0,
-            turbidez=1.5,
-            ph=7.0,
-            status_leitura=Reservatorio.STATUS_BOM,
-            data_hora=self.aware_datetime(2026, 6, 22, 12, 0),
-        )
-        ponto.registrar_leitura(
-            temperatura=22.0,
-            tds=125.0,
-            turbidez=18.0,
-            ph=7.1,
-            status_leitura=Reservatorio.STATUS_PERIGO,
-            data_hora=self.aware_datetime(2026, 6, 22, 20, 0),
-        )
-
-        response = self.client.get(reverse("reservatorio_detalhe", args=[reservatorio.id]))
-
-        self.assertEqual(response.status_code, 200)
-        metrica_turbidez = next(
-            item
-            for item in response.context["metricas_recentes"]
-            if item["id"] == "turbidez"
-        )
-        self.assertEqual(
-            metrica_turbidez["ponto_unico"]["status"],
-            "ignorado-noturno",
-        )
-        self.assertEqual(
-            metrica_turbidez["ponto_unico"]["status_label"],
-            "Ignorado a noite",
-        )
-        self.assertEqual(
-            [item["night"] for item in response.context["turbidez_series"]],
-            [False, True],
-        )
-
     def test_detalhe_status_retorna_payload_live(self):
         self.login()
         reservatorio = self.criar_reservatorio("Reservatorio detalhe live")
@@ -484,7 +405,11 @@ class ReservatorioPontoUnicoTests(BaseAppTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "mesma luz ambiente")
+        self.assertContains(
+            response,
+            "Importante: faça essa calibração com a mesma luz ambiente do local onde o sensor vai operar.",
+            count=1,
+        )
 
     def test_alerta_sonoro_pode_ser_silenciado_e_reativado_no_detalhe(self):
         self.login()
@@ -945,50 +870,21 @@ class Esp32IngestaoTests(BaseAppTestCase):
         self.assertIn("device_id", leitura.sinais_brutos)
         self.assertEqual(leitura.sinais_brutos["device_id"], "esp_unico_01")
 
-    def test_esp32_leitura_noturna_ignora_turbidez_no_status_atual(self):
-        instante_noturno = self.aware_datetime(2026, 6, 22, 19, 0)
-
-        with patch("app.services.ingestao.timezone.now", return_value=instante_noturno):
-            response = self._post_json(
-                reverse("esp32_leitura"),
-                {
-                    "reservatorio_id": self.reservatorio.id,
-                    "temperatura": 24.0,
-                    "tds": 120.0,
-                    "turbidez": 60.0,
-                    "ph": 7.1,
-                    "raw": {
-                        "firmware_ts_ms": 5000,
-                        "firmware_now_ms": 5000,
-                    },
+    def test_esp32_leitura_mantem_impacto_normal_da_turbidez(self):
+        response = self._post_json(
+            reverse("esp32_leitura"),
+            {
+                "reservatorio_id": self.reservatorio.id,
+                "temperatura": 24.0,
+                "tds": 120.0,
+                "turbidez": 60.0,
+                "ph": 7.1,
+                "raw": {
+                    "firmware_ts_ms": 5000,
+                    "firmware_now_ms": 5000,
                 },
-            )
-
-        self.assertEqual(response.status_code, 201)
-        self.ponto.refresh_from_db()
-        self.reservatorio.refresh_from_db()
-        self.assertEqual(self.ponto.status_atual, Reservatorio.STATUS_BOM)
-        self.assertEqual(self.reservatorio.status, Reservatorio.STATUS_BOM)
-        self.assertEqual(LeituraQualidade.objects.count(), 1)
-
-    def test_esp32_leitura_diurna_mantem_impacto_normal_da_turbidez(self):
-        instante_diurno = self.aware_datetime(2026, 6, 22, 12, 0)
-
-        with patch("app.services.ingestao.timezone.now", return_value=instante_diurno):
-            response = self._post_json(
-                reverse("esp32_leitura"),
-                {
-                    "reservatorio_id": self.reservatorio.id,
-                    "temperatura": 24.0,
-                    "tds": 120.0,
-                    "turbidez": 60.0,
-                    "ph": 7.1,
-                    "raw": {
-                        "firmware_ts_ms": 5000,
-                        "firmware_now_ms": 5000,
-                    },
-                },
-            )
+            },
+        )
 
         self.assertEqual(response.status_code, 201)
         self.ponto.refresh_from_db()

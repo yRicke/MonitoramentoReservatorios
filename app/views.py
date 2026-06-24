@@ -1,4 +1,3 @@
-from collections import defaultdict
 from datetime import timedelta
 import json
 import math
@@ -45,12 +44,6 @@ from app.services.regras import (
     FATOR_PERIGO_TDS,
     classificar_status_por_faixa,
 )
-from app.services.turbidez_periodo import (
-    ROTULO_IGNORADO_NOTURNO,
-    STATUS_IGNORADO_NOTURNO,
-    is_leitura_turbidez_noturna,
-)
-
 MAX_PONTOS_GRAFICO = 1200
 PERIODO_PADRAO_VALOR = "5d"
 ESP32_CONFIG_POLL_INTERVALO_MS = 2 * 1000
@@ -2023,6 +2016,7 @@ def _mapear_medias_por_reservatorio(*, reservatorio_ids, inicio_periodo):
         .annotate(
             media_temperatura=Avg("temperatura"),
             media_tds=Avg("tds"),
+            media_turbidez=Avg("turbidez"),
             media_ph=Avg("ph"),
         )
     )
@@ -2031,40 +2025,11 @@ def _mapear_medias_por_reservatorio(*, reservatorio_ids, inicio_periodo):
         medias_por_chave[item["ponto__reservatorio_id"]] = {
             "temperatura": item["media_temperatura"],
             "tds": item["media_tds"],
-            "turbidez": None,
+            "turbidez": item["media_turbidez"],
             "ph": item["media_ph"],
         }
 
-    medias_turbidez_diurnas = _mapear_medias_turbidez_diurnas_por_reservatorio(
-        reservatorio_ids=reservatorio_ids,
-        inicio_periodo=inicio_periodo,
-    )
-    for reservatorio_id in reservatorio_ids:
-        medias = medias_por_chave.setdefault(reservatorio_id, _medias_vazias())
-        medias["turbidez"] = medias_turbidez_diurnas.get(reservatorio_id)
-
     return medias_por_chave
-
-
-def _mapear_medias_turbidez_diurnas_por_reservatorio(*, reservatorio_ids, inicio_periodo):
-    leituras = (
-        LeituraQualidade.objects.filter(
-            ponto__reservatorio_id__in=reservatorio_ids,
-            data_hora__gte=inicio_periodo,
-        )
-        .values_list("ponto__reservatorio_id", "turbidez", "data_hora")
-    )
-
-    acumulados = defaultdict(list)
-    for reservatorio_id, turbidez, data_hora in leituras:
-        if turbidez is None or is_leitura_turbidez_noturna(data_hora):
-            continue
-        acumulados[reservatorio_id].append(float(turbidez))
-
-    return {
-        reservatorio_id: (sum(valores) / len(valores) if valores else None)
-        for reservatorio_id, valores in acumulados.items()
-    }
 
 
 def _montar_dashboard_card_reservatorio(reservatorio, *, medias_por_chave):
@@ -2198,14 +2163,7 @@ def _series_leituras_por_ponto(ponto):
         x_label = data_hora_local.strftime("%d/%m/%Y %H:%M:%S")
         tds.append({"x": x_timestamp_ms, "y": leitura.tds, "label": x_label})
         temperatura.append({"x": x_timestamp_ms, "y": leitura.temperatura, "label": x_label})
-        turbidez.append(
-            {
-                "x": x_timestamp_ms,
-                "y": leitura.turbidez,
-                "label": x_label,
-                "night": is_leitura_turbidez_noturna(leitura.data_hora),
-            }
-        )
+        turbidez.append({"x": x_timestamp_ms, "y": leitura.turbidez, "label": x_label})
         ph.append({"x": x_timestamp_ms, "y": leitura.ph, "label": x_label})
 
     return {
@@ -2254,15 +2212,6 @@ def _snapshot_metrica_recente(leitura, *, metrica_id, reservatorio):
     if valor is None:
         return _snapshot_metrica_sem_dado(leitura=leitura)
 
-    if metrica_id == "turbidez" and is_leitura_turbidez_noturna(leitura.data_hora):
-        data_hora_local = timezone.localtime(leitura.data_hora)
-        return {
-            "valor": float(valor),
-            "status": STATUS_IGNORADO_NOTURNO,
-            "status_label": ROTULO_IGNORADO_NOTURNO,
-            "data_hora": data_hora_local.strftime("%d/%m/%Y %H:%M:%S"),
-        }
-
     status = _status_metricas_por_faixa(
         {metrica_id: valor},
         reservatorio=reservatorio,
@@ -2291,8 +2240,6 @@ def _snapshot_metrica_sem_dado(leitura=None):
 
 
 def _rotulo_status_metrica(status):
-    if status == STATUS_IGNORADO_NOTURNO:
-        return ROTULO_IGNORADO_NOTURNO
     if status == STATUS_SEM_DADO:
         return "Sem dado"
 

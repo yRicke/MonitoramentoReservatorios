@@ -54,7 +54,6 @@ def processar_leitura_esp32(request_body):
         tds=tds,
         turbidez=turbidez,
         ph=ph,
-        data_hora=data_hora_leitura or timezone.now(),
     )
 
     ponto.registrar_leitura(

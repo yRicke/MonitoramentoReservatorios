@@ -5,9 +5,6 @@
 <p class="status-meta calibration-page-intro">
     {% if sensor_selecionado == "ph" or sensor_selecionado == "turbidez" %}
     Sensor atual: <strong>{{ sensor_selecionado_nome }}</strong>. Use a sessão apenas para observar a tensão estabilizada, anotar dois pares referência/voltagem e depois salvar a calibração manual.
-    {% if sensor_selecionado == "turbidez" %}
-    Calibre sob a mesma luz ambiente do local real de operação para a referência ficar coerente com o uso final.
-    {% endif %}
     {% else %}
     Sensor atual: <strong>{{ sensor_selecionado_nome }}</strong>. O sistema usa a média estável das amostras da sessão para calcular a calibração.
     {% endif %}
@@ -104,9 +101,6 @@
             </p>
             <p class="ph-voltage-hint">
                 Fluxo sugerido: medir a solução 1, anotar a tensão estabilizada, limpar o sensor, medir a solução 2, anotar novamente e só então preencher os quatro campos.
-            </p>
-            <p class="ph-voltage-hint">
-                Antes de anotar as tensões, posicione o sensor na mesma condição de luz ambiente do uso real.
             </p>
             <div class="ph-paper-entry-grid">
                 <label for="turbidez_referencia_ponto_1">NTU da solução 1 conhecida</label>
